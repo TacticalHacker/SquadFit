@@ -21,9 +21,12 @@ import {
 import { parseCaloriesInput, parseGramsInput } from "@/lib/food-input";
 import type { FoodResult as SearchResult } from "@/lib/food-search";
 import { hasDayChanged } from "@/lib/rollover";
-import { addEntry, removeEntry, updateEntry, type FoodResult } from "@/server/actions/food";
+import type { ReducedPhoto } from "@/lib/photo-reduce";
+import { addEntry, addPhotoEntry, removeEntry, updateEntry, type FoodResult } from "@/server/actions/food";
 import { FoodAddPanel, MEAL_LABEL } from "./food-add-panel";
 import { FoodLedgerCard } from "./food-ledger";
+import { PhotoAddPanel } from "./photo-add-panel";
+import { PhotoEntryRow } from "./photo-entry";
 
 const CHECK_EVERY_MS = 60_000;
 const COMMIT_DELAY_MS = 600;
@@ -43,7 +46,7 @@ export function FoodScreen({
   const [seen, setSeen] = useState(initialView);
   const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
-  const [panel, setPanel] = useState<{ meal: Meal | null; key: number } | null>(null);
+  const [panel, setPanel] = useState<{ meal: Meal | null; key: number; kind: "food" | "photo" } | null>(null);
   const [, startTransition] = useTransition();
   const [optimistic, applyOptimistic] = useOptimistic(view, applyFoodChange);
   const counter = useRef(0);
@@ -80,7 +83,7 @@ export function FoodScreen({
         router.refresh(); // keep the recent foods list current
       } else {
         setError(result.error);
-        if (result.error === "This day can no longer be edited" || result.error === "That entry was already removed") {
+        if (result.error === "This day can no longer be edited" || result.error === "That entry was already removed" || result.error.includes("already analysed")) {
           router.refresh();
         }
       }
@@ -90,9 +93,28 @@ export function FoodScreen({
   const date = view.date;
   const readOnly = !optimistic.editable;
 
-  function openPanel(meal: Meal | null) {
+  function openPanel(meal: Meal | null, kind: "food" | "photo" = "food") {
     const preselect = meal ?? (date === today ? defaultMealForHour(localHour(new Date(), timezone)) : null);
-    setPanel({ meal: preselect, key: ++counter.current });
+    setPanel({ meal: preselect, key: ++counter.current, kind });
+  }
+
+  function addPhoto({ meal, caption, photo }: { meal: Meal; caption: string; photo: ReducedPhoto }) {
+    // Optimistic pending card with the local preview; replaced by the server view (signed URL) on success.
+    const entry: FoodEntry = {
+      entryId: `tmp-${++counter.current}`,
+      source: "photo",
+      name: caption || "Photo meal",
+      servings: 1,
+      calories: 0,
+      macros: null,
+      rate: { calories: 0, macros: null },
+      meal,
+      photo: { status: "pending", caption, url: photo.previewUrl },
+    };
+    setPanel(null);
+    submit({ type: "add", entry }, () =>
+      addPhotoEntry(date, { meal, ...(caption ? { caption } : {}), contentType: photo.contentType, dataBase64: photo.dataBase64 }),
+    );
   }
 
   function addTyped(input: { meal: Meal; name: string; calories: number; macros: Macros | null }) {
@@ -142,7 +164,9 @@ export function FoodScreen({
       </div>
 
       {!readOnly ? (
-        panel ? (
+        panel?.kind === "photo" ? (
+          <PhotoAddPanel key={panel.key} initialMeal={panel.meal} onClose={() => setPanel(null)} onAdd={addPhoto} />
+        ) : panel ? (
           <FoodAddPanel
             key={panel.key}
             initialMeal={panel.meal}
@@ -153,13 +177,22 @@ export function FoodScreen({
             onAddList={addList}
           />
         ) : (
-          <button
-            type="button"
-            onClick={() => openPanel(null)}
-            className="rounded-2xl bg-lime-400 py-3 text-base font-semibold text-slate-900 transition hover:bg-lime-300 active:scale-[0.98] motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-white"
-          >
-            + Add food
-          </button>
+          <div className="grid grid-cols-[1fr_auto] gap-2">
+            <button
+              type="button"
+              onClick={() => openPanel(null)}
+              className="rounded-2xl bg-lime-400 py-3 text-base font-semibold text-slate-900 transition hover:bg-lime-300 active:scale-[0.98] motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-white"
+            >
+              + Add food
+            </button>
+            <button
+              type="button"
+              onClick={() => openPanel(null, "photo")}
+              className="rounded-2xl bg-white/10 px-5 py-3 text-base font-semibold text-lime-300 transition hover:bg-white/20 active:scale-[0.98] motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-lime-400"
+            >
+              📷 Add photo
+            </button>
+          </div>
         )
       ) : null}
 
@@ -187,7 +220,22 @@ export function FoodScreen({
             <p className="rounded-2xl border border-dashed border-slate-700 px-4 py-4 text-center text-sm text-slate-500">Nothing logged</p>
           ) : (
             <ul className="flex flex-col gap-2">
-              {group.entries.map((entry) => (
+              {group.entries.map((entry) =>
+                entry.photo ? (
+                  <PhotoEntryRow
+                    key={entry.entryId}
+                    entry={entry}
+                    open={openId === entry.entryId}
+                    editable={!readOnly && !isTemp(entry.entryId)}
+                    onToggle={() => setOpenId(openId === entry.entryId ? null : entry.entryId)}
+                    onPatch={(patch) => submit({ type: "update", entryId: entry.entryId, patch }, () => updateEntry(date, entry.entryId, patch))}
+                    onRemove={() => {
+                      setOpenId(null);
+                      submit({ type: "remove", entryId: entry.entryId }, () => removeEntry(date, entry.entryId));
+                    }}
+                    onInvalid={setError}
+                  />
+                ) : (
                 <EntryRow
                   key={entry.entryId}
                   entry={entry}
@@ -203,7 +251,8 @@ export function FoodScreen({
                   }}
                   onInvalid={setError}
                 />
-              ))}
+                ),
+              )}
             </ul>
           )}
         </section>

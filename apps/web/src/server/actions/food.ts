@@ -9,7 +9,9 @@ import {
   FoodDayViewSchema,
   OwnFoodInputSchema,
   OwnFoodResponseSchema,
+  PhotoEntryCreateSchema,
   type EntryCreate,
+  type PhotoEntryCreate,
   type EntryPatch,
   type FoodDayView,
 } from "@calci/shared";
@@ -51,6 +53,16 @@ export async function addEntry(date: string, input: EntryCreate): Promise<FoodRe
   if (!parsed.success) return fieldErrors(parsed.error);
   return run(() =>
     apiFetch(`/food/entries/${date}`, { method: "POST", body: parsed.data, schema: FoodDayViewSchema }),
+  );
+}
+
+/** Add a photo meal, saved as pending analysis (feature 005). The browser already reduced the picture. */
+export async function addPhotoEntry(date: string, input: PhotoEntryCreate): Promise<FoodResult> {
+  if (!DateSchema.safeParse(date).success) return { ok: false, error: GENERIC };
+  const parsed = PhotoEntryCreateSchema.safeParse(input);
+  if (!parsed.success) return fieldErrors(parsed.error);
+  return run(() =>
+    apiFetch(`/food/photos/${date}`, { method: "POST", body: parsed.data, schema: FoodDayViewSchema }),
   );
 }
 

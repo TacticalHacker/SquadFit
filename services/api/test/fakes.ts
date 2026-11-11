@@ -3,6 +3,7 @@ import type { ProfileInput } from "@calci/shared";
 import type { AvatarStore } from "../src/lib/avatar-store";
 import type { CoachNoteItem, CoachRepo } from "../src/lib/coach-repo";
 import type { CredentialRepo } from "../src/lib/credential-repo";
+import { photoKey, type PhotoContentType, type PhotoStore } from "../src/lib/photo-store";
 import type { Deps } from "../src/lib/deps";
 import type { FoodEntryItem, FoodRepo, OwnFoodItem, EntryUpdate } from "../src/lib/food-repo";
 import type { CustomWorkoutItem, EntryItem, WorkoutRepo } from "../src/lib/workout-repo";
@@ -121,6 +122,16 @@ export class InMemoryWorkoutRepo implements WorkoutRepo {
   }
 }
 
+/** Mirrors the DynamoDB update: caption/photoStatus live on `photo`. */
+function applyFields(e: FoodEntryItem, fields: EntryUpdate, nowIso: string): FoodEntryItem {
+  const { caption, photoStatus, ...rest } = fields;
+  const defined = Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined));
+  const photo = e.photo
+    ? { ...e.photo, ...(caption !== undefined ? { caption } : {}), ...(photoStatus !== undefined ? { status: photoStatus } : {}) }
+    : undefined;
+  return { ...e, ...defined, ...(photo ? { photo } : {}), updatedAt: nowIso };
+}
+
 export class InMemoryFoodRepo implements FoodRepo {
   readonly entries = new Map<string, FoodEntryItem>();
   readonly foods = new Map<string, OwnFoodItem>();
@@ -150,9 +161,13 @@ export class InMemoryFoodRepo implements FoodRepo {
     const key = this.entryKey(userId, date, entryId);
     const e = this.entries.get(key);
     if (!e) return false;
-    const defined = Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
-    this.entries.set(key, { ...e, ...defined, updatedAt: nowIso });
+    this.entries.set(key, applyFields(e, fields, nowIso));
     return true;
+  }
+  async updateEntryIf(userId: string, date: string, entryId: string, fields: EntryUpdate, nowIso: string, allowed: readonly string[]) {
+    const e = this.entries.get(this.entryKey(userId, date, entryId));
+    if (!e?.photo || !allowed.includes(e.photo.status)) return false;
+    return this.updateEntry(userId, date, entryId, fields, nowIso);
   }
   async deleteEntry(userId: string, date: string, entryId: string) {
     this.entries.delete(this.entryKey(userId, date, entryId));
@@ -219,6 +234,30 @@ export class InMemoryCredentialRepo implements CredentialRepo {
   }
 }
 
+export class FakePhotoStore implements PhotoStore {
+  readonly objects = new Map<string, { bytes: Uint8Array; contentType: PhotoContentType }>();
+  /** Set to make the next `put` fail (cleanup tests). */
+  failNextPut = false;
+  async put(userId: string, entryId: string, bytes: Uint8Array, contentType: PhotoContentType) {
+    if (this.failNextPut) {
+      this.failNextPut = false;
+      throw new Error("s3 down");
+    }
+    const key = photoKey(userId, entryId, contentType);
+    this.objects.set(key, { bytes, contentType });
+    return key;
+  }
+  async get(key: string) {
+    return this.objects.get(key) ?? null;
+  }
+  async delete(key: string) {
+    this.objects.delete(key);
+  }
+  async urlFor(key: string) {
+    return `https://fake.s3/${key}?sig=1`;
+  }
+}
+
 export class FakeAvatarStore implements AvatarStore {
   readonly objects = new Map<string, Uint8Array>();
   private n = 0;
@@ -243,9 +282,10 @@ export function makeDeps(now = "2026-11-11T10:00:00.000Z") {
   const coach = new InMemoryCoachRepo();
   const credentials = new InMemoryCredentialRepo();
   const avatars = new FakeAvatarStore();
+  const photos = new FakePhotoStore();
   let clock = new Date(now);
-  const deps: Deps = { profiles, workouts, food, coach, credentials, avatars, now: () => clock };
-  return { deps, profiles, workouts, food, coach, credentials, avatars, setNow: (iso: string) => (clock = new Date(iso)) };
+  const deps: Deps = { profiles, workouts, food, coach, credentials, avatars, photos, now: () => clock };
+  return { deps, profiles, workouts, food, coach, credentials, avatars, photos, setNow: (iso: string) => (clock = new Date(iso)) };
 }
 
 export function makeEvent(opts: {

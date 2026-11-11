@@ -1,4 +1,3 @@
-import { z } from "zod";
 import {
   buildFoodDay,
   CoachNoteInputSchema,
@@ -12,37 +11,8 @@ import {
   validateHistoryWindow,
   validateNoteDate,
 } from "@calci/shared";
-import type { Deps } from "../deps";
-
-/** The member the key belongs to, resolved by the handler; tools never take a user id (FR-012). */
-export interface ToolContext {
-  userId: string;
-  timezone: string;
-  today: string;
-  calorieTarget: number;
-  proteinTarget: number | null;
-  deps: Deps;
-}
-
-export interface ToolResult {
-  text: string;
-  isError?: true;
-}
-
-export interface Tool {
-  name: string;
-  description: string;
-  /** Raw zod shape the SDK registers and advertises through tools/list. */
-  shape: z.ZodRawShape;
-  run(args: unknown, ctx: ToolContext): Promise<ToolResult>;
-}
-
-const fail = (text: string): ToolResult => ({ text, isError: true });
-
-/** Human-readable validation message from a zod error, never echoing the input values. */
-function describeIssues(error: z.ZodError): string {
-  return error.issues.map((i) => `${i.path.join(".") || "input"}: ${i.message}`).join("; ");
-}
+import { photoTools } from "./photos";
+import { describeIssues, fail, stripUnknown, type Tool, type ToolContext, type ToolResult } from "./types";
 
 const getUserHistory: Tool = {
   name: "get_user_history",
@@ -80,6 +50,9 @@ const getUserHistory: Tool = {
             servings: e.servings,
             calories: e.calories,
             ...(e.macros ?? {}),
+            ...(e.photo
+              ? { status: e.photo.status, caption: e.photo.caption, ...(e.photo.status === "pending" ? { pending: true } : {}) }
+              : {}),
           })),
         ),
         workouts: dayWorkouts.map((w) => ({ name: w.name, minutes: w.minutes, calories: w.calories })),
@@ -93,12 +66,19 @@ const getUserHistory: Tool = {
         },
       };
     });
+    const pendingPhotoMeals = days.reduce((n, d) => n + d.food.filter((f) => "pending" in f).length, 0);
     return {
       text: JSON.stringify({
         timezone: ctx.timezone,
         today: ctx.today,
         targets: { calories: ctx.calorieTarget, protein: ctx.proteinTarget },
         days,
+        ...(pendingPhotoMeals > 0
+          ? {
+              pendingPhotoMeals,
+              next: "Some photo meals are pending with no calories. Do not just estimate them in a note: call list_pending_food_photos, then get_food_photo for each, then submit_food_estimate to save the numbers in the app.",
+            }
+          : {}),
       }),
     };
   },
@@ -142,10 +122,4 @@ const updateUserTargets: Tool = {
   },
 };
 
-/** The SDK already drops unknown keys; do the same for direct callers so a stray `userId` is ignored. */
-function stripUnknown(args: unknown, shape: z.ZodRawShape): unknown {
-  if (typeof args !== "object" || args === null) return args;
-  return Object.fromEntries(Object.entries(args).filter(([k]) => k in shape));
-}
-
-export const TOOLS: readonly Tool[] = [getUserHistory, postDailyCoachNote, updateUserTargets];
+export const TOOLS: readonly Tool[] = [getUserHistory, postDailyCoachNote, updateUserTargets, ...photoTools];

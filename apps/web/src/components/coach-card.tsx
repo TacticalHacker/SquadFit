@@ -12,7 +12,7 @@ export function CoachCard({ note }: { note: CoachNote }) {
         </span>
         <h2 className="text-sm font-semibold text-slate-100">Coach note</h2>
       </div>
-      <div className="flex flex-col gap-2 text-sm leading-relaxed text-slate-200 [&_ol]:list-decimal [&_ol]:pl-5 [&_strong]:text-slate-50 [&_ul]:list-disc [&_ul]:pl-5">
+      <div className="flex flex-col gap-2 text-sm leading-relaxed text-slate-200 [&_ol]:list-decimal [&_ol]:pl-5 [&_strong]:text-slate-50 [&_ul]:list-disc [&_ul]:pl-5 [&_table]:w-full [&_table]:text-left [&_td]:border-t [&_td]:border-white/10 [&_td]:py-1 [&_td]:pr-3 [&_th]:pb-1 [&_th]:pr-3 [&_th]:text-slate-400">
         <Markdown {...coachMarkdownOptions}>{note.summaryMarkdown}</Markdown>
       </div>
       <div>

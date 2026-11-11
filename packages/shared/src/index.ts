@@ -21,6 +21,7 @@ export * from "./domain/nutrition";
 export * from "./domain/foods";
 export * from "./domain/food-day";
 export * from "./domain/recent-foods";
+export * from "./domain/photo-entry";
 export * from "./contracts/food";
 export * from "./domain/coach-note";
 export * from "./contracts/coach";

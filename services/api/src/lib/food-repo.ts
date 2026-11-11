@@ -7,10 +7,12 @@ import {
   QueryCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
-import type { FoodEntry, Macros } from "@calci/shared";
+import type { FoodEntry, Macros, PhotoStatus } from "@calci/shared";
 
 /** Key layout: see specs/003-nutrition-tracker/data-model.md. */
 export interface FoodEntryItem extends FoodEntry {
+  /** Photo entries (feature 005): key of the picture in the private bucket. */
+  photoKey?: string;
   date: string;
   createdAt: string;
   updatedAt: string;
@@ -26,7 +28,11 @@ export interface OwnFoodItem {
   updatedAt: string;
 }
 
-export type EntryUpdate = Partial<Pick<FoodEntry, "name" | "meal" | "servings" | "calories" | "macros" | "rate">>;
+export type EntryUpdate = Partial<Pick<FoodEntry, "name" | "meal" | "servings" | "calories" | "macros" | "rate">> & {
+  /** Photo entries: new caption and/or status (stored as `caption` / `photoStatus`). */
+  caption?: string;
+  photoStatus?: PhotoStatus;
+};
 
 export interface FoodRepo {
   listEntriesForDay(userId: string, date: string): Promise<FoodEntryItem[]>;
@@ -36,6 +42,18 @@ export interface FoodRepo {
   putEntry(userId: string, entry: FoodEntryItem): Promise<boolean>;
   /** Returns false if the entry does not exist. */
   updateEntry(userId: string, date: string, entryId: string, fields: EntryUpdate, nowIso: string): Promise<boolean>;
+  /**
+   * Like updateEntry, but only applies while the photo entry's current status is one of `allowed`
+   * (atomic, so the user and the AI agent can never both win). Returns false if not applied.
+   */
+  updateEntryIf(
+    userId: string,
+    date: string,
+    entryId: string,
+    fields: EntryUpdate,
+    nowIso: string,
+    allowed: readonly PhotoStatus[],
+  ): Promise<boolean>;
   deleteEntry(userId: string, date: string, entryId: string): Promise<void>;
   listOwnFoods(userId: string): Promise<OwnFoodItem[]>;
   getOwnFood(userId: string, foodId: string): Promise<OwnFoodItem | null>;
@@ -78,6 +96,10 @@ function toEntry(i: Record<string, unknown>): FoodEntryItem {
     rate: { calories: rate.calories, macros: rate.macros ?? null },
     createdAt: i.createdAt as string,
     updatedAt: i.updatedAt as string,
+    ...(typeof i.photoKey === "string" ? { photoKey: i.photoKey } : {}),
+    ...(typeof i.photoStatus === "string"
+      ? { photo: { status: i.photoStatus as PhotoStatus, caption: typeof i.caption === "string" ? i.caption : "" } }
+      : {}),
   };
 }
 
@@ -140,11 +162,18 @@ export class DynamoFoodRepo implements FoodRepo {
   }
 
   async putEntry(userId: string, entry: FoodEntryItem) {
+    // Photo status and caption are stored flat so conditional updates can test `photoStatus` directly.
+    const { photo, ...rest } = entry;
     try {
       await this.doc.send(
         new PutCommand({
           TableName: this.tableName,
-          Item: { pk: pk(userId), sk: entrySk(entry.date, entry.entryId), ...entry },
+          Item: {
+            pk: pk(userId),
+            sk: entrySk(entry.date, entry.entryId),
+            ...rest,
+            ...(photo ? { photoStatus: photo.status, caption: photo.caption } : {}),
+          },
           ConditionExpression: "attribute_not_exists(sk)",
         }),
       );
@@ -156,6 +185,28 @@ export class DynamoFoodRepo implements FoodRepo {
   }
 
   async updateEntry(userId: string, date: string, entryId: string, fields: EntryUpdate, nowIso: string) {
+    return this.update(userId, date, entryId, fields, nowIso);
+  }
+
+  async updateEntryIf(
+    userId: string,
+    date: string,
+    entryId: string,
+    fields: EntryUpdate,
+    nowIso: string,
+    allowed: readonly PhotoStatus[],
+  ) {
+    return this.update(userId, date, entryId, fields, nowIso, allowed);
+  }
+
+  private async update(
+    userId: string,
+    date: string,
+    entryId: string,
+    fields: EntryUpdate,
+    nowIso: string,
+    allowed?: readonly PhotoStatus[],
+  ) {
     const names: Record<string, string> = {};
     const values: Record<string, unknown> = { ":now": nowIso };
     const sets = ["updatedAt = :now"];
@@ -165,12 +216,18 @@ export class DynamoFoodRepo implements FoodRepo {
       values[`:${key}`] = value;
       sets.push(`#${key} = :${key}`);
     }
+    let condition = "attribute_exists(pk)";
+    if (allowed) {
+      names["#allowedStatus"] = "photoStatus";
+      allowed.forEach((st, n) => (values[`:st${n}`] = st));
+      condition += ` AND #allowedStatus IN (${allowed.map((_, n) => `:st${n}`).join(", ")})`;
+    }
     try {
       await this.doc.send(
         new UpdateCommand({
           TableName: this.tableName,
           Key: { pk: pk(userId), sk: entrySk(date, entryId) },
-          ConditionExpression: "attribute_exists(pk)",
+          ConditionExpression: condition,
           UpdateExpression: `SET ${sets.join(", ")}`,
           ...(Object.keys(names).length ? { ExpressionAttributeNames: names } : {}),
           ExpressionAttributeValues: values,

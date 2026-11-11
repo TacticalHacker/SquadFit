@@ -28,6 +28,12 @@ export function FoodLedgerCard({ ledger }: { ledger: FoodLedger }) {
         <p className="mt-1 text-xs text-slate-400">Target {fmt(ledger.target)} kcal, counted as eaten minus burned</p>
       </div>
 
+      {ledger.pending > 0 ? (
+        <p className="rounded-xl bg-amber-400/15 px-3 py-2 text-sm text-amber-200">
+          {ledger.pending === 1 ? "1 meal" : `${ledger.pending} meals`} pending analysis, not counted yet
+        </p>
+      ) : null}
+
       <dl className="grid grid-cols-3 gap-2 text-center">
         <Stat label="Eaten" value={ledger.eaten} tone="text-orange-300" />
         <Stat label="Burned" value={ledger.burned} tone="text-cyan-300" />

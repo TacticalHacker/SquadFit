@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { handle } from "../src/handlers/food-get";
 import { makeDeps, makeEvent, parse, seedProfile, seedWorkoutEntry } from "./fakes";
+import { addPhoto } from "./photo-helpers";
 
 type D = Parameters<typeof handle>[1];
 const get = (deps: D, date?: string, sub = "user-1") =>
@@ -87,5 +88,20 @@ describe("GET /food", () => {
     await seedProfile(profiles, "user-2", "America/Los_Angeles", "bob");
     expect((await get(deps, undefined, "user-1")).body.date).toBe("2026-11-12");
     expect((await get(deps, undefined, "user-2")).body.date).toBe("2026-11-11");
+  });
+});
+
+describe("GET /food with photo entries", () => {
+  it("shows pending entries with a signed URL, counts them, excludes them from totals, and hides other members' photos", async () => {
+    const { deps, profiles } = makeDeps();
+    await seedProfile(profiles);
+    await seedProfile(profiles, "user-2", "Asia/Kolkata", "bob");
+    await addPhoto(deps);
+    await addPhoto(deps, {}, "user-2");
+    const r = parse(await handle(makeEvent({}), deps));
+    const entries = r.body.meals.flatMap((m: { entries: unknown[] }) => m.entries);
+    expect(entries).toHaveLength(1);
+    expect(entries[0].photo.url).toContain("food-photos/user-1/");
+    expect(r.body.ledger).toMatchObject({ eaten: 0, net: 0, pending: 1 });
   });
 });

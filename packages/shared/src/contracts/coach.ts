@@ -5,6 +5,7 @@ import {
   NOTE_SUMMARY_MAX,
 } from "../domain/coach-note";
 import { DateSchema } from "../domain/day";
+import { CaloriesSchema, MacrosSchema } from "../domain/nutrition";
 import { CalorieTargetSchema, ProteinTargetSchema } from "../domain/profile";
 
 /** Raw shapes are what the MCP SDK registers; the strict objects below are what handlers parse with. */
@@ -59,3 +60,24 @@ export type CoachNote = z.infer<typeof CoachNoteSchema>;
 
 export const CoachNoteResponseSchema = z.object({ note: CoachNoteSchema.nullable() });
 export type CoachNoteResponse = z.infer<typeof CoachNoteResponseSchema>;
+
+/** Photo food log tools (feature 005). `date` is part of an entry's id because entries are keyed by day. */
+export const ListPendingShape = {
+  limit: z.number().int().min(1).max(50).optional().describe("How many pending meals to return (1-50, default 20)"),
+};
+export const ListPendingInputSchema = z.strictObject(ListPendingShape);
+
+export const GetPhotoShape = {
+  date: DateSchema.describe("The entry's date, YYYY-MM-DD, as listed"),
+  entryId: z.string().describe("The entry id, as listed"),
+};
+export const GetPhotoInputSchema = z.strictObject(GetPhotoShape);
+
+export const SubmitEstimateShape = {
+  ...GetPhotoShape,
+  calories: CaloriesSchema.describe("Estimated total calories for the whole meal (whole number, 1-5000)"),
+  protein: MacrosSchema.shape.protein.describe("Estimated protein in grams (0-500, one decimal)"),
+  carbs: MacrosSchema.shape.carbs.describe("Estimated carbohydrates in grams (0-500, one decimal)"),
+  fat: MacrosSchema.shape.fat.describe("Estimated fat in grams (0-500, one decimal)"),
+};
+export const SubmitEstimateInputSchema = z.strictObject(SubmitEstimateShape);

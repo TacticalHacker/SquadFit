@@ -25,6 +25,12 @@ describe("coach note markdown", () => {
     expect(render("[click](javascript:alert(1))")).not.toMatch(/href="javascript:/i);
   });
 
+  it("renders tables", () => {
+    const html = render("| Meal | kcal |\n|---|---|\n| Lunch | 300 |");
+    expect(html).toContain("<table>");
+    expect(html).toContain("<td>300</td>");
+  });
+
   it("opens links safely in a new tab", () => {
     const html = render("[site](https://example.com)");
     expect(html).toContain('rel="noopener noreferrer nofollow"');

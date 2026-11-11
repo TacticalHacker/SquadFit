@@ -72,6 +72,8 @@ export class ApiStack extends Stack {
       write?: boolean;
       /** Grant access to the avatar bucket. */
       avatars?: "read" | "readwrite";
+      /** Access to food photos (feature 005), limited to the `food-photos/*` prefix of the private bucket. */
+      photos?: "read" | "readwrite";
       /** Override the default function size/timeout (the MCP function). */
       memorySize?: number;
       timeoutSeconds?: number;
@@ -92,6 +94,8 @@ export class ApiStack extends Stack {
       else table.grantReadData(fn);
       if (opts.avatars === "read") avatarBucket.grantRead(fn);
       if (opts.avatars === "readwrite") avatarBucket.grantReadWrite(fn);
+      if (opts.photos === "read") avatarBucket.grantRead(fn, "food-photos/*");
+      if (opts.photos === "readwrite") avatarBucket.grantReadWrite(fn, "food-photos/*");
       this.api.addRoutes({
         path: routePath,
         methods: [method],
@@ -116,11 +120,13 @@ export class ApiStack extends Stack {
     route("custom-put", HttpMethod.PUT, "/workouts/custom/{workoutId}", { write: true });
     route("custom-delete", HttpMethod.DELETE, "/workouts/custom/{workoutId}", { write: true });
     // Nutrition (feature 003)
-    route("food-get", HttpMethod.GET, "/food");
+    route("food-get", HttpMethod.GET, "/food", { photos: "read" });
     route("food-recent-get", HttpMethod.GET, "/food/recent");
-    route("food-entry-post", HttpMethod.POST, "/food/entries/{date}", { write: true });
-    route("food-entry-put", HttpMethod.PUT, "/food/entries/{date}/{entryId}", { write: true });
-    route("food-entry-delete", HttpMethod.DELETE, "/food/entries/{date}/{entryId}", { write: true });
+    route("food-entry-post", HttpMethod.POST, "/food/entries/{date}", { write: true, photos: "read" });
+    route("food-entry-put", HttpMethod.PUT, "/food/entries/{date}/{entryId}", { write: true, photos: "read" });
+    route("food-entry-delete", HttpMethod.DELETE, "/food/entries/{date}/{entryId}", { write: true, photos: "readwrite" });
+    // Photo food log (feature 005): pictures are private objects under food-photos/ in the same bucket.
+    route("food-photo-post", HttpMethod.POST, "/food/photos/{date}", { write: true, photos: "readwrite", memorySize: 512, timeoutSeconds: 15 });
     route("own-foods-get", HttpMethod.GET, "/food/foods");
     route("own-foods-post", HttpMethod.POST, "/food/foods", { write: true });
     route("own-foods-put", HttpMethod.PUT, "/food/foods/{foodId}", { write: true });
@@ -129,7 +135,7 @@ export class ApiStack extends Stack {
     // AI Coach (feature 004). /mcp has no Cognito authorizer: AI clients send an operator-issued bearer key,
     // verified in the handler. ANY so the handler can answer OPTIONS (CORS) and 405.
     route("coach-note-get", HttpMethod.GET, "/coach-note");
-    route("mcp", HttpMethod.ANY, "/mcp", { auth: false, write: true, memorySize: 512, timeoutSeconds: 15 });
+    route("mcp", HttpMethod.ANY, "/mcp", { auth: false, write: true, photos: "read", memorySize: 512, timeoutSeconds: 15 });
 
     new CfnOutput(this, "ApiUrl", { value: this.api.apiEndpoint });
   }

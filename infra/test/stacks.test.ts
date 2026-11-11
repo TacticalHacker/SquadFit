@@ -78,7 +78,7 @@ describe("stacks", () => {
       "DELETE /workouts/custom/{workoutId}",
       "GET /food", "GET /food/recent", "POST /food/entries/{date}", "PUT /food/entries/{date}/{entryId}",
       "DELETE /food/entries/{date}/{entryId}", "GET /food/foods", "POST /food/foods", "PUT /food/foods/{foodId}",
-      "DELETE /food/foods/{foodId}", "GET /coach-note", "ANY /mcp"]) {
+      "DELETE /food/foods/{foodId}", "GET /coach-note", "ANY /mcp", "POST /food/photos/{date}"]) {
       apiT.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: key });
     }
   });
@@ -111,7 +111,27 @@ describe("stacks", () => {
     const json = JSON.stringify(policies.filter((p) => JSON.stringify(p).includes("mcpFnServiceRole")));
     expect(json).toContain("dynamodb:PutItem");
     expect(json).toContain("dynamodb:UpdateItem");
-    expect(json).not.toContain("s3:");
+    // It may read food photos (feature 005) but has no other bucket access: no writes or deletes.
+    expect(json).not.toContain("s3:PutObject");
+    expect(json).not.toContain("s3:DeleteObject");
+  });
+
+  it("scopes food photo access to the food-photos/ prefix per function (feature 005)", () => {
+    const policies = Object.values(apiT.findResources("AWS::IAM::Policy"));
+    const forRole = (role: string) => JSON.stringify(policies.filter((p) => JSON.stringify(p).includes(role)));
+    // Photo upload: write and delete, only under the prefix.
+    const post = forRole("foodphotopostFnServiceRole");
+    expect(post).toContain("s3:PutObject");
+    expect(post).toContain("s3:DeleteObject");
+    expect(post).toContain("/food-photos/*");
+    // Day views and the MCP server can read photos but never write or delete them.
+    for (const role of ["foodgetFnServiceRole", "mcpFnServiceRole"]) {
+      const json = forRole(role);
+      expect(json, role).toContain("s3:GetObject");
+      expect(json, role).toContain("/food-photos/*");
+      expect(json, role).not.toContain("s3:PutObject");
+      expect(json, role).not.toContain("s3:DeleteObject");
+    }
   });
 
   it("runs on Node 24 / arm64", () => {
