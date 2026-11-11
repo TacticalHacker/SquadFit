@@ -76,3 +76,11 @@ Built with [Spec Kit](https://github.com/github/spec-kit). In Claude Code:
 
 Suggested feature order: **001 user accounts → 002 workout tracker → 003 nutrition tracker →
 004 global leaderboard → 005 streaks & nudges.**
+
+## Deploying the web app (Amplify Hosting)
+
+The Next.js app runs on AWS Amplify Hosting (SSR, `WEB_COMPUTE`), built by [amplify.yml](amplify.yml).
+
+1. Amplify console → **Create new app → GitHub** → authorize → pick `TacticalHacker/calci`, branch `main`. Tick "My app is a monorepo" and enter `apps/web`.
+2. Region `ap-south-1`. Under **Environment variables** add `API_URL`, `COGNITO_REGION=ap-south-1`, `COGNITO_CLIENT_ID` (values from the Api and Auth stack outputs) and `AMPLIFY_MONOREPO_APP_ROOT=apps/web`.
+3. Deploy; sign in at the `*.amplifyapp.com` URL.
