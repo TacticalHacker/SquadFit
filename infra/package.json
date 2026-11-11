@@ -1,0 +1,24 @@
+{
+  "name": "@calci/infra",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "cdk": "cdk",
+    "synth": "cdk synth --all -c stage=dev",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.276.0",
+    "constructs": "^10.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24",
+    "aws-cdk": "^2.1148.0",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.15",
+    "typescript": "6.0.3",
+    "vitest": "^5.1.0"
+  }
+}

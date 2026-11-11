@@ -1,0 +1,14 @@
+{
+  "app": "npx tsx bin/app.ts",
+  "watch": {
+    "include": ["bin/**", "lib/**", "../services/api/src/**", "../packages/shared/src/**"],
+    "exclude": ["cdk.out", "node_modules", "test"]
+  },
+  "context": {
+    "stage": "dev",
+    "@aws-cdk/aws-lambda-nodejs:useLatestRuntimeVersion": true,
+    "@aws-cdk/core:checkSecretUsage": true,
+    "@aws-cdk/core:defaultCrossStackReferences": "strong",
+    "@aws-cdk/aws-iam:minimizePolicies": true
+  }
+}

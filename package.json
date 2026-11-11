@@ -1,0 +1,24 @@
+{
+  "name": "calci",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.11.2",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @calci/web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "check": "pnpm typecheck && pnpm lint && pnpm test",
+    "cdk": "pnpm --filter @calci/infra cdk",
+    "synth": "pnpm --filter @calci/infra synth",
+    "deploy:dev": "pnpm --filter @calci/infra cdk deploy --all -c stage=dev",
+    "deploy:prod": "pnpm --filter @calci/infra cdk deploy --all -c stage=prod"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
+  }
+}

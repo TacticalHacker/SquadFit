@@ -1,0 +1,7 @@
+/**
+ * Contracts and pure domain logic shared by apps/web, services/api and infra.
+ *
+ * Request/response shapes live here as zod schemas so the frontend and the
+ * Lambda handlers validate against the same source of truth.
+ */
+export * from "./contracts/health";
