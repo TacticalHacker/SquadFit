@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain (1 open: FR-017 how far back users can log or edit)
+- [x] No [NEEDS CLARIFICATION] markers remain (resolved 2026-11-11: edit window = today + previous 2 days)
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)

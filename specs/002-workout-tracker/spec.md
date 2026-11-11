@@ -4,9 +4,15 @@
 
 **Created**: 2026-11-11
 
-**Status**: Draft
+**Status**: Draft (clarified)
 
 **Input**: User description: "Workout tracker (PRD §3.1): a signed-in user sees a checklist of workouts from a catalog and checks off the ones they completed today. Checking a workout logs its duration in minutes (preset default per exercise, or a quick manual override) and shows estimated calories burned. Daily workout summary shows total minutes worked out and total calories burned for the day. "Today" is computed in the user's own timezone. Users can uncheck/edit a logged workout, view previous days, and customize the list by adding their own workouts. Workout data is private to the user until the leaderboard feature publishes derived totals. Builds on 001-user-accounts (profiles with timezone and daily calorie target). Out of scope: food logging, leaderboard/scoring, streaks, nudges."
+
+## Clarifications
+
+### Session 2026-11-11
+
+- Q: How far back can a user log or edit workouts? → A: Today and the previous 2 days. Older days are read-only (viewing is unlimited).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -88,8 +94,9 @@ if none), then return to today.
 1. **Given** a user with entries on earlier days, **When** they move to a previous day, **Then** they see that day's ticked workouts, durations, calories, and totals.
 2. **Given** a day with no entries, **When** the user views it, **Then** it shows 0 minutes, 0 calories, and an empty state.
 3. **Given** a user viewing a past day, **When** they try to move to a day after today (in their timezone), **Then** it is not allowed.
-4. **Given** a past day that is inside the allowed editing window, **When** the user ticks, unticks, or edits a workout, **Then** that day's entries and totals update the same way as for today.
-5. **Given** a past day outside the allowed editing window, **When** the user views it, **Then** entries are shown read-only.
+4. **Given** a day that is today or one of the two days before it, **When** the user ticks, unticks, or edits a workout, **Then** that day's entries and totals update the same way as for today.
+5. **Given** a day three or more days before today, **When** the user views it, **Then** entries are shown read-only and any attempt to change them is refused with "This day can no longer be edited".
+6. **Given** the local date rolls over, **When** a day that was editable becomes the third day back, **Then** it becomes read-only from that moment.
 
 ---
 
@@ -129,6 +136,8 @@ for it remain in history.
 - **Network failure while ticking**: the user is told the change wasn't saved and the checkbox returns to its previous state; it must never show ticked when nothing was saved.
 - **Standard list changes in future releases**: past entries keep the values they were logged with.
 - **Future days**: logging for a day after today in the user's timezone is not possible.
+- **Editing window and timezone change**: the window is always counted from today in the user's current timezone, so changing timezone can shift which days are editable by at most one day. Entries already logged keep their dates.
+- **Editing window and later features**: because only the last three days can change, totals older than that are final, which the leaderboard and streaks features can rely on.
 
 ## Requirements *(mandatory)*
 
@@ -161,7 +170,7 @@ for it remain in history.
 - **FR-014**: "Today" and every day boundary MUST be determined in the user's own timezone from their profile, never in server time.
 - **FR-015**: Entries MUST be stored against the calendar date (in the user's timezone at the time of logging) and MUST stay on that date if the user later changes their timezone.
 - **FR-016**: Users MUST be able to view any earlier day's entries and totals, but not days after today.
-- **FR-017**: Users MUST be able to add, change, and remove entries for [NEEDS CLARIFICATION: How far back can a user log or edit workouts — today only, the last 7 days, or any past day?]. Days outside that window MUST be read-only.
+- **FR-017**: Users MUST be able to add, change, and remove entries for today and the two days before it (three calendar days in total, counted in the user's timezone). Earlier days MUST be read-only, and the system MUST refuse changes to them even if the request is made outside the normal screen.
 - **FR-018**: When the user's local date changes while a Workouts screen is open, the screen MUST move to the new day or prompt the user to refresh, and MUST NOT record into the old day without the user having chosen it.
 
 **Custom workouts**
