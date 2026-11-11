@@ -10,6 +10,12 @@
 
 **Amendment (2026-11-11, before planning)**: the owner asked for food lists too: a built-in list of common foods, the user's own saved foods, servings, and meal slots (breakfast, lunch, dinner, snacks).
 
+## Clarifications
+
+### Session 2026-11-11
+
+- Q: Should each food also record protein, carbs and fat, or only calories? → A: Calories plus protein, carbs and fat per serving, shown on each food and as daily totals.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Log what I ate (Priority: P1)
@@ -17,7 +23,7 @@
 A signed-in user opens the Food screen and adds what they ate in a meal (breakfast, lunch, dinner
 or snacks). They can type a food name with its calories (for example "Chicken biryani, 650"), or
 pick a food from a list (User Story 4) and say how many servings. Each item appears under its meal
-with its calories. They can correct an item or remove it.
+with its calories and macros (protein, carbs, fat). They can correct an item or remove it.
 
 **Why this priority**: Logging food is the core daily action; every total and later score is built
 from these entries.
@@ -36,6 +42,7 @@ reload and confirm both are listed under the right meals with the same values, e
 6. **Given** a name that is empty or calories that are not a whole number in the allowed range, **When** the user submits, **Then** nothing is saved and a message states what is allowed.
 7. **Given** a user who has not completed profile setup, **When** they open Food, **Then** they are sent to profile setup first (feature 001).
 8. **Given** several meals with items, **When** the user looks at the screen, **Then** each meal shows its own calorie subtotal.
+9. **Given** the add form, **When** the user optionally enters protein, carbs and fat in grams for a typed item, **Then** they are saved with the entry; leaving them blank saves the entry with no macro values.
 
 ---
 
@@ -43,7 +50,7 @@ reload and confirm both are listed under the right meals with the same values, e
 
 Above the meals the user sees their day at a glance: calories eaten, calories burned (from that
 day's workouts), net calories (eaten minus burned), and how that compares to their daily calorie
-target. The numbers update as soon as they add, change or remove an item.
+target, plus the day's total protein, carbs and fat. The numbers update as soon as they add, change or remove an item.
 
 **Why this priority**: The combined ledger is why this feature sits next to the workout tracker.
 
@@ -59,6 +66,7 @@ numbers change immediately.
 4. **Given** a net above the target, **When** the user looks, **Then** it shows by how much they are over, worded clearly and not alarmingly.
 5. **Given** the user changes that day's workouts, **When** they next see the ledger, **Then** the burned figure matches the workout totals for that day.
 6. **Given** two users in different timezones logging at the same instant, **When** each opens Food, **Then** each sees the item under their own local "today".
+7. **Given** entries with protein, carbs and fat, **When** the user looks at the ledger, **Then** it shows total grams of each, summed over the entries that have macro values, and says when some entries have none.
 
 ---
 
@@ -86,10 +94,10 @@ back and confirm the day is view-only.
 ### User Story 4 - Pick from food lists (Priority: P2)
 
 When adding to a meal the user can search and pick from food lists instead of typing: a built-in
-list of common foods (each with a standard serving and its calories, including popular Indian and
+list of common foods (each with a standard serving, its calories and its protein, carbs and fat, including popular Indian and
 international foods), their own saved foods, and a short list of foods they logged recently.
-Picking a food asks how many servings and adds it with the calories scaled to that amount. The
-user can also save their own foods (name, serving description, calories per serving), edit them
+Picking a food asks how many servings and adds it with the calories and macros scaled to that amount. The
+user can also save their own foods (name, serving description, calories per serving, and optionally protein, carbs and fat per serving), edit them
 and remove them.
 
 **Why this priority**: Most people eat the same things repeatedly; typing every time is the main
@@ -102,7 +110,7 @@ under recent foods on another day.
 **Acceptance Scenarios**:
 
 1. **Given** the add form, **When** the user types in the search box, **Then** matching foods from the built-in list and from their own foods are shown, built-in and own clearly distinguished.
-2. **Given** a food from a list, **When** the user picks it and sets servings, **Then** an entry is added to the chosen meal with its calories equal to the per-serving calories times the servings (rounded to a whole number).
+2. **Given** a food from a list, **When** the user picks it and sets servings, **Then** an entry is added to the chosen meal with its calories, protein, carbs and fat each equal to the per-serving value times the servings (calories rounded to a whole number, grams to one decimal place).
 3. **Given** the user creates their own food with a name, a serving description and calories per serving, **When** they save it, **Then** it appears in "My foods" and in search, visible only to them.
 4. **Given** one of their own foods, **When** the user edits or removes it, **Then** future picks use the new values or no longer offer it, and entries already logged keep the values they were logged with.
 5. **Given** the user has logged foods before, **When** they open the add form, **Then** they see up to 20 distinct recent foods, most recent first, each with its latest calories, and tapping one adds it to the chosen meal.
@@ -114,6 +122,7 @@ under recent foods on another day.
 
 ### Edge Cases
 
+- A food with calories but no macro values (typed entry, or own food saved without them): allowed; it adds to calories but not to macro totals, and the ledger says some entries have no macros.
 - A very large single item (calorie typo such as 99999): rejected with the allowed range.
 - The same food logged with different calories on different days: appears once in recent foods with its latest value.
 - Calorie target changed in Settings after logging: past entries are unchanged; the remaining-versus-target figure uses the current target.
@@ -133,19 +142,20 @@ under recent foods on another day.
 - **FR-001**: The Food screen MUST be available only to signed-in users with a completed profile.
 
 **Logging**
-- **FR-002**: Users MUST be able to add a food entry to a meal (Breakfast, Lunch, Dinner or Snacks) on a day, with a name (1-60 characters after trimming) and calories (a whole number from 1 to 5,000), either typed directly or from a food list.
-- **FR-003**: An entry added from a list MUST have calories equal to the food's calories per serving times the number of servings, rounded to the nearest whole number; servings are allowed from 0.5 to 20 in steps of 0.5, and the result MUST still fall within 1 to 5,000.
-- **FR-004**: Users MUST be able to change an entry's name, calories, meal and servings, and remove an entry.
+- **FR-002**: Users MUST be able to add a food entry to a meal (Breakfast, Lunch, Dinner or Snacks) on a day, with a name (1-60 characters after trimming) and calories (a whole number from 1 to 5,000), and optionally protein, carbs and fat in grams (each a number from 0 to 500 with at most one decimal place), either typed directly or from a food list.
+- **FR-003**: An entry added from a list MUST have calories equal to the food's calories per serving times the number of servings, rounded to the nearest whole number, and protein, carbs and fat equal to the per-serving grams times the servings, rounded to one decimal place; servings are allowed from 0.5 to 20 in steps of 0.5, and the result MUST still fall within 1 to 5,000.
+- **FR-004**: Users MUST be able to change an entry's name, calories, macros, meal and servings, and remove an entry.
 - **FR-005**: A user MUST be able to log the same food more than once on a day; each entry is independent.
 - **FR-006**: Invalid input MUST be rejected with a message that states the allowed values; nothing is saved.
 - **FR-007**: Within each meal, entries MUST be listed in the order they were added.
-- **FR-008**: An entry MUST keep the name, servings and calories it was logged with, so later edits or removal of a saved food never change past days.
+- **FR-008**: An entry MUST keep the name, servings, calories and macros it was logged with, so later edits or removal of a saved food never change past days.
 
 **Daily ledger**
 - **FR-009**: For any day the screen MUST show calories eaten (sum of that day's entries) with a subtotal per meal, calories burned (the day's total from the workout tracker), and net calories (eaten minus burned).
 - **FR-010**: The screen MUST show the user's daily calorie target and how many calories remain under it (target minus net) or by how many they are over it.
 - **FR-011**: The ledger MUST update immediately when an entry is added, changed or removed.
 - **FR-012**: A day with no entries MUST show 0 eaten; burned is 0 when there are no workouts that day.
+- **FR-025**: For any day the screen MUST show total protein, carbs and fat in grams, summed over the entries that have values, and indicate when some entries have none.
 - **FR-013**: The ledger is for information only in this feature; it does not produce scores, rankings or streaks.
 
 **Days and timezones**
@@ -156,9 +166,9 @@ under recent foods on another day.
 - **FR-018**: When the user's local date changes while the Food screen is open, the screen MUST move to the new day and MUST NOT record into the old day without the user having chosen it.
 
 **Food lists**
-- **FR-019**: The system MUST provide one built-in list of common foods, about 40, each with a name, a standard serving description and calories per serving, identical for every user and not editable by users.
+- **FR-019**: The system MUST provide one built-in list of common foods, about 40, each with a name, a standard serving description, calories per serving and protein, carbs and fat per serving, identical for every user and not editable by users.
 - **FR-020**: Users MUST be able to search the built-in list and their own foods together by name, ignoring capitalisation.
-- **FR-021**: Users MUST be able to create their own foods (name 1-60 characters, serving description 1-40 characters, calories per serving a whole number from 1 to 5,000), edit them and remove them. Own food names MUST be unique within the user's own list, ignoring capitalisation and extra spaces.
+- **FR-021**: Users MUST be able to create their own foods (name 1-60 characters, serving description 1-40 characters, calories per serving a whole number from 1 to 5,000, and optionally protein, carbs and fat per serving as in FR-002), edit them and remove them. Own food names MUST be unique within the user's own list, ignoring capitalisation and extra spaces.
 - **FR-022**: The screen MUST offer up to 20 distinct recently logged foods from the last 90 days, most recent first, each with the calories of its latest entry; names are compared ignoring capitalisation and extra spaces. Choosing one adds an entry with that name and calories to the chosen meal.
 - **FR-023**: Recent foods and own foods MUST be built only from, and visible only to, the user who owns them.
 
@@ -167,11 +177,11 @@ under recent foods on another day.
 
 ### Key Entities
 
-- **Standard food**: A common food in the built-in list: name, standard serving description, calories per serving. Same for everyone; not editable.
-- **Own food**: A food a user saved: name, serving description, calories per serving. Belongs to one user; visible only to them.
-- **Food entry**: One thing a user ate in one meal on one day: name, servings, calories, meal, the calendar date, and when it was added. Keeps its own copy of the values it was logged with. Belongs to exactly one user.
+- **Standard food**: A common food in the built-in list: name, standard serving description, calories per serving, protein, carbs and fat per serving. Same for everyone; not editable.
+- **Own food**: A food a user saved: name, serving description, calories per serving, optional protein, carbs and fat per serving. Belongs to one user; visible only to them.
+- **Food entry**: One thing a user ate in one meal on one day: name, servings, calories, optional protein, carbs and fat, meal, the calendar date, and when it was added. Keeps its own copy of the values it was logged with. Belongs to exactly one user.
 - **Recent food**: A suggestion built from the user's own earlier entries (name and latest calories). Not a stored record.
-- **Day ledger**: The summary of one day for one user: eaten (with per-meal subtotals), burned (from workouts), net, the daily calorie target and the remaining or over amount. Derived, not stored.
+- **Day ledger**: The summary of one day for one user: eaten (with per-meal subtotals), burned (from workouts), net, the daily calorie target, the remaining or over amount, and total protein, carbs and fat. Derived, not stored.
 
 ## Success Criteria *(mandatory)*
 
@@ -185,14 +195,15 @@ under recent foods on another day.
 - **SC-006**: A past day, or a month of days, loads in under 1 second for a user with a year of history.
 - **SC-007**: In 100% of tested cases the burned figure on the Food screen equals the workout total shown for the same day on the Workouts screen.
 - **SC-008**: A user can find and add a common food from the built-in list in under 15 seconds.
+- **SC-009**: In 100% of tested cases each day's macro totals equal the sum of the macro values of the entries shown (scaled by servings).
 
 ## Assumptions
 
 - Users are signed in with a completed profile (feature 001), including timezone and daily calorie target.
-- The built-in list holds about 40 common foods chosen to suit the friend group (Indian and international), with typical calories per standard serving; values are estimates, not nutrition advice.
+- The built-in list holds about 40 common foods chosen to suit the friend group (Indian and international), with typical calories and macros per standard serving; calorie and macro values are estimates, not nutrition advice.
 - Meals are fixed: Breakfast, Lunch, Dinner, Snacks. A user cannot add or rename meals.
-- Typed entries (no list) are a name plus total calories, with servings fixed at 1.
+- Typed entries (no list) are a name plus total calories, with servings fixed at 1. Macros are optional on typed entries and own foods; every built-in food has them.
 - The editable window (today and the two days before) and the "no future days" rule are the same as for workouts.
 - Net calories are eaten minus burned; remaining under target is target minus net. These are display figures only; scoring rules belong to the leaderboard feature (PRD section 5.1).
-- Out of scope: leaderboard and scoring, streaks, nudges, barcode scanning, photo logging, external food databases, macro tracking (protein, carbs, fat), and editing entries older than the window.
+- Out of scope: leaderboard and scoring, streaks, nudges, barcode scanning, photo logging, external food databases, micronutrients, macro goals or targets, and editing entries older than the window.
 - Depends on feature 002 for the burned figure and for day and edit-window behaviour.
