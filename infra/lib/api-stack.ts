@@ -110,6 +110,16 @@ export class ApiStack extends Stack {
     route("custom-post", HttpMethod.POST, "/workouts/custom", { write: true });
     route("custom-put", HttpMethod.PUT, "/workouts/custom/{workoutId}", { write: true });
     route("custom-delete", HttpMethod.DELETE, "/workouts/custom/{workoutId}", { write: true });
+    // Nutrition (feature 003)
+    route("food-get", HttpMethod.GET, "/food");
+    route("food-recent-get", HttpMethod.GET, "/food/recent");
+    route("food-entry-post", HttpMethod.POST, "/food/entries/{date}", { write: true });
+    route("food-entry-put", HttpMethod.PUT, "/food/entries/{date}/{entryId}", { write: true });
+    route("food-entry-delete", HttpMethod.DELETE, "/food/entries/{date}/{entryId}", { write: true });
+    route("own-foods-get", HttpMethod.GET, "/food/foods");
+    route("own-foods-post", HttpMethod.POST, "/food/foods", { write: true });
+    route("own-foods-put", HttpMethod.PUT, "/food/foods/{foodId}", { write: true });
+    route("own-foods-delete", HttpMethod.DELETE, "/food/foods/{foodId}", { write: true });
 
     new CfnOutput(this, "ApiUrl", { value: this.api.apiEndpoint });
   }

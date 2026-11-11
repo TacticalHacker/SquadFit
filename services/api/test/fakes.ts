@@ -2,6 +2,7 @@ import type { APIGatewayProxyEventV2WithJWTAuthorizer, APIGatewayProxyStructured
 import type { ProfileInput } from "@calci/shared";
 import type { AvatarStore } from "../src/lib/avatar-store";
 import type { Deps } from "../src/lib/deps";
+import type { FoodEntryItem, FoodRepo, OwnFoodItem, EntryUpdate } from "../src/lib/food-repo";
 import type { CustomWorkoutItem, EntryItem, WorkoutRepo } from "../src/lib/workout-repo";
 import { ProfileMissingError, type ProfileItem, type ProfileRepo } from "../src/lib/profile-repo";
 
@@ -102,6 +103,62 @@ export class InMemoryWorkoutRepo implements WorkoutRepo {
   }
 }
 
+export class InMemoryFoodRepo implements FoodRepo {
+  readonly entries = new Map<string, FoodEntryItem>();
+  readonly foods = new Map<string, OwnFoodItem>();
+
+  private k = (userId: string, id: string) => `${userId}|${id}`;
+  private entryKey = (u: string, d: string, id: string) => this.k(u, `FOODLOG#${d}#${id}`);
+
+  async listEntriesForDay(userId: string, date: string) {
+    return this.listEntriesInRange(userId, date, date);
+  }
+  async listEntriesInRange(userId: string, from: string, to: string) {
+    return [...this.entries.entries()]
+      .filter(([key, e]) => key.startsWith(`${userId}|`) && e.date >= from && e.date <= to)
+      .sort(([a], [b]) => (a < b ? -1 : 1))
+      .map(([, e]) => e);
+  }
+  async getEntry(userId: string, date: string, entryId: string) {
+    return this.entries.get(this.entryKey(userId, date, entryId)) ?? null;
+  }
+  async putEntry(userId: string, entry: FoodEntryItem) {
+    const key = this.entryKey(userId, entry.date, entry.entryId);
+    if (this.entries.has(key)) return false;
+    this.entries.set(key, entry);
+    return true;
+  }
+  async updateEntry(userId: string, date: string, entryId: string, fields: EntryUpdate, nowIso: string) {
+    const key = this.entryKey(userId, date, entryId);
+    const e = this.entries.get(key);
+    if (!e) return false;
+    const defined = Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
+    this.entries.set(key, { ...e, ...defined, updatedAt: nowIso });
+    return true;
+  }
+  async deleteEntry(userId: string, date: string, entryId: string) {
+    this.entries.delete(this.entryKey(userId, date, entryId));
+  }
+  async listOwnFoods(userId: string) {
+    return [...this.foods.entries()].filter(([key]) => key.startsWith(`${userId}|`)).map(([, f]) => f);
+  }
+  async getOwnFood(userId: string, foodId: string) {
+    return this.foods.get(this.k(userId, foodId)) ?? null;
+  }
+  async putOwnFood(userId: string, item: OwnFoodItem) {
+    this.foods.set(this.k(userId, item.foodId), item);
+  }
+  async updateOwnFood(userId: string, foodId: string, fields: { name: string; serving: string; calories: number; macros: OwnFoodItem["macros"] }, nowIso: string) {
+    const f = this.foods.get(this.k(userId, foodId));
+    if (!f) return false;
+    this.foods.set(this.k(userId, foodId), { ...f, ...fields, updatedAt: nowIso });
+    return true;
+  }
+  async deleteOwnFood(userId: string, foodId: string) {
+    return this.foods.delete(this.k(userId, foodId));
+  }
+}
+
 export class FakeAvatarStore implements AvatarStore {
   readonly objects = new Map<string, Uint8Array>();
   private n = 0;
@@ -122,10 +179,11 @@ export class FakeAvatarStore implements AvatarStore {
 export function makeDeps(now = "2026-11-11T10:00:00.000Z") {
   const profiles = new InMemoryProfileRepo();
   const workouts = new InMemoryWorkoutRepo();
+  const food = new InMemoryFoodRepo();
   const avatars = new FakeAvatarStore();
   let clock = new Date(now);
-  const deps: Deps = { profiles, workouts, avatars, now: () => clock };
-  return { deps, profiles, workouts, avatars, setNow: (iso: string) => (clock = new Date(iso)) };
+  const deps: Deps = { profiles, workouts, food, avatars, now: () => clock };
+  return { deps, profiles, workouts, food, avatars, setNow: (iso: string) => (clock = new Date(iso)) };
 }
 
 export function makeEvent(opts: {
@@ -167,4 +225,12 @@ export function webpBytes(extra = 0): Buffer {
 /** Create the caller's profile directly in the fake repo. */
 export async function seedProfile(profiles: InMemoryProfileRepo, sub = "user-1", timezone = "Asia/Kolkata", username = "alice") {
   await profiles.upsert(sub, username, { ...validProfile, timezone }, "2026-01-01T00:00:00.000Z");
+}
+
+/** A workout entry that burned `calories` on `date`, for ledger tests. */
+export async function seedWorkoutEntry(workouts: InMemoryWorkoutRepo, userId: string, date: string, calories: number, workoutId = "std-running") {
+  await workouts.putEntryIfAbsent(userId, {
+    date, workoutId, name: workoutId, rateMinutes: 30, rateCalories: calories, minutes: 30, calories,
+    createdAt: "t", updatedAt: "t",
+  });
 }

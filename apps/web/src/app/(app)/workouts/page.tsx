@@ -36,7 +36,7 @@ async function WorkoutsContent({ searchParams }: { searchParams: PageProps<"/wor
 
   return (
     <div className="flex flex-col gap-5 rounded-3xl bg-[#0F172A] p-4 text-slate-100 sm:p-6">
-      <DayNav date={view.date} today={view.today} streak={streak} />
+      <DayNav date={view.date} today={view.today} basePath="/workouts" streak={streak} />
       <DayStrip days={strip.days} current={view.date} today={view.today} />
       <WorkoutChecklist initialView={view} />
       <p className="text-sm">

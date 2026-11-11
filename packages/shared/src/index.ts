@@ -17,3 +17,8 @@ export * from "./domain/workouts";
 export * from "./domain/day-view";
 export * from "./contracts/workouts";
 export * from "./domain/streak";
+export * from "./domain/nutrition";
+export * from "./domain/foods";
+export * from "./domain/food-day";
+export * from "./domain/recent-foods";
+export * from "./contracts/food";

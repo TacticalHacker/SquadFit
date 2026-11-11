@@ -67,3 +67,11 @@ pnpm --filter @calci/web dev     # http://localhost:3000
 ```sh
 pnpm cdk destroy --all -c stage=dev   # dev data is not retained
 ```
+
+## Validation log (2026-11-11, dev stage, ap-south-1)
+
+Automated: `pnpm check` green (shared 163, API 108, web 69, infra 12 tests), `pnpm synth` and `pnpm --filter @calci/web build` green.
+
+Live API with a throwaway user (deleted afterwards): scenarios 2 (401 without token), 3 (empty day), 5 (typed entry), 6 (1.5 servings of oats = 375 kcal, 15/57/9 g), 10 (calories 0 rejected with the allowed range), 22 (`409 DAY_LOCKED` three days back, `400` for tomorrow), 26 (own food), 27 (`409 DUPLICATE_NAME`), 29 (recent foods once each with the latest calories), and `404` for editing a built-in food behaved as specified.
+
+**Not yet run (needs a person in a browser):** the screen scenarios (4, 7-9, 11-21, 23-25, 28, 30-33 from the UI), the accessibility pass (T058) and the timing criteria SC-001, SC-002, SC-008 (T059). T030 and T058/T059 stay open for that.

@@ -8,6 +8,8 @@ export interface DayContext {
   timezone: string;
   /** The caller's local date from the server clock and profile timezone (constitution V). */
   today: string;
+  /** The profile's daily calorie target as it is now (feature 003 ledger). */
+  target: number;
 }
 
 export type Result<T> = ({ ok: true } & T) | { ok: false; response: APIGatewayProxyResultV2 };
@@ -17,7 +19,7 @@ export async function loadDayContext(caller: Caller, deps: Deps): Promise<Result
   if (!profile) {
     return { ok: false, response: apiError(409, "PROFILE_REQUIRED", "Complete your profile first") };
   }
-  return { ok: true, ctx: { timezone: profile.timezone, today: localDate(deps.now(), profile.timezone) } };
+  return { ok: true, ctx: { timezone: profile.timezone, today: localDate(deps.now(), profile.timezone), target: profile.dailyCalorieTarget } };
 }
 
 const badDate = (field: string) =>

@@ -75,7 +75,10 @@ describe("stacks", () => {
     for (const key of ["GET /health", "GET /me", "PUT /me/profile", "PUT /me/avatar", "DELETE /me/avatar", "GET /people",
       "GET /workouts", "GET /workouts/summary", "PUT /workouts/entries/{date}/{workoutId}",
       "DELETE /workouts/entries/{date}/{workoutId}", "POST /workouts/custom", "PUT /workouts/custom/{workoutId}",
-      "DELETE /workouts/custom/{workoutId}"]) {
+      "DELETE /workouts/custom/{workoutId}",
+      "GET /food", "GET /food/recent", "POST /food/entries/{date}", "PUT /food/entries/{date}/{entryId}",
+      "DELETE /food/entries/{date}/{entryId}", "GET /food/foods", "POST /food/foods", "PUT /food/foods/{foodId}",
+      "DELETE /food/foods/{foodId}"]) {
       apiT.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: key });
     }
   });

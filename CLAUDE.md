@@ -56,3 +56,10 @@ pnpm deploy:dev     # deploy Data + Api stacks to AWS (needs AWS creds)
 - "Today" and the edit window (today + 2 previous days, `DAY_LOCKED`) are computed only on the server from the profile timezone (constitution V); the client never decides what is editable.
 - `buildDayView` / `applyChange` in `packages/shared/src/domain/day-view.ts` are used by the server and the optimistic client; keep them the single source of calorie and total math.
 - Standard workouts are code (`STANDARD_WORKOUTS`); entries snapshot name and rate so later edits never change past days.
+
+## Nutrition (feature 003)
+
+- Routes: `/food` (day view: ledger, four meals, add panel) and `/food/mine` (own foods). API: `GET /food`, `GET /food/recent`, `POST|PUT|DELETE /food/entries/...`, `GET|POST|PUT|DELETE /food/foods[/{id}]`.
+- Today, the 3-day edit window, calories and macro math are server-authoritative; list entries (built-in or own food) always follow servings × the entry's own rate snapshot, typed entries are free-form. Macros are all-or-none.
+- `buildFoodDay` / `applyFoodChange` in `packages/shared/src/domain/food-day.ts` are shared by the server and the optimistic client. The ledger is derived on read: burned comes from the workout entries of the same day, remaining = target − (eaten − burned). It is informational; scoring is feature 004.
+- Built-in foods are code (`STANDARD_FOODS`, 40 items); recent foods are derived from the last 90 days of entries.
