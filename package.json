@@ -16,7 +16,8 @@
     "cdk": "pnpm --filter @calci/infra cdk",
     "synth": "pnpm --filter @calci/infra synth",
     "deploy:dev": "pnpm --filter @calci/infra cdk deploy --all -c stage=dev",
-    "deploy:prod": "pnpm --filter @calci/infra cdk deploy --all -c stage=prod"
+    "deploy:prod": "pnpm --filter @calci/infra cdk deploy --all -c stage=prod",
+    "admin": "pnpm --filter @calci/infra admin"
   },
   "devDependencies": {
     "typescript": "6.0.3"

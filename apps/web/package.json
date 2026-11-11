@@ -8,13 +8,13 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
-    "test": "echo \"(no web tests yet)\""
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@calci/shared": "workspace:*",
     "next": "16.4.6",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "@calci/shared": "workspace:*",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -25,6 +25,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
     "tailwindcss": "4.3.3",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "vitest": "^5.1.0"
   }
 }

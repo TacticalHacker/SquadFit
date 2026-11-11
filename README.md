@@ -10,9 +10,9 @@ a global leaderboard, keep streaks alive, and nudge friends who slack off.
 
 ```
 apps/web           Next.js 16 (App Router, Tailwind 4)   → Vercel
-services/api       TypeScript Lambda handlers            → AWS Lambda + API Gateway (HTTP API)
+services/api       TypeScript Lambda handlers            → AWS Lambda + API Gateway (HTTP API, JWT-protected)
 packages/shared    zod contracts + pure domain logic     → used by web, api
-infra              AWS CDK v2 (Data + Api stacks)        → DynamoDB, Lambda, HTTP API
+infra              AWS CDK v2 (Data, Auth, Api stacks)   → DynamoDB, S3, Cognito, Lambda, HTTP API
 ```
 
 ## Getting started
@@ -29,16 +29,36 @@ pnpm dev                      # http://localhost:3000
 ```sh
 export AWS_PROFILE=...        # credentials for the target account
 pnpm cdk bootstrap            # once per account/region
-pnpm deploy:dev               # prints ApiUrl
+pnpm deploy:dev               # deploys Calci-dev-Data, -Auth, -Api
 ```
 
-### Deploy the frontend (Vercel)
+Note the stack outputs: `ApiUrl` (Api stack) and `UserPoolClientId` (Auth stack).
 
-1. Import the repo in Vercel and set **Root Directory** to `apps/web` (Vercel detects Next.js and pnpm).
-2. Set `NEXT_PUBLIC_API_URL` to the `ApiUrl` output for the matching stage.
-3. Add the production domain to `allowedOrigins` in [infra/lib/config.ts](infra/lib/config.ts) and redeploy the API.
+### Create user accounts (there is no public sign-up)
 
-For local dev, copy `.env.example` → `apps/web/.env.local`.
+```sh
+pnpm admin create-user alice          # prints a temporary password; send it to Alice privately
+pnpm admin reset-password alice       # forgotten password: issues a new temporary password
+pnpm admin list-users                 # username, status, created date
+# add --stage prod for production
+```
+
+On first sign-in the user must choose their own password, then complete their profile.
+
+### Run / deploy the frontend (Vercel)
+
+Server-only environment variables (nothing is exposed to the browser). Copy `.env.example` to
+`apps/web/.env.local` locally, and set the same names in Vercel:
+
+| Variable | Value |
+|---|---|
+| `API_URL` | `ApiUrl` stack output |
+| `COGNITO_REGION` | AWS region of the Auth stack |
+| `COGNITO_CLIENT_ID` | `UserPoolClientId` stack output |
+
+1. Import the repo in Vercel and set **Root Directory** to `apps/web`.
+2. Add the three variables above.
+3. The API has no CORS configuration: only the Next.js server calls it, never the browser.
 
 ## Spec-driven development
 

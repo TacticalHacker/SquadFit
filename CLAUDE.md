@@ -22,7 +22,9 @@ Features are built only through the Spec Kit skills in `.claude/skills/`:
 | `services/api/src/handlers/*.ts` | One Lambda per file, exporting `handler`. Thin: parse with shared schema → domain → DynamoDB → `json()`. |
 | `packages/shared/src/contracts` | zod request/response schemas (single source of truth for the API). |
 | `packages/shared/src/domain` | Pure, test-first domain logic (scoring, streaks, day boundaries, nudge limits). |
-| `infra/lib` | CDK stacks. Add a route with `route("<handler-file>", HttpMethod.X, "/path", { write })` in `api-stack.ts`. |
+| `infra/lib` | CDK stacks: `data-stack` (DynamoDB + private avatar bucket), `auth-stack` (Cognito, no self sign-up), `api-stack`. Add a route with `route("<handler-file>", HttpMethod.X, "/path", { write, avatars })` in `api-stack.ts`; routes require a valid Cognito token unless `auth: false`. |
+| `infra/scripts/admin.ts` | Operator CLI: `pnpm admin create-user\|reset-password\|list-users`. |
+| `apps/web/src/server` | Server-only code: Cognito `fetch` client, cookie helpers, API client (`apiFetch`), session DAL (`getMe`, `requireProfile`), Server Actions. `src/proxy.ts` gates routes and refreshes tokens. |
 
 ## Commands
 
@@ -32,6 +34,14 @@ pnpm check          # typecheck + lint + test (all packages)
 pnpm synth          # cdk synth for stage=dev
 pnpm deploy:dev     # deploy Data + Api stacks to AWS (needs AWS creds)
 ```
+
+## Auth model (feature 001)
+
+- Accounts are created by the operator only; users sign in with username + password (Cognito).
+- The browser never sees tokens or calls the AWS API: Server Actions / Server Components call Cognito and the API from the Next server, with tokens in httpOnly cookies (`sf_at`, `sf_rt`, `sf_ch`; see `specs/001-user-accounts/research.md` R3).
+- Read the session only inside `<Suspense>` (Cache Components). `getMe()` is memoised per request with React `cache()`, never `use cache: private`.
+- Handlers get the caller from verified JWT claims (`getCaller`), and are written as `handle(event, deps)` so tests inject in-memory fakes (`services/api/test/fakes.ts`).
+- API responses for other users must never include calorie target, timezone or username (see `PublicMemberSchema`).
 
 ## Conventions
 

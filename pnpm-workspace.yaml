@@ -27,3 +27,9 @@ minimumReleaseAgeExclude:
   - '@aws-sdk/token-providers@3.1166.0'
   - '@smithy/core@3.40.0'
   - aws-cdk-lib@2.276.0
+  - '@aws-sdk/checksums@3.1002.5'
+  - '@aws-sdk/client-s3@3.1166.0'
+  - '@aws-sdk/middleware-sdk-s3@3.972.89'
+  - '@aws-sdk/s3-request-presigner@3.1166.0'
+  - '@aws-sdk/client-cloudformation@3.1166.0'
+  - '@aws-sdk/client-cognito-identity-provider@3.1166.0'

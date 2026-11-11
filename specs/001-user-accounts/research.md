@@ -74,6 +74,11 @@ AWS API mean the API needs no CORS, and `NEXT_PUBLIC_API_URL` goes away.
 the refresh and access tokens together come close to the 4 KB cookie limit, and they are
 already signed.
 
+**Implementation notes** (from the pre-implementation analysis):
+- The proxy forwards a freshly refreshed access token to the *same* request by rewriting the request `cookie` header; otherwise the page being rendered would still see the expired token and bounce to sign-in once an hour. Server Action requests get the forwarded token but no `Set-Cookie` from the proxy, so sign-out can't be undone by a sliding re-set.
+- `getMe()` is memoised per request with React `cache()`. `use cache: private` would keep a stale `profile: null` after setup and loop between `/` and `/setup`.
+- The post-sign-in `next` path is checked by `safeNextPath` (no `//host`, `/\host`, control characters or encoded variants).
+
 ## R4. Calling Cognito from Next.js
 
 **Decision**: A ~60-line `fetch` wrapper around `https://cognito-idp.<region>.amazonaws.com/`

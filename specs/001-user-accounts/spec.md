@@ -161,6 +161,8 @@ feature builds on this list.
 - Expected scale is about 3 users, likely permanently. Requirements favour simplicity over scale.
 - There is a single global community and a single global leaderboard (defined in a later feature). Groups, squads, and invites are permanently out of scope. The PRD's "group streak" becomes a community-wide streak, to be defined in the streaks feature.
 - The operator (the developer) has direct admin access and creates accounts, and resets forgotten passwords, with an admin script. Self-service sign-up and recovery are out of scope.
+- Sessions also end at most one year after sign-in, regardless of activity (the identity provider's refresh-token lifetime).
+- Avatars are shrunk to a 256×256 still image; animated GIFs become a single frame.
 - Avatar moderation is out of scope.
 - Account deletion and data export are deferred to a later privacy feature.
 - Timezone affects day boundaries in later features (logging, streaks, nudges); this feature only captures and stores it.
