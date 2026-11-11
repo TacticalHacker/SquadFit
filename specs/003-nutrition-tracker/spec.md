@@ -15,6 +15,7 @@
 ### Session 2026-11-11
 
 - Q: Should each food also record protein, carbs and fat, or only calories? → A: Calories plus protein, carbs and fat per serving, shown on each food and as daily totals.
+- Q: Can a user overwrite the calories of an entry added from a list? → A: No. List entries are always servings × the food's values; to use different numbers the user logs a typed entry instead.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -36,7 +37,8 @@ reload and confirm both are listed under the right meals with the same values, e
 
 1. **Given** a signed-in user with a completed profile and nothing logged today, **When** they open Food, **Then** they see four empty meals (Breakfast, Lunch, Dinner, Snacks) for today and a clear way to add to each.
 2. **Given** the add form for a meal, **When** the user enters a name and a calorie amount and submits, **Then** the item is saved to that meal for today and appears straight away.
-3. **Given** a logged item, **When** the user changes its name, calories, meal or servings and saves, **Then** the list and totals show the new values.
+3. **Given** a logged item typed by the user, **When** they change its name, calories, macros or meal and save, **Then** the list and totals show the new values.
+10. **Given** a logged item that came from a food list, **When** the user changes its servings or meal and saves, **Then** its calories and macros are recalculated from the food's per-serving values; its name and calories cannot be edited directly.
 4. **Given** a logged item, **When** the user removes it, **Then** it disappears from the list and totals.
 5. **Given** the user adds the same food twice in a day, **When** they look at the list, **Then** both entries are listed separately.
 6. **Given** a name that is empty or calories that are not a whole number in the allowed range, **When** the user submits, **Then** nothing is saved and a message states what is allowed.
@@ -144,7 +146,7 @@ under recent foods on another day.
 **Logging**
 - **FR-002**: Users MUST be able to add a food entry to a meal (Breakfast, Lunch, Dinner or Snacks) on a day, with a name (1-60 characters after trimming) and calories (a whole number from 1 to 5,000), and optionally protein, carbs and fat in grams (each a number from 0 to 500 with at most one decimal place), either typed directly or from a food list.
 - **FR-003**: An entry added from a list MUST have calories equal to the food's calories per serving times the number of servings, rounded to the nearest whole number, and protein, carbs and fat equal to the per-serving grams times the servings, rounded to one decimal place; servings are allowed from 0.5 to 20 in steps of 0.5, and the result MUST still fall within 1 to 5,000.
-- **FR-004**: Users MUST be able to change an entry's name, calories, macros, meal and servings, and remove an entry.
+- **FR-004**: Users MUST be able to change a typed entry's name, calories, macros and meal, change a list entry's servings and meal (its calories and macros then follow FR-003 and cannot be edited directly), and remove any entry.
 - **FR-005**: A user MUST be able to log the same food more than once on a day; each entry is independent.
 - **FR-006**: Invalid input MUST be rejected with a message that states the allowed values; nothing is saved.
 - **FR-007**: Within each meal, entries MUST be listed in the order they were added.
