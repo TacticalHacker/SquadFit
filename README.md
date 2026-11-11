@@ -28,7 +28,8 @@ pnpm dev                      # http://localhost:3000
 
 ```sh
 export AWS_PROFILE=...        # credentials for the target account
-pnpm cdk bootstrap            # once per account/region
+export CDK_DEFAULT_REGION=ap-south-1   # the app defaults to us-east-1 if unset
+pnpm cdk bootstrap            # once per account/region; skip if CDKToolkit already exists there
 pnpm deploy:dev               # deploys Calci-dev-Data, -Auth, -Api
 ```
 

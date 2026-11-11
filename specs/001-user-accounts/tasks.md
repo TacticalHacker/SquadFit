@@ -354,3 +354,16 @@ Task: T045 Create apps/web/src/components/avatar-picker.tsx
   - revoked `sf_rt` → redirect to sign-in with `sf_at` and `sf_rt` cleared
   - signed-in user on `/sign-in` → redirected to `/`
 - **Not yet run:** quickstart scenarios 3–22 against a deployed `dev` stage (T049, T057, T065, T069).
+
+**2026-11-11, live `dev` stage (account 120221317545, ap-south-1), API and Cognito only; web UI not yet exercised**
+
+Deployed `Calci-dev-Data`, `-Auth`, `-Api` (about 127 s). Checked with `curl` and a throwaway user (since deleted):
+- `/health` 200; `/me` and `/people` 401 with no or a garbage token; no CORS (preflight 404)
+- admin `create-user` works; creating `ROSHAN` when `roshan` exists → "Username is taken" (quickstart 3, 4)
+- wrong password and unknown user return the identical Cognito error (FR-007)
+- temporary password with mixed-case username → `NEW_PASSWORD_REQUIRED`; a short new password is rejected; a valid one returns tokens; the temporary password then stops working (FR-002, FR-003, FR-004a; scenarios 5–7, 12)
+- `/me` is `profile: null` before setup; `/people` is 409 `PROFILE_REQUIRED` (C1, FR-011)
+- invalid profile → 400 with per-field messages; valid profile saved; `/people` shows only `userId, displayName, avatarUrl, joinedAt, isYou` (scenarios 9, 14)
+- avatar: non-WebP 400, WebP accepted, >300 KB 413, presigned GET 200 and the unsigned bucket URL 403, delete clears it
+- refresh token works; wrong current password on change-password is rejected; after revoke, refresh fails ("Refresh Token has been revoked")
+- **Still to run in a browser:** scenarios 2, 8, 10, 11, 13, 15–22 (sign-in form, setup form, timezone pre-fill, image picker, settings, cookie behaviour, lockout message). Lockout timing (scenario 20) was not triggered live.
