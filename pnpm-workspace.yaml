@@ -33,3 +33,5 @@ minimumReleaseAgeExclude:
   - '@aws-sdk/s3-request-presigner@3.1166.0'
   - '@aws-sdk/client-cloudformation@3.1166.0'
   - '@aws-sdk/client-cognito-identity-provider@3.1166.0'
+
+nodeLinker: hoisted

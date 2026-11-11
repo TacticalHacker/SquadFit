@@ -1,26 +1,28 @@
 # AWS Amplify Hosting build for the Next.js app in a pnpm monorepo.
-# Console setup: README "Deploying the web app (Amplify)". Set AMPLIFY_MONOREPO_APP_ROOT=apps/web
-# and the env vars API_URL, COGNITO_REGION, COGNITO_CLIENT_ID on the app.
+# pnpm monorepos need `nodeLinker: hoisted` (nodeLinker in pnpm-workspace.yaml) and the build run from the repo root
+# (buildPath '/'), so node_modules holds real packages that Amplify can package.
+# Console: set AMPLIFY_MONOREPO_APP_ROOT=apps/web and the env vars API_URL, COGNITO_REGION, COGNITO_CLIENT_ID.
 version: 1
 applications:
   - appRoot: apps/web
     frontend:
+      buildPath: /
       phases:
         preBuild:
           commands:
             - nvm install 24 && nvm use 24
             - corepack enable
-            - cd ../.. && pnpm install --frozen-lockfile && cd apps/web
+            - pnpm install --frozen-lockfile --filter "@calci/web..."
         build:
           commands:
             # Server-side code reads these at runtime; Amplify only exposes them to the build by default.
-            - env | grep -E '^(API_URL|COGNITO_REGION|COGNITO_CLIENT_ID|COGNITO_ENDPOINT)=' >> .env.production
-            - pnpm build
+            - env | grep -E '^(API_URL|COGNITO_REGION|COGNITO_CLIENT_ID|COGNITO_ENDPOINT)=' >> apps/web/.env.production
+            - pnpm --filter @calci/web build
       artifacts:
-        baseDirectory: .next
+        baseDirectory: apps/web/.next
         files:
           - '**/*'
       cache:
         paths:
-          - ../../node_modules/.pnpm-store/**/*
-          - .next/cache/**/*
+          - node_modules/**/*
+          - apps/web/.next/cache/**/*
