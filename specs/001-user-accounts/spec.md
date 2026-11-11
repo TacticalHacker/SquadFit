@@ -14,6 +14,7 @@
 
 - Q: Sign-in method? → A: Plain username + password (no email).
 - Q: Who may sign up? → A: Nobody. There is no public sign-up; the operator creates accounts with an admin script.
+- Q (plan): Accept the managed identity service's built-in progressive lockout instead of an exact "5 attempts → 15 minutes" rule? → A: Yes (confirmed by product owner). FR-008 and SC-005 amended (see research R2).
 - Q: Squads / groups? → A: None. All users belong to one global community with one global leaderboard. Expected scale is about 3 people, likely permanently.
 
 ## User Scenarios & Testing *(mandatory)*
@@ -57,7 +58,7 @@ then sign out and confirm protected screens need signing in again.
 
 1. **Given** a registered user, **When** they sign in with the correct username and password, **Then** they land on their home screen and stay signed in across browser restarts.
 2. **Given** a registered user, **When** they enter a wrong password, **Then** they see "Incorrect username or password", which doesn't reveal whether the username exists.
-3. **Given** 5 failed attempts for a username within 15 minutes, **When** another attempt is made, **Then** it is refused for 15 minutes, even with the correct password.
+3. **Given** 5 consecutive failed attempts for a username, **When** further attempts are made, **Then** they are refused for a growing period (up to about 15 minutes), even with the correct password, and the user sees "Too many attempts. Try again in a few minutes."
 4. **Given** a signed-in user, **When** they sign out, **Then** that device's session ends and protected screens require signing in.
 5. **Given** a signed-in user, **When** they change their password by entering the current one and a new one, **Then** the new password works from the next sign-in and the old one doesn't.
 
@@ -120,7 +121,7 @@ feature builds on this list.
 - **FR-005**: The system MUST keep a user signed in across browser restarts until they sign out or their session expires after 30 days of inactivity.
 - **FR-006**: Users MUST be able to sign out, which ends the session on that device.
 - **FR-007**: Failed sign-ins MUST NOT reveal whether the username exists.
-- **FR-008**: After 5 failed sign-in attempts for one username within 15 minutes, further attempts for that username MUST be refused for 15 minutes.
+- **FR-008**: After 5 consecutive failed sign-in attempts for one username, further attempts MUST be refused for a period that grows with each additional failure, up to about 15 minutes, and resets after a successful sign-in or a quiet period.
 - **FR-009**: Signed-in users MUST be able to change their password by entering their current one.
 
 **Profile**
@@ -152,7 +153,7 @@ feature builds on this list.
 - **SC-002**: A returning user on a device they've used before reaches their home screen without entering credentials, as long as they haven't been inactive for 30 days.
 - **SC-003**: Visitors who aren't signed in can see no user information; access checks pass in 100% of tested cases.
 - **SC-004**: The People screen appears within 1 second for up to 100 users.
-- **SC-005**: 100% of password-guessing runs beyond 5 attempts per 15 minutes are refused.
+- **SC-005**: A password-guessing run is limited to 5 rapid attempts per username, after which attempts are increasingly delayed (up to about 15 minutes).
 
 ## Assumptions
 
