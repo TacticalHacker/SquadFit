@@ -5,6 +5,9 @@ export const ApiErrorCodeSchema = z.enum([
   "PROFILE_REQUIRED",
   "PAYLOAD_TOO_LARGE",
   "UNAUTHORIZED",
+  "DAY_LOCKED",
+  "DUPLICATE_NAME",
+  "NOT_FOUND",
 ]);
 export type ApiErrorCode = z.infer<typeof ApiErrorCodeSchema>;
 

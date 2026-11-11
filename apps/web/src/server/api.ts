@@ -26,7 +26,7 @@ export class ApiRequestError extends Error {
  */
 export async function apiFetch<S extends z.ZodType>(
   path: string,
-  opts: { method?: "GET" | "PUT" | "DELETE"; body?: unknown; schema: S },
+  opts: { method?: "GET" | "POST" | "PUT" | "DELETE"; body?: unknown; schema: S },
 ): Promise<z.infer<S>> {
   // Read the cookie first: it marks this call as request-time, so `next build` doesn't try to run it
   // (and doesn't need API_URL) while prerendering the static shell.

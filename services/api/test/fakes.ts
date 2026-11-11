@@ -2,6 +2,7 @@ import type { APIGatewayProxyEventV2WithJWTAuthorizer, APIGatewayProxyStructured
 import type { ProfileInput } from "@calci/shared";
 import type { AvatarStore } from "../src/lib/avatar-store";
 import type { Deps } from "../src/lib/deps";
+import type { CustomWorkoutItem, EntryItem, WorkoutRepo } from "../src/lib/workout-repo";
 import { ProfileMissingError, type ProfileItem, type ProfileRepo } from "../src/lib/profile-repo";
 
 export class InMemoryProfileRepo implements ProfileRepo {
@@ -40,6 +41,67 @@ export class InMemoryProfileRepo implements ProfileRepo {
   }
 }
 
+export class InMemoryWorkoutRepo implements WorkoutRepo {
+  /** key = `${userId}|${sk}` so ordering by sk mirrors DynamoDB. */
+  readonly entries = new Map<string, EntryItem>();
+  readonly customs = new Map<string, CustomWorkoutItem>();
+
+  private k = (userId: string, id: string) => `${userId}|${id}`;
+  private entryKey = (u: string, d: string, w: string) => this.k(u, `ENTRY#${d}#${w}`);
+
+  async listEntriesForDay(userId: string, date: string) {
+    return this.listEntriesInRange(userId, date, date);
+  }
+  async listEntriesInRange(userId: string, from: string, to: string) {
+    return [...this.entries.entries()]
+      .filter(([key, e]) => key.startsWith(`${userId}|`) && e.date >= from && e.date <= to)
+      .sort(([a], [b]) => (a < b ? -1 : 1))
+      .map(([, e]) => e);
+  }
+  async getEntry(userId: string, date: string, workoutId: string) {
+    return this.entries.get(this.entryKey(userId, date, workoutId)) ?? null;
+  }
+  async putEntryIfAbsent(userId: string, entry: EntryItem) {
+    const key = this.entryKey(userId, entry.date, entry.workoutId);
+    if (this.entries.has(key)) return false;
+    this.entries.set(key, entry);
+    return true;
+  }
+  async updateEntryMinutes(userId: string, date: string, workoutId: string, minutes: number, calories: number, nowIso: string) {
+    const key = this.entryKey(userId, date, workoutId);
+    const e = this.entries.get(key);
+    if (!e) return false;
+    this.entries.set(key, { ...e, minutes, calories, updatedAt: nowIso });
+    return true;
+  }
+  async deleteEntry(userId: string, date: string, workoutId: string) {
+    this.entries.delete(this.entryKey(userId, date, workoutId));
+  }
+  async listCustomWorkouts(userId: string) {
+    return [...this.customs.entries()]
+      .filter(([key, w]) => key.startsWith(`${userId}|`) && !w.removedAt)
+      .map(([, w]) => w);
+  }
+  async getCustomWorkout(userId: string, workoutId: string) {
+    return this.customs.get(this.k(userId, workoutId)) ?? null;
+  }
+  async putCustomWorkout(userId: string, item: CustomWorkoutItem) {
+    this.customs.set(this.k(userId, item.workoutId), item);
+  }
+  async updateCustomWorkout(userId: string, workoutId: string, fields: { name: string; defaultMinutes: number; defaultCalories: number }, nowIso: string) {
+    const w = this.customs.get(this.k(userId, workoutId));
+    if (!w || w.removedAt) return false;
+    this.customs.set(this.k(userId, workoutId), { ...w, ...fields, updatedAt: nowIso });
+    return true;
+  }
+  async markCustomRemoved(userId: string, workoutId: string, nowIso: string) {
+    const w = this.customs.get(this.k(userId, workoutId));
+    if (!w) return false;
+    this.customs.set(this.k(userId, workoutId), { ...w, removedAt: w.removedAt ?? nowIso, updatedAt: nowIso });
+    return true;
+  }
+}
+
 export class FakeAvatarStore implements AvatarStore {
   readonly objects = new Map<string, Uint8Array>();
   private n = 0;
@@ -59,10 +121,11 @@ export class FakeAvatarStore implements AvatarStore {
 
 export function makeDeps(now = "2026-11-11T10:00:00.000Z") {
   const profiles = new InMemoryProfileRepo();
+  const workouts = new InMemoryWorkoutRepo();
   const avatars = new FakeAvatarStore();
   let clock = new Date(now);
-  const deps: Deps = { profiles, avatars, now: () => clock };
-  return { deps, profiles, avatars, setNow: (iso: string) => (clock = new Date(iso)) };
+  const deps: Deps = { profiles, workouts, avatars, now: () => clock };
+  return { deps, profiles, workouts, avatars, setNow: (iso: string) => (clock = new Date(iso)) };
 }
 
 export function makeEvent(opts: {
@@ -70,6 +133,8 @@ export function makeEvent(opts: {
   username?: string;
   body?: unknown;
   rawBody?: string;
+  pathParameters?: Record<string, string>;
+  queryStringParameters?: Record<string, string>;
 }): APIGatewayProxyEventV2WithJWTAuthorizer {
   const body = opts.rawBody ?? (opts.body === undefined ? undefined : JSON.stringify(opts.body));
   return {
@@ -79,6 +144,8 @@ export function makeEvent(opts: {
       },
     },
     ...(body !== undefined ? { body } : {}),
+    ...(opts.pathParameters ? { pathParameters: opts.pathParameters } : {}),
+    ...(opts.queryStringParameters ? { queryStringParameters: opts.queryStringParameters } : {}),
   } as unknown as APIGatewayProxyEventV2WithJWTAuthorizer;
 }
 
@@ -95,4 +162,9 @@ export function webpBytes(extra = 0): Buffer {
   head.write("RIFF", 0, "ascii");
   head.write("WEBP", 8, "ascii");
   return Buffer.concat([head, Buffer.alloc(extra)]);
+}
+
+/** Create the caller's profile directly in the fake repo. */
+export async function seedProfile(profiles: InMemoryProfileRepo, sub = "user-1", timezone = "Asia/Kolkata", username = "alice") {
+  await profiles.upsert(sub, username, { ...validProfile, timezone }, "2026-01-01T00:00:00.000Z");
 }

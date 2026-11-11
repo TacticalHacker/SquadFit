@@ -49,3 +49,10 @@ pnpm deploy:dev     # deploy Data + Api stacks to AWS (needs AWS creds)
 - `@calci/shared` is consumed as TypeScript source (no build step).
 - DynamoDB single table `pk`/`sk` + `gsi1pk`/`gsi1sk`; document key patterns in each feature's `data-model.md`.
 - Never compute "today" in UTC; use the user's timezone (constitution §V).
+
+## Workouts (feature 002)
+
+- Routes: `/workouts` (checklist, day nav, 7-day strip) and `/workouts/mine` (custom workouts); `/` redirects to `/workouts`. API: `GET /workouts`, `GET /workouts/summary`, `PUT|DELETE /workouts/entries/{date}/{workoutId}`, `POST|PUT|DELETE /workouts/custom[/{id}]`.
+- "Today" and the edit window (today + 2 previous days, `DAY_LOCKED`) are computed only on the server from the profile timezone (constitution V); the client never decides what is editable.
+- `buildDayView` / `applyChange` in `packages/shared/src/domain/day-view.ts` are used by the server and the optimistic client; keep them the single source of calorie and total math.
+- Standard workouts are code (`STANDARD_WORKOUTS`); entries snapshot name and rate so later edits never change past days.

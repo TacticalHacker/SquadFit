@@ -16,6 +16,9 @@ async function Shell({ children }: { children: ReactNode }) {
           <Link href="/" className="mr-2 font-semibold">
             SquadFit
           </Link>
+          <Link href="/workouts" className={link}>
+            Workouts
+          </Link>
           <Link href="/people" className={link}>
             People
           </Link>

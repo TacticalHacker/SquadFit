@@ -60,3 +60,11 @@ pnpm --filter @calci/web dev     # http://localhost:3000
 ```sh
 pnpm cdk destroy --all -c stage=dev   # dev data is not retained
 ```
+
+## Validation log (2026-11-11, dev stage, ap-south-1)
+
+Automated: `pnpm check` green (shared 85, API 69, web 48, infra 12 tests), `pnpm synth` and `pnpm --filter @calci/web build` green.
+
+Live API with a throwaway user (deleted afterwards): scenarios 2 (401 without token), 3 (12 rows), 4/7 (tick, then 45 min), 10 (untick), 15 (`409 DAY_LOCKED`), 16 (`400` future), 19 (`409 DUPLICATE_NAME` for "running"), 18 (custom add), 23 (`404` for a standard id), 26 (summary range) behaved as specified.
+
+**Not yet run (needs a person in a browser):** scenarios 1, 5, 8, 9, 11-14, 17, 18-22, 24, 25; the accessibility pass (T063); SC-001/SC-002/SC-007 timings (T064). Tasks T029, T063 and T064 stay open for that.

@@ -32,7 +32,7 @@ Existing codes reused: `VALIDATION_FAILED` (400; also a date after `today` or a 
       "removed": false,
       "defaultMinutes": 30,
       "defaultCalories": 300,
-      "entry": { "minutes": 45, "calories": 450 }
+      "entry": { "minutes": 45, "calories": 450, "rateMinutes": 30, "rateCalories": 300 }
     },
     {
       "workoutId": "std-yoga", "name": "Yoga", "isStandard": true, "removed": false,
@@ -42,6 +42,8 @@ Existing codes reused: `VALIDATION_FAILED` (400; also a date after `today` or a 
   "summary": { "totalMinutes": 45, "totalCalories": 450 }
 }
 ```
+
+`rateMinutes`/`rateCalories` are the rate snapshot the entry was logged with (FR-010); the client uses them so its optimistic calories match the server.
 
 Rows: standard workouts in catalog order, then the caller's active custom workouts A→Z, then any entries whose custom workout was removed (`removed: true`, defaults taken from the entry's own rate).
 

@@ -102,6 +102,14 @@ export class ApiStack extends Stack {
     route("me-avatar-put", HttpMethod.PUT, "/me/avatar", { write: true, avatars: "readwrite" });
     route("me-avatar-delete", HttpMethod.DELETE, "/me/avatar", { write: true, avatars: "readwrite" });
     route("people-get", HttpMethod.GET, "/people", { avatars: "read" });
+    // Workouts (feature 002)
+    route("workouts-get", HttpMethod.GET, "/workouts");
+    route("workouts-summary-get", HttpMethod.GET, "/workouts/summary");
+    route("entry-put", HttpMethod.PUT, "/workouts/entries/{date}/{workoutId}", { write: true });
+    route("entry-delete", HttpMethod.DELETE, "/workouts/entries/{date}/{workoutId}", { write: true });
+    route("custom-post", HttpMethod.POST, "/workouts/custom", { write: true });
+    route("custom-put", HttpMethod.PUT, "/workouts/custom/{workoutId}", { write: true });
+    route("custom-delete", HttpMethod.DELETE, "/workouts/custom/{workoutId}", { write: true });
 
     new CfnOutput(this, "ApiUrl", { value: this.api.apiEndpoint });
   }

@@ -11,3 +11,8 @@ export * from "./contracts/people";
 export * from "./domain/username";
 export * from "./domain/profile";
 export * from "./domain/timezone";
+export * from "./domain/calories";
+export * from "./domain/day";
+export * from "./domain/workouts";
+export * from "./domain/day-view";
+export * from "./contracts/workouts";
