@@ -16,6 +16,9 @@
 
 - Q: Should each food also record protein, carbs and fat, or only calories? → A: Calories plus protein, carbs and fat per serving, shown on each food and as daily totals.
 - Q: Can a user overwrite the calories of an entry added from a list? → A: No. List entries are always servings × the food's values; to use different numbers the user logs a typed entry instead.
+- Q: Is the daily calorie target a limit on eaten calories or on net calories? → A: Net calories. Remaining = target − (eaten − burned); eaten and burned are shown alongside.
+- Q: Which meal is preselected when adding? → A (recommended, accepted): for today, chosen from the user's local time of day (before 11:00 Breakfast, 11:00-15:00 Lunch, 15:00-18:00 Snacks, from 18:00 Dinner); for other days none is preselected and the user picks one.
+- Q: What happens when a recent food is chosen, and which entries feed the recent list? → A (recommended, accepted): list entries and typed entries both feed it, one item per distinct name with the latest entry's calories and macros. Choosing one adds an ordinary typed entry (servings 1) with those values, which the user can then edit.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -36,7 +39,7 @@ reload and confirm both are listed under the right meals with the same values, e
 **Acceptance Scenarios**:
 
 1. **Given** a signed-in user with a completed profile and nothing logged today, **When** they open Food, **Then** they see four empty meals (Breakfast, Lunch, Dinner, Snacks) for today and a clear way to add to each.
-2. **Given** the add form for a meal, **When** the user enters a name and a calorie amount and submits, **Then** the item is saved to that meal for today and appears straight away.
+2. **Given** the add form for a meal (today's preselects the meal that matches the local time of day, other days preselect none), **When** the user enters a name and a calorie amount and submits, **Then** the item is saved to that meal for today and appears straight away.
 3. **Given** a logged item typed by the user, **When** they change its name, calories, macros or meal and save, **Then** the list and totals show the new values.
 10. **Given** a logged item that came from a food list, **When** the user changes its servings or meal and saves, **Then** its calories and macros are recalculated from the food's per-serving values; its name and calories cannot be edited directly.
 4. **Given** a logged item, **When** the user removes it, **Then** it disappears from the list and totals.
@@ -115,7 +118,7 @@ under recent foods on another day.
 2. **Given** a food from a list, **When** the user picks it and sets servings, **Then** an entry is added to the chosen meal with its calories, protein, carbs and fat each equal to the per-serving value times the servings (calories rounded to a whole number, grams to one decimal place).
 3. **Given** the user creates their own food with a name, a serving description and calories per serving, **When** they save it, **Then** it appears in "My foods" and in search, visible only to them.
 4. **Given** one of their own foods, **When** the user edits or removes it, **Then** future picks use the new values or no longer offer it, and entries already logged keep the values they were logged with.
-5. **Given** the user has logged foods before, **When** they open the add form, **Then** they see up to 20 distinct recent foods, most recent first, each with its latest calories, and tapping one adds it to the chosen meal.
+5. **Given** the user has logged foods before, **When** they open the add form, **Then** they see up to 20 distinct recent foods, most recent first, each with its latest calories, and tapping one adds a typed entry with those values to the chosen meal.
 6. **Given** a brand-new user, **When** they open the add form, **Then** the built-in list is available and no recent foods are shown.
 7. **Given** a read-only day, **When** the user views it, **Then** lists are not offered for adding to it.
 8. **Given** another user's saved foods, **When** this user searches, **Then** those foods are never shown.
@@ -171,7 +174,7 @@ under recent foods on another day.
 - **FR-019**: The system MUST provide one built-in list of common foods, about 40, each with a name, a standard serving description, calories per serving and protein, carbs and fat per serving, identical for every user and not editable by users.
 - **FR-020**: Users MUST be able to search the built-in list and their own foods together by name, ignoring capitalisation.
 - **FR-021**: Users MUST be able to create their own foods (name 1-60 characters, serving description 1-40 characters, calories per serving a whole number from 1 to 5,000, and optionally protein, carbs and fat per serving as in FR-002), edit them and remove them. Own food names MUST be unique within the user's own list, ignoring capitalisation and extra spaces.
-- **FR-022**: The screen MUST offer up to 20 distinct recently logged foods from the last 90 days, most recent first, each with the calories of its latest entry; names are compared ignoring capitalisation and extra spaces. Choosing one adds an entry with that name and calories to the chosen meal.
+- **FR-022**: The screen MUST offer up to 20 distinct recently logged foods from the last 90 days, most recent first, each with the calories of its latest entry; names are compared ignoring capitalisation and extra spaces. Choosing one adds a typed entry (servings 1) with that name and its latest calories and macros to the chosen meal, which the user can then edit; both list entries and typed entries feed recent foods.
 - **FR-023**: Recent foods and own foods MUST be built only from, and visible only to, the user who owns them.
 
 **Privacy**
