@@ -11,6 +11,7 @@ export interface ProfileFormValues {
   displayName: string;
   timezone?: string;
   dailyCalorieTarget?: number;
+  dailyProteinTarget?: number | null;
   avatarUrl: string | null;
 }
 
@@ -72,6 +73,27 @@ export function ProfileForm({
           defaultValue={initial.dailyCalorieTarget}
           aria-invalid={f.dailyCalorieTarget ? true : undefined}
           aria-describedby={describedBy("dailyCalorieTarget", f.dailyCalorieTarget, "hint")}
+          className={inputClass}
+        />
+      </Field>
+
+      <Field
+        id="dailyProteinTarget"
+        label="Daily protein target (g), optional"
+        error={f.dailyProteinTarget}
+        hint="Between 10 and 500. Leave blank for none. Your AI coach can adjust it too."
+      >
+        <input
+          id="dailyProteinTarget"
+          name="dailyProteinTarget"
+          type="number"
+          inputMode="numeric"
+          min={10}
+          max={500}
+          step={1}
+          defaultValue={initial.dailyProteinTarget ?? undefined}
+          aria-invalid={f.dailyProteinTarget ? true : undefined}
+          aria-describedby={describedBy("dailyProteinTarget", f.dailyProteinTarget, "hint")}
           className={inputClass}
         />
       </Field>

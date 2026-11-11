@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CalorieTargetSchema, DisplayNameSchema, initials, PasswordSchema } from "../src/domain/profile";
+import { CalorieTargetSchema, DisplayNameSchema, initials, PasswordSchema, ProteinTargetSchema } from "../src/domain/profile";
 
 describe("DisplayNameSchema", () => {
   it("trims and accepts 1–40 chars", () => {
@@ -41,5 +41,14 @@ describe("initials", () => {
     expect(initials("alice")).toBe("A");
     expect(initials("john ronald reuel")).toBe("JR");
     expect(initials("  bob   smith ")).toBe("BS");
+  });
+});
+
+describe("ProteinTargetSchema", () => {
+  it.each([10, 130, 500])("accepts %d", (v) => {
+    expect(ProteinTargetSchema.safeParse(v).success).toBe(true);
+  });
+  it.each([9, 501, 100.5, 0, Number.NaN])("rejects %d", (v) => {
+    expect(ProteinTargetSchema.safeParse(v).success).toBe(false);
   });
 });

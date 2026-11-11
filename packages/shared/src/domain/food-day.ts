@@ -1,9 +1,10 @@
 import { isEditableDay } from "./day";
+import { canTransition, type PhotoStatus } from "./photo-entry";
 import { MEALS, scaleCalories, scaleMacros, type Macros, type Meal } from "./nutrition";
 
 export interface FoodEntry {
   entryId: string;
-  source: "typed" | "standard" | "own";
+  source: "typed" | "standard" | "own" | "photo";
   foodId?: string;
   name: string;
   serving?: string;
@@ -13,6 +14,8 @@ export interface FoodEntry {
   /** Per-serving snapshot the entry was logged with (FR-008). For typed entries it equals the totals. */
   rate: { calories: number; macros: Macros | null };
   meal: Meal;
+  /** Photo entries only (feature 005). `url` is a short-lived link added by the server. */
+  photo?: { status: PhotoStatus; caption: string; url?: string };
 }
 
 export interface MealGroup {
@@ -26,9 +29,13 @@ export interface FoodLedger {
   burned: number;
   net: number;
   target: number;
+  /** Optional daily protein target in grams (feature 004). */
+  proteinTarget: number | null;
   /** target − net; negative means over the target. */
   remaining: number;
   macros: { protein: number; carbs: number; fat: number; entriesWithoutMacros: number };
+  /** Photo entries still waiting for an analysis; they count in no total (feature 005). */
+  pending: number;
 }
 
 export interface FoodDayView {
@@ -46,6 +53,8 @@ export type FoodPatch = {
   macros?: Macros | null;
   meal?: Meal;
   servings?: number;
+  /** Pending photo entries only. */
+  caption?: string;
 };
 
 export type FoodChange =
@@ -66,19 +75,23 @@ export function entryFromFood(food: { calories: number; macros: Macros | null },
 function assemble(
   head: Pick<FoodDayView, "date" | "today" | "timezone" | "editable">,
   target: number,
+  proteinTarget: number | null,
   burned: number,
   entries: readonly FoodEntry[],
 ): FoodDayView {
+  const isPending = (e: FoodEntry) => e.photo?.status === "pending";
   const meals: MealGroup[] = MEALS.map((meal) => {
     const list = entries.filter((e) => e.meal === meal);
-    return { meal, subtotal: list.reduce((n, e) => n + e.calories, 0), entries: list };
+    return { meal, subtotal: list.filter((e) => !isPending(e)).reduce((n, e) => n + e.calories, 0), entries: list };
   });
   const eaten = meals.reduce((n, m) => n + m.subtotal, 0);
   let p = 0;
   let c = 0;
   let f = 0;
   let without = 0;
+  const pending = entries.filter(isPending).length;
   for (const e of entries) {
+    if (isPending(e)) continue; // waiting for analysis: no calories, no macros, not "missing macros" either
     if (!e.macros) {
       without++;
       continue;
@@ -96,8 +109,10 @@ function assemble(
       burned,
       net,
       target,
+      proteinTarget,
       remaining: target - net,
       macros: { protein: p / 10, carbs: c / 10, fat: f / 10, entriesWithoutMacros: without },
+      pending,
     },
   };
 }
@@ -107,12 +122,14 @@ export function buildFoodDay(input: {
   today: string;
   timezone: string;
   target: number;
+  proteinTarget?: number | null;
   burnedCalories: number;
   entries: readonly FoodEntry[];
 }): FoodDayView {
   return assemble(
     { date: input.date, today: input.today, timezone: input.timezone, editable: isEditableDay(input.date, input.today) },
     input.target,
+    input.proteinTarget ?? null,
     input.burnedCalories,
     input.entries,
   );
@@ -130,6 +147,7 @@ export function applyFoodChange(view: FoodDayView, change: FoodChange): FoodDayV
     next = current.map((e) => {
       if (e.entryId !== change.entryId) return e;
       const p = change.patch;
+      if (e.source === "photo" && e.photo) return applyPhotoPatch(e, e.photo, p);
       if (e.source === "typed") {
         const calories = p.calories ?? e.calories;
         const macros = p.macros === undefined ? e.macros : p.macros;
@@ -153,7 +171,25 @@ export function applyFoodChange(view: FoodDayView, change: FoodChange): FoodDayV
     });
   }
   const { date, today, timezone, editable } = view;
-  return assemble({ date, today, timezone, editable }, view.ledger.target, view.ledger.burned, next);
+  return assemble({ date, today, timezone, editable }, view.ledger.target, view.ledger.proteinTarget, view.ledger.burned, next);
+}
+
+/** Photo entries: caption/meal while pending, calories/macros to fill by hand (manual) or correct (edited). */
+function applyPhotoPatch(e: FoodEntry, photo: NonNullable<FoodEntry["photo"]>, p: FoodPatch): FoodEntry {
+  const valuesChanged = p.calories !== undefined || p.macros !== undefined;
+  const next: PhotoStatus = valuesChanged ? (photo.status === "pending" ? "manual" : "edited") : photo.status;
+  const status = canTransition(photo.status, next, "user") ? next : photo.status;
+  const calories = p.calories ?? e.calories;
+  const macros = p.macros === undefined ? e.macros : p.macros;
+  const caption = photo.status === "pending" && p.caption !== undefined ? p.caption : photo.caption;
+  return {
+    ...e,
+    meal: p.meal ?? e.meal,
+    calories,
+    macros,
+    rate: { calories, macros },
+    photo: { ...photo, status, caption },
+  };
 }
 
 /** Meal to preselect for today, from the user's local hour (clarification Q4). Display only. */

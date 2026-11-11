@@ -27,3 +27,13 @@ export function initials(displayName: string): string {
     .map((word) => Array.from(word)[0]?.toUpperCase() ?? "")
     .join("");
 }
+
+export const PROTEIN_TARGET_MIN = 10;
+export const PROTEIN_TARGET_MAX = 500;
+
+/** Optional daily protein target in grams (feature 004, FR-009). */
+export const ProteinTargetSchema = z
+  .number()
+  .int("Must be between 10 and 500 g")
+  .min(PROTEIN_TARGET_MIN, "Must be between 10 and 500 g")
+  .max(PROTEIN_TARGET_MAX, "Must be between 10 and 500 g");

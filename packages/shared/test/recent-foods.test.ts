@@ -36,3 +36,13 @@ describe("recentFoods", () => {
     expect(recentFoods(many, 20)[0]!.name).toBe("Food 29");
   });
 });
+
+describe("recentFoods and photo entries", () => {
+  it("ignores photo entries", () => {
+    const out = recentFoods([
+      { date: "2026-11-11", entryId: "2", name: "Photo meal", calories: 500, macros: null, source: "photo" },
+      { date: "2026-11-10", entryId: "1", name: "Rice", calories: 300, macros: null, source: "typed" },
+    ]);
+    expect(out.map((f) => f.name)).toEqual(["Rice"]);
+  });
+});

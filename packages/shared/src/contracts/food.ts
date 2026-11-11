@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { DateSchema } from "../domain/day";
 import { FoodNameSchema, OwnFoodInputSchema, ServingLabelSchema } from "../domain/foods";
+import { CaptionSchema, PhotoContentTypeSchema, PhotoStatusSchema } from "../domain/photo-entry";
 import { CaloriesSchema, MacrosSchema, MealSchema, ServingsSchema } from "../domain/nutrition";
 
 export const FoodEntrySchema = z.object({
   entryId: z.string(),
-  source: z.enum(["typed", "standard", "own"]),
+  source: z.enum(["typed", "standard", "own", "photo"]),
   foodId: z.string().optional(),
   name: z.string(),
   serving: z.string().optional(),
@@ -14,6 +15,7 @@ export const FoodEntrySchema = z.object({
   macros: MacrosSchema.nullable(),
   rate: z.object({ calories: z.number(), macros: MacrosSchema.nullable() }),
   meal: MealSchema,
+  photo: z.object({ status: PhotoStatusSchema, caption: z.string(), url: z.string().optional() }).optional(),
 });
 
 export const FoodDayViewSchema = z.object({
@@ -27,6 +29,7 @@ export const FoodDayViewSchema = z.object({
     burned: z.number(),
     net: z.number(),
     target: z.number(),
+    proteinTarget: z.number().nullable().default(null),
     remaining: z.number(),
     macros: z.object({
       protein: z.number(),
@@ -34,6 +37,8 @@ export const FoodDayViewSchema = z.object({
       fat: z.number(),
       entriesWithoutMacros: z.number(),
     }),
+    // default: an API deployed before feature 005 omits it (rollout skew).
+    pending: z.number().default(0),
   }),
 });
 
@@ -58,6 +63,7 @@ export const EntryCreateSchema = z.discriminatedUnion("kind", [
 export type EntryCreate = z.infer<typeof EntryCreateSchema>;
 
 export const EntryPatchSchema = z.object({
+  caption: CaptionSchema.optional(),
   name: FoodNameSchema.optional(),
   calories: CaloriesSchema.optional(),
   macros: PartialMacrosSchema.nullable().optional(),
@@ -65,6 +71,15 @@ export const EntryPatchSchema = z.object({
   servings: ServingsSchema.optional(),
 });
 export type EntryPatch = z.infer<typeof EntryPatchSchema>;
+
+/** Photo meal: the picture is already reduced by the browser; the server re-checks type and size (feature 005). */
+export const PhotoEntryCreateSchema = z.object({
+  meal: MealSchema,
+  caption: CaptionSchema.optional(),
+  contentType: PhotoContentTypeSchema,
+  dataBase64: z.string().min(1),
+});
+export type PhotoEntryCreate = z.infer<typeof PhotoEntryCreateSchema>;
 
 export const RecentFoodsResponseSchema = z.object({
   foods: z.array(z.object({ name: z.string(), calories: z.number(), macros: MacrosSchema.nullable() })),

@@ -4,24 +4,32 @@
  *   pnpm admin create-user <username> [--stage dev|prod]
  *   pnpm admin reset-password <username> [--stage dev|prod]
  *   pnpm admin list-users [--stage dev|prod]
+ *   pnpm admin ai-key issue|revoke <username> [--stage dev|prod]   (feature 004: AI client access keys)
+ *   pnpm admin ai-key list [--stage dev|prod]
  *
  * Needs AWS credentials for the target account (AWS_PROFILE etc).
  */
 import { CloudFormationClient, DescribeStacksCommand } from "@aws-sdk/client-cloudformation";
 import {
   AdminCreateUserCommand,
+  AdminGetUserCommand,
   AdminSetUserPasswordCommand,
   CognitoIdentityProviderClient,
   ListUsersCommand,
   type UserType,
 } from "@aws-sdk/client-cognito-identity-provider";
 import { UsernameSchema } from "@calci/shared";
+import { generateToken, hashToken } from "@calci/shared/ai-credential";
+import { DynamoCredentialRepo } from "../../services/api/src/lib/credential-repo";
+import { formatSnippets, parseAiKeySubcommand } from "./ai-key";
 import { generateTempPassword } from "./temp-password";
 
 const USAGE = `Usage:
   pnpm admin create-user <username> [--stage dev|prod]
   pnpm admin reset-password <username> [--stage dev|prod]
-  pnpm admin list-users [--stage dev|prod]`;
+  pnpm admin list-users [--stage dev|prod]
+  pnpm admin ai-key issue|revoke <username> [--stage dev|prod]
+  pnpm admin ai-key list [--stage dev|prod]`;
 
 function fail(message: string): never {
   console.error(message);
@@ -37,20 +45,77 @@ function parseArgs(argv: string[]) {
     args.splice(stageIdx, 2);
   }
   if (stage !== "dev" && stage !== "prod") fail(`Unknown stage "${stage}". Use dev or prod.`);
-  const [command, username] = args;
-  return { command, username, stage };
+  const [command, username, third] = args;
+  return { command, username, third, stage };
 }
 
-async function findUserPoolId(stage: string, region: string): Promise<string> {
+async function stackOutput(stack: "Auth" | "Data" | "Api", key: string, stage: string, region: string): Promise<string> {
   const cfn = new CloudFormationClient({ region });
   try {
-    const { Stacks } = await cfn.send(new DescribeStacksCommand({ StackName: `Calci-${stage}-Auth` }));
-    const id = Stacks?.[0]?.Outputs?.find((o) => o.OutputKey === "UserPoolId")?.OutputValue;
-    if (id) return id;
+    const { Stacks } = await cfn.send(new DescribeStacksCommand({ StackName: `Calci-${stage}-${stack}` }));
+    const value = Stacks?.[0]?.Outputs?.find((o) => o.OutputKey === key)?.OutputValue;
+    if (value) return value;
   } catch {
     // fall through to the message below
   }
-  return fail(`Could not find the UserPoolId output of stack Calci-${stage}-Auth in ${region}. Is it deployed (pnpm deploy:${stage})?`);
+  return fail(`Could not find the ${key} output of stack Calci-${stage}-${stack} in ${region}. Is it deployed (pnpm deploy:${stage})?`);
+}
+
+const findUserPoolId = (stage: string, region: string) => stackOutput("Auth", "UserPoolId", stage, region);
+
+/** Cognito username → the `sub` that every table item is keyed by. */
+async function findUserSub(idp: CognitoIdentityProviderClient, userPoolId: string, username: string): Promise<string> {
+  try {
+    const res = await idp.send(new AdminGetUserCommand({ UserPoolId: userPoolId, Username: username }));
+    const sub = res.UserAttributes?.find((a) => a.Name === "sub")?.Value;
+    if (sub) return sub;
+  } catch (err) {
+    if (!(err instanceof Error && err.name === "UserNotFoundException")) throw err;
+  }
+  return fail("No such user");
+}
+
+/** AI client access keys (feature 004): the secret is printed once and only its hash is stored. */
+async function aiKey(sub: string | undefined, username: string | undefined, stage: string, region: string, idp: CognitoIdentityProviderClient, userPoolId: string) {
+  const action = parseAiKeySubcommand(sub);
+  if (!action) return fail(USAGE);
+  const repo = new DynamoCredentialRepo(await stackOutput("Data", "TableName", stage, region));
+
+  if (action === "list") {
+    const users = await listAllUsers(idp, userPoolId);
+    const rows = [];
+    for (const u of users) {
+      const id = u.Attributes?.find((a) => a.Name === "sub")?.Value;
+      const cred = id ? await repo.get(id) : null;
+      rows.push({ username: u.Username, hasKey: Boolean(cred), issued: cred?.createdAt.slice(0, 10) ?? "" });
+    }
+    console.table(rows); // never prints secrets or hashes
+    return;
+  }
+
+  const name = requireUsername(username);
+  const userId = await findUserSub(idp, userPoolId, name);
+  if (action === "revoke") {
+    console.log((await repo.revoke(userId)) ? `Revoked the AI key for ${name}.` : `${name} has no AI key.`);
+    return;
+  }
+  const token = generateToken();
+  await repo.issue(userId, hashToken(token), new Date().toISOString());
+  const mcpUrl = `${await stackOutput("Api", "ApiUrl", stage, region)}/mcp`;
+  console.log(`AI key for ${name} (shown once; issuing again rotates it and the old key stops working):`);
+  console.log(`\n${token}\n`);
+  console.log(formatSnippets(mcpUrl, token));
+}
+
+async function listAllUsers(idp: CognitoIdentityProviderClient, userPoolId: string): Promise<UserType[]> {
+  const users: UserType[] = [];
+  let token: string | undefined;
+  do {
+    const res = await idp.send(new ListUsersCommand({ UserPoolId: userPoolId, PaginationToken: token }));
+    users.push(...(res.Users ?? []));
+    token = res.PaginationToken;
+  } while (token);
+  return users;
 }
 
 function requireUsername(username: string | undefined): string {
@@ -67,7 +132,7 @@ function printCredentials(username: string, tempPassword: string) {
 }
 
 async function main() {
-  const { command, username, stage } = parseArgs(process.argv.slice(2));
+  const { command, username, third, stage } = parseArgs(process.argv.slice(2));
   const region = process.env.CDK_DEFAULT_REGION ?? process.env.AWS_REGION ?? "us-east-1";
   if (!command) fail(USAGE);
 
@@ -113,14 +178,10 @@ async function main() {
       printCredentials(name, tempPassword);
       return;
     }
+    case "ai-key":
+      return aiKey(username, third, stage, region, idp, userPoolId);
     case "list-users": {
-      const users: UserType[] = [];
-      let token: string | undefined;
-      do {
-        const res = await idp.send(new ListUsersCommand({ UserPoolId: userPoolId, PaginationToken: token }));
-        users.push(...(res.Users ?? []));
-        token = res.PaginationToken;
-      } while (token);
+      const users = await listAllUsers(idp, userPoolId);
       console.table(
         users.map((u) => ({
           username: u.Username,

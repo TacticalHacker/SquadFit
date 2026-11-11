@@ -11,8 +11,8 @@ describe("loadDayContext", () => {
     await seedProfile(profiles, "user-2", "America/Los_Angeles");
     const a = await loadDayContext(caller, deps);
     const b = await loadDayContext({ userId: "user-2", username: "bob" }, deps);
-    expect(a).toEqual({ ok: true, ctx: { timezone: "Asia/Kolkata", today: "2026-11-12", target: 2200 } });
-    expect(b).toEqual({ ok: true, ctx: { timezone: "America/Los_Angeles", today: "2026-11-11", target: 2200 } });
+    expect(a).toEqual({ ok: true, ctx: { timezone: "Asia/Kolkata", today: "2026-11-12", target: 2200, proteinTarget: null } });
+    expect(b).toEqual({ ok: true, ctx: { timezone: "America/Los_Angeles", today: "2026-11-11", target: 2200, proteinTarget: null } });
   });
 
   it("409 PROFILE_REQUIRED without a profile", async () => {

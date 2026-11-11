@@ -1,6 +1,9 @@
 import type { APIGatewayProxyEventV2WithJWTAuthorizer, APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import type { ProfileInput } from "@calci/shared";
 import type { AvatarStore } from "../src/lib/avatar-store";
+import type { CoachNoteItem, CoachRepo } from "../src/lib/coach-repo";
+import type { CredentialRepo } from "../src/lib/credential-repo";
+import { photoKey, type PhotoContentType, type PhotoStore } from "../src/lib/photo-store";
 import type { Deps } from "../src/lib/deps";
 import type { FoodEntryItem, FoodRepo, OwnFoodItem, EntryUpdate } from "../src/lib/food-repo";
 import type { CustomWorkoutItem, EntryItem, WorkoutRepo } from "../src/lib/workout-repo";
@@ -22,11 +25,27 @@ export class InMemoryProfileRepo implements ProfileRepo {
       displayName: input.displayName,
       timezone: input.timezone,
       dailyCalorieTarget: input.dailyCalorieTarget,
+      ...(input.dailyProteinTarget != null ? { dailyProteinTarget: input.dailyProteinTarget } : {}),
       createdAt: existing?.createdAt ?? nowIso,
       updatedAt: nowIso,
     };
     this.items.set(userId, item);
     return item;
+  }
+
+  async setTargets(userId: string, targets: { dailyCalorieTarget?: number; dailyProteinTarget?: number | null }, nowIso: string) {
+    const existing = this.items.get(userId);
+    if (!existing) return null;
+    const { dailyProteinTarget: _drop, ...rest } = existing;
+    const protein = targets.dailyProteinTarget === undefined ? existing.dailyProteinTarget : (targets.dailyProteinTarget ?? undefined);
+    const next: ProfileItem = {
+      ...rest,
+      ...(targets.dailyCalorieTarget !== undefined ? { dailyCalorieTarget: targets.dailyCalorieTarget } : {}),
+      ...(protein !== undefined ? { dailyProteinTarget: protein } : {}),
+      updatedAt: nowIso,
+    };
+    this.items.set(userId, next);
+    return next;
   }
 
   async setAvatarKey(userId: string, key: string | null, nowIso: string) {
@@ -103,6 +122,16 @@ export class InMemoryWorkoutRepo implements WorkoutRepo {
   }
 }
 
+/** Mirrors the DynamoDB update: caption/photoStatus live on `photo`. */
+function applyFields(e: FoodEntryItem, fields: EntryUpdate, nowIso: string): FoodEntryItem {
+  const { caption, photoStatus, ...rest } = fields;
+  const defined = Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined));
+  const photo = e.photo
+    ? { ...e.photo, ...(caption !== undefined ? { caption } : {}), ...(photoStatus !== undefined ? { status: photoStatus } : {}) }
+    : undefined;
+  return { ...e, ...defined, ...(photo ? { photo } : {}), updatedAt: nowIso };
+}
+
 export class InMemoryFoodRepo implements FoodRepo {
   readonly entries = new Map<string, FoodEntryItem>();
   readonly foods = new Map<string, OwnFoodItem>();
@@ -132,9 +161,13 @@ export class InMemoryFoodRepo implements FoodRepo {
     const key = this.entryKey(userId, date, entryId);
     const e = this.entries.get(key);
     if (!e) return false;
-    const defined = Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
-    this.entries.set(key, { ...e, ...defined, updatedAt: nowIso });
+    this.entries.set(key, applyFields(e, fields, nowIso));
     return true;
+  }
+  async updateEntryIf(userId: string, date: string, entryId: string, fields: EntryUpdate, nowIso: string, allowed: readonly string[]) {
+    const e = this.entries.get(this.entryKey(userId, date, entryId));
+    if (!e?.photo || !allowed.includes(e.photo.status)) return false;
+    return this.updateEntry(userId, date, entryId, fields, nowIso);
   }
   async deleteEntry(userId: string, date: string, entryId: string) {
     this.entries.delete(this.entryKey(userId, date, entryId));
@@ -159,6 +192,72 @@ export class InMemoryFoodRepo implements FoodRepo {
   }
 }
 
+export class InMemoryCoachRepo implements CoachRepo {
+  readonly notes = new Map<string, CoachNoteItem>();
+  async get(userId: string, date: string) {
+    return this.notes.get(`${userId}|${date}`) ?? null;
+  }
+  async put(userId: string, note: Pick<CoachNoteItem, "date" | "summaryMarkdown" | "recommendations">, nowIso: string) {
+    const existing = this.notes.get(`${userId}|${note.date}`);
+    this.notes.set(`${userId}|${note.date}`, { ...note, generatedBy: "AI", createdAt: existing?.createdAt ?? nowIso, updatedAt: nowIso });
+  }
+}
+
+export class InMemoryCredentialRepo implements CredentialRepo {
+  readonly byHash = new Map<string, string>();
+  readonly byUser = new Map<string, { tokenHash: string; createdAt: string }>();
+  readonly counts = new Map<string, number>();
+  async findUserId(hash: string) {
+    return this.byHash.get(hash) ?? null;
+  }
+  async get(userId: string) {
+    return this.byUser.get(userId) ?? null;
+  }
+  async issue(userId: string, hash: string, nowIso: string) {
+    const prev = this.byUser.get(userId);
+    if (prev) this.byHash.delete(prev.tokenHash);
+    this.byHash.set(hash, userId);
+    this.byUser.set(userId, { tokenHash: hash, createdAt: nowIso });
+  }
+  async revoke(userId: string) {
+    const prev = this.byUser.get(userId);
+    if (!prev) return false;
+    this.byHash.delete(prev.tokenHash);
+    this.byUser.delete(userId);
+    return true;
+  }
+  async hit(userId: string, nowMs: number) {
+    const k = `${userId}#${Math.floor(nowMs / 60_000)}`;
+    const n = (this.counts.get(k) ?? 0) + 1;
+    this.counts.set(k, n);
+    return n;
+  }
+}
+
+export class FakePhotoStore implements PhotoStore {
+  readonly objects = new Map<string, { bytes: Uint8Array; contentType: PhotoContentType }>();
+  /** Set to make the next `put` fail (cleanup tests). */
+  failNextPut = false;
+  async put(userId: string, entryId: string, bytes: Uint8Array, contentType: PhotoContentType) {
+    if (this.failNextPut) {
+      this.failNextPut = false;
+      throw new Error("s3 down");
+    }
+    const key = photoKey(userId, entryId, contentType);
+    this.objects.set(key, { bytes, contentType });
+    return key;
+  }
+  async get(key: string) {
+    return this.objects.get(key) ?? null;
+  }
+  async delete(key: string) {
+    this.objects.delete(key);
+  }
+  async urlFor(key: string) {
+    return `https://fake.s3/${key}?sig=1`;
+  }
+}
+
 export class FakeAvatarStore implements AvatarStore {
   readonly objects = new Map<string, Uint8Array>();
   private n = 0;
@@ -180,10 +279,13 @@ export function makeDeps(now = "2026-11-11T10:00:00.000Z") {
   const profiles = new InMemoryProfileRepo();
   const workouts = new InMemoryWorkoutRepo();
   const food = new InMemoryFoodRepo();
+  const coach = new InMemoryCoachRepo();
+  const credentials = new InMemoryCredentialRepo();
   const avatars = new FakeAvatarStore();
+  const photos = new FakePhotoStore();
   let clock = new Date(now);
-  const deps: Deps = { profiles, workouts, food, avatars, now: () => clock };
-  return { deps, profiles, workouts, food, avatars, setNow: (iso: string) => (clock = new Date(iso)) };
+  const deps: Deps = { profiles, workouts, food, coach, credentials, avatars, photos, now: () => clock };
+  return { deps, profiles, workouts, food, coach, credentials, avatars, photos, setNow: (iso: string) => (clock = new Date(iso)) };
 }
 
 export function makeEvent(opts: {

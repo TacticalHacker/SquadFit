@@ -39,7 +39,7 @@ describe("buildFoodDay", () => {
     const v = buildFoodDay({ ...base, entries: [] });
     expect(v.meals.map((m) => m.meal)).toEqual(["breakfast", "lunch", "dinner", "snacks"]);
     expect(v.ledger).toEqual({
-      eaten: 0, burned: 0, net: 0, target: 2200, remaining: 2200,
+      eaten: 0, burned: 0, net: 0, target: 2200, proteinTarget: null, pending: 0, remaining: 2200,
       macros: { protein: 0, carbs: 0, fat: 0, entriesWithoutMacros: 0 },
     });
     expect(v.editable).toBe(true);
@@ -138,5 +138,55 @@ describe("defaultMealForHour / localHour", () => {
     expect(localHour(t, "America/Los_Angeles")).toBe(12);
     expect(localHour(new Date("2026-11-11T18:30:00Z"), "UTC")).toBe(18);
     expect(localHour(new Date("2026-11-11T00:10:00Z"), "UTC")).toBe(0);
+  });
+});
+
+describe("proteinTarget on the ledger", () => {
+  it("defaults to null and carries the given value through changes", () => {
+    expect(buildFoodDay({ ...base, entries: [] }).ledger.proteinTarget).toBeNull();
+    const v = buildFoodDay({ ...base, proteinTarget: 130, entries: [] });
+    expect(v.ledger.proteinTarget).toBe(130);
+    const next = applyFoodChange(v, { type: "add", entry: typed("a", "lunch", "Rice", 300) });
+    expect(next.ledger.proteinTarget).toBe(130);
+  });
+});
+
+describe("pending photo entries", () => {
+  const photo = (entryId: string, status: "pending" | "ai" | "manual" | "edited", calories = 0, macros: FoodEntry["macros"] = null): FoodEntry => ({
+    entryId, source: "photo", name: "Photo meal", servings: 1, calories, macros, rate: { calories, macros }, meal: "lunch",
+    photo: { status, caption: "dal" },
+  });
+
+  it("appear in their meal but add nothing to any total and are counted as pending", () => {
+    const v = buildFoodDay({ ...base, entries: [typed("a", "lunch", "Rice", 300, { protein: 5, carbs: 60, fat: 1 }), photo("p", "pending")] });
+    expect(v.meals[1]!.entries).toHaveLength(2);
+    expect(v.meals[1]!.subtotal).toBe(300);
+    expect(v.ledger).toMatchObject({ eaten: 300, net: 300, remaining: 1900, pending: 1 });
+    expect(v.ledger.macros).toEqual({ protein: 5, carbs: 60, fat: 1, entriesWithoutMacros: 0 });
+  });
+
+  it("count normally once analysed", () => {
+    for (const status of ["ai", "manual", "edited"] as const) {
+      const v = buildFoodDay({ ...base, entries: [photo("p", status, 520, { protein: 18, carbs: 82, fat: 12 })] });
+      expect(v.ledger).toMatchObject({ eaten: 520, pending: 0 });
+      expect(v.ledger.macros.protein).toBe(18);
+    }
+  });
+
+  it("applyFoodChange edits a pending caption and fills it by hand (manual), keeping the pending count right", () => {
+    const v0 = buildFoodDay({ ...base, entries: [photo("p", "pending")] });
+    const v1 = applyFoodChange(v0, { type: "update", entryId: "p", patch: { caption: "dal and rice", meal: "dinner" } });
+    const e1 = v1.meals[2]!.entries[0]!;
+    expect(e1.photo).toMatchObject({ status: "pending", caption: "dal and rice" });
+    expect(v1.ledger.pending).toBe(1);
+    const v2 = applyFoodChange(v1, { type: "update", entryId: "p", patch: { calories: 400 } });
+    expect(v2.meals[2]!.entries[0]!.photo?.status).toBe("manual");
+    expect(v2.ledger).toMatchObject({ eaten: 400, pending: 0 });
+  });
+
+  it("applyFoodChange marks a corrected AI estimate as edited", () => {
+    const v0 = buildFoodDay({ ...base, entries: [photo("p", "ai", 500, { protein: 10, carbs: 50, fat: 10 })] });
+    const v1 = applyFoodChange(v0, { type: "update", entryId: "p", patch: { calories: 450 } });
+    expect(v1.meals[1]!.entries[0]).toMatchObject({ calories: 450, photo: { status: "edited" } });
   });
 });

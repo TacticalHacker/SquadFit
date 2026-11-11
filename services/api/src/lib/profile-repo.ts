@@ -9,6 +9,7 @@ export interface ProfileItem {
   displayName: string;
   timezone: string;
   dailyCalorieTarget: number;
+  dailyProteinTarget?: number;
   avatarKey?: string;
   createdAt: string;
   updatedAt: string;
@@ -24,6 +25,12 @@ export interface ProfileRepo {
   get(userId: string): Promise<ProfileItem | null>;
   /** Create on first call (joins the community), otherwise update editable fields. `createdAt` never changes. */
   upsert(userId: string, username: string, input: ProfileInput, nowIso: string): Promise<ProfileItem>;
+  /** Update only the given targets (protein null clears it). Returns null if there is no profile. */
+  setTargets(
+    userId: string,
+    targets: { dailyCalorieTarget?: number; dailyProteinTarget?: number | null },
+    nowIso: string,
+  ): Promise<ProfileItem | null>;
   /** Set or clear the avatar key; returns the previous key. Throws ProfileMissingError if no profile. */
   setAvatarKey(userId: string, key: string | null, nowIso: string): Promise<string | null>;
   /** Everyone with a completed profile, in join order. */
@@ -39,6 +46,7 @@ function fromItem(item: Record<string, unknown>): ProfileItem {
     displayName: item.displayName as string,
     timezone: item.timezone as string,
     dailyCalorieTarget: item.dailyCalorieTarget as number,
+    ...(typeof item.dailyProteinTarget === "number" ? { dailyProteinTarget: item.dailyProteinTarget } : {}),
     ...(typeof item.avatarKey === "string" ? { avatarKey: item.avatarKey } : {}),
     createdAt: item.createdAt as string,
     updatedAt: item.updatedAt as string,
@@ -64,13 +72,15 @@ export class DynamoProfileRepo implements ProfileRepo {
 
   async upsert(userId: string, username: string, input: ProfileInput, nowIso: string) {
     // if_not_exists keeps createdAt/gsi keys stable after the first write, atomically.
+    const protein = input.dailyProteinTarget ?? null;
     const res = await this.doc.send(
       new UpdateCommand({
         TableName: this.tableName,
         Key: { pk: pk(userId), sk: "PROFILE" },
         UpdateExpression:
           "SET userId = :uid, username = :un, displayName = :dn, #tz = :tz, dailyCalorieTarget = :t, updatedAt = :now, " +
-          "createdAt = if_not_exists(createdAt, :now), gsi1pk = :community, gsi1sk = if_not_exists(gsi1sk, :gsi1sk)",
+          "createdAt = if_not_exists(createdAt, :now), gsi1pk = :community, gsi1sk = if_not_exists(gsi1sk, :gsi1sk)" +
+          (protein === null ? " REMOVE dailyProteinTarget" : ", dailyProteinTarget = :pt"),
         ExpressionAttributeNames: { "#tz": "timezone" },
         ExpressionAttributeValues: {
           ":uid": userId,
@@ -81,11 +91,47 @@ export class DynamoProfileRepo implements ProfileRepo {
           ":now": nowIso,
           ":community": "COMMUNITY",
           ":gsi1sk": `JOINED#${nowIso}#${userId}`,
+          ...(protein === null ? {} : { ":pt": protein }),
         },
         ReturnValues: "ALL_NEW",
       }),
     );
     return fromItem(res.Attributes ?? {});
+  }
+
+  async setTargets(
+    userId: string,
+    targets: { dailyCalorieTarget?: number; dailyProteinTarget?: number | null },
+    nowIso: string,
+  ) {
+    const sets = ["updatedAt = :now"];
+    const removes: string[] = [];
+    const values: Record<string, unknown> = { ":now": nowIso };
+    if (targets.dailyCalorieTarget !== undefined) {
+      sets.push("dailyCalorieTarget = :cal");
+      values[":cal"] = targets.dailyCalorieTarget;
+    }
+    if (targets.dailyProteinTarget === null) removes.push("dailyProteinTarget");
+    else if (targets.dailyProteinTarget !== undefined) {
+      sets.push("dailyProteinTarget = :pt");
+      values[":pt"] = targets.dailyProteinTarget;
+    }
+    try {
+      const res = await this.doc.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: { pk: pk(userId), sk: "PROFILE" },
+          ConditionExpression: "attribute_exists(pk)",
+          UpdateExpression: `SET ${sets.join(", ")}${removes.length ? ` REMOVE ${removes.join(", ")}` : ""}`,
+          ExpressionAttributeValues: values,
+          ReturnValues: "ALL_NEW",
+        }),
+      );
+      return fromItem(res.Attributes ?? {});
+    } catch (err) {
+      if (err instanceof Error && err.name === "ConditionalCheckFailedException") return null;
+      throw err;
+    }
   }
 
   async setAvatarKey(userId: string, key: string | null, nowIso: string) {

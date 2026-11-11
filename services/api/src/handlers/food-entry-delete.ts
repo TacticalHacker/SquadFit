@@ -14,7 +14,12 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
   const d = resolveWriteDate(event.pathParameters?.date, c.ctx.today);
   if (!d.ok) return d.response;
   const entryId = event.pathParameters?.entryId ?? "";
-  if (ENTRY_ID_PATTERN.test(entryId)) await deps.food.deleteEntry(caller.userId, d.date, entryId);
+  if (ENTRY_ID_PATTERN.test(entryId)) {
+    const existing = await deps.food.getEntry(caller.userId, d.date, entryId);
+    await deps.food.deleteEntry(caller.userId, d.date, entryId);
+    // Entry first, picture second: a dangling entry with a missing image would be worse than a stray object.
+    if (existing?.photoKey) await deps.photos.delete(existing.photoKey).catch(() => undefined);
+  }
   return ok(await loadFoodDay(caller.userId, c.ctx, d.date, deps));
 }
 
