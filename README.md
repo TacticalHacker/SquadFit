@@ -1,7 +1,7 @@
 # SquadFit (Tactical Calories)
 
 Social fitness & nutrition tracker for friend groups: check off workouts, log meals, compete on
-a shared scoreboard, keep streaks alive, and nudge friends who slack off.
+a global leaderboard, keep streaks alive, and nudge friends who slack off.
 
 - **Product requirements:** [docs/prd.md](docs/prd.md)
 - **Engineering principles:** [.specify/memory/constitution.md](.specify/memory/constitution.md)
@@ -53,5 +53,5 @@ Built with [Spec Kit](https://github.com/github/spec-kit). In Claude Code:
 /speckit-implement
 ```
 
-Suggested feature order: **001 auth & groups → 002 workout tracker → 003 nutrition tracker →
-004 scoreboard → 005 streaks & nudges.**
+Suggested feature order: **001 user accounts → 002 workout tracker → 003 nutrition tracker →
+004 global leaderboard → 005 streaks & nudges.**

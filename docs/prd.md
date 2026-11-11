@@ -20,7 +20,7 @@ retention and group accountability.
 
 - As a user, I want to check off the workouts I completed today so that my active minutes and calories burned are calculated automatically.
 - As a user, I want to log the food I eat so I can see my total calories consumed next to the calories I burned.
-- As a group member, I want a live scoreboard comparing my daily/weekly totals with my friends so we stay competitive.
+- As a user, I want a global leaderboard comparing my daily/weekly totals with everyone else so we stay competitive.
 - As a friend, I want to see everyone's active streaks and nudge friends who haven't logged today so we don't lose momentum.
 
 ## 3. Functional requirements
@@ -37,13 +37,13 @@ retention and group accountability.
 - **Daily calorie ledger:** calories burned, calories consumed, and net/total score (see §5.1).
 
 ### 3.3 Friends scoreboard
-- **Group ranking:** shared leaderboard of everyone in the group, ranked by total score.
+- **Global ranking:** one leaderboard of every user, ranked by total score. *(Decided 2026-11-11: no groups/squads.)*
 - **Timeframes:** daily, weekly, all-time.
 - **Row contents:** name & avatar, rank, workouts completed / active minutes, net calorie or activity score, current streak (🔥).
 
 ### 3.4 Streaks & social accountability
 - **Individual streaks:** consecutive days with at least one qualifying action (see §5.3).
-- **Group streaks:** consecutive days where all connected friends meet their daily logging goal.
+- **Community streak:** consecutive days where every user meets their daily logging goal. *(Was "group streak"; there are no groups.)*
 - **States:** *Active* (logged today), *At risk* (not logged, approaching end-of-day cutoff), *Broken* (missed a full day → reset to 0; a "streak freeze" may come later).
 - **Nudge:** one-tap button next to friends who haven't logged today. Sends a push, email or in-app alert (e.g. "Alex nudged you! Log your workout before midnight to keep your 7-day streak alive!"). Limited to 1 nudge per friend per day.
 
@@ -62,5 +62,6 @@ retention and group accountability.
    - **A. Net calorie balance:** consumed − burned, ranked by closeness to each person's daily target.
    - **B. Activity-first:** rank by calories burned (or workout minutes); nutrition ledger shown as a secondary metric.
    - **C. Points:** e.g. +1/workout minute, +1/10 calories burned, +50 for hitting the daily nutrition goal.
-2. **Platform.** ~~Shared sheet/Notion prototype vs standalone app~~ → **Decided:** standalone web app (Next.js on Vercel, API on AWS).
-3. **Streak qualification.** Does a streak need a workout OR a meal, or both every day?
+2. ~~**Groups.**~~ → **Decided:** no squads/groups. Everyone is in one global community with one global leaderboard (expected ~3 users).
+3. **Platform.** ~~Shared sheet/Notion prototype vs standalone app~~ → **Decided:** standalone web app (Next.js on Vercel, API on AWS).
+4. **Streak qualification.** Does a streak need a workout OR a meal, or both every day?

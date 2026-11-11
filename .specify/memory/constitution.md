@@ -1,6 +1,8 @@
 <!--
 Sync Impact Report
-- Version change: template → 1.0.0
+- Version change: 1.0.0 → 2.0.0 (MAJOR: principle VI redefined)
+- Modified principles: VI. Privacy Within the Squad → VI. Members-Only Visibility (no groups; one global community and leaderboard)
+- Prior: template → 1.0.0
 - Added principles: I. Spec-Driven Delivery; II. End-to-End Type Safety; III. Test-First Domain Logic;
   IV. Infrastructure as Code, Serverless by Default; V. Server-Authoritative, Fair Scoring;
   VI. Privacy Within the Squad; VII. Simplicity
@@ -46,10 +48,13 @@ formula MUST NOT reward overeating, and it MUST be documented in the spec togeth
 worked examples. Rate limits, such as one nudge per sender→receiver per day, are enforced
 server-side and atomically.
 
-### VI. Privacy Within the Squad
-A user's logs are visible only to members of groups they belong to. Every read checks group
-membership. Personal data (food, weight, targets) is never written to logs. Notifications
-(nudges) are opt-out per channel.
+### VI. Members-Only Visibility
+There are no groups: every user with a completed profile belongs to one global community and
+appears on the global leaderboard. Community data (names, avatars, scores, streaks, activity)
+is visible only to signed-in users; anonymous requests get no user data. Each user's own data
+(food entries, calorie target, credentials) is visible only to them unless a spec explicitly
+publishes a derived figure. Personal data is never written to logs. Passwords are stored only as
+slow salted hashes. Rate limits (sign-in attempts, nudges) are enforced server-side.
 
 ### VII. Simplicity
 Build only what the current spec requires (YAGNI). Prefer platform primitives over libraries
@@ -80,4 +85,4 @@ principle or section is added; PATCH: wording only), and propagates the change t
 `.specify/templates/*`. Reviewers check plans against the "Constitution Check" gate. Runtime
 guidance for agents lives in `CLAUDE.md`.
 
-**Version**: 1.0.0 | **Ratified**: 2026-11-11 | **Last Amended**: 2026-11-11
+**Version**: 2.0.0 | **Ratified**: 2026-11-11 | **Last Amended**: 2026-11-11
