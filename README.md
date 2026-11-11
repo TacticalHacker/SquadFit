@@ -41,6 +41,9 @@ Note the stack outputs: `ApiUrl` (Api stack) and `UserPoolClientId` (Auth stack)
 pnpm admin create-user alice          # prints a temporary password; send it to Alice privately
 pnpm admin reset-password alice       # forgotten password: issues a new temporary password
 pnpm admin list-users                 # username, status, created date
+pnpm admin ai-key issue alice         # AI client key (shown once) + Cursor/Claude snippets; issuing again rotates it
+pnpm admin ai-key revoke alice        # the key stops working immediately
+pnpm admin ai-key list                # who has a key (never shows secrets)
 # add --stage prod for production
 ```
 

@@ -26,6 +26,8 @@ export interface FoodLedger {
   burned: number;
   net: number;
   target: number;
+  /** Optional daily protein target in grams (feature 004). */
+  proteinTarget: number | null;
   /** target − net; negative means over the target. */
   remaining: number;
   macros: { protein: number; carbs: number; fat: number; entriesWithoutMacros: number };
@@ -66,6 +68,7 @@ export function entryFromFood(food: { calories: number; macros: Macros | null },
 function assemble(
   head: Pick<FoodDayView, "date" | "today" | "timezone" | "editable">,
   target: number,
+  proteinTarget: number | null,
   burned: number,
   entries: readonly FoodEntry[],
 ): FoodDayView {
@@ -96,6 +99,7 @@ function assemble(
       burned,
       net,
       target,
+      proteinTarget,
       remaining: target - net,
       macros: { protein: p / 10, carbs: c / 10, fat: f / 10, entriesWithoutMacros: without },
     },
@@ -107,12 +111,14 @@ export function buildFoodDay(input: {
   today: string;
   timezone: string;
   target: number;
+  proteinTarget?: number | null;
   burnedCalories: number;
   entries: readonly FoodEntry[];
 }): FoodDayView {
   return assemble(
     { date: input.date, today: input.today, timezone: input.timezone, editable: isEditableDay(input.date, input.today) },
     input.target,
+    input.proteinTarget ?? null,
     input.burnedCalories,
     input.entries,
   );
@@ -153,7 +159,7 @@ export function applyFoodChange(view: FoodDayView, change: FoodChange): FoodDayV
     });
   }
   const { date, today, timezone, editable } = view;
-  return assemble({ date, today, timezone, editable }, view.ledger.target, view.ledger.burned, next);
+  return assemble({ date, today, timezone, editable }, view.ledger.target, view.ledger.proteinTarget, view.ledger.burned, next);
 }
 
 /** Meal to preselect for today, from the user's local hour (clarification Q4). Display only. */

@@ -23,7 +23,7 @@ Features are built only through the Spec Kit skills in `.claude/skills/`:
 | `packages/shared/src/contracts` | zod request/response schemas (single source of truth for the API). |
 | `packages/shared/src/domain` | Pure, test-first domain logic (scoring, streaks, day boundaries, nudge limits). |
 | `infra/lib` | CDK stacks: `data-stack` (DynamoDB + private avatar bucket), `auth-stack` (Cognito, no self sign-up), `api-stack`. Add a route with `route("<handler-file>", HttpMethod.X, "/path", { write, avatars })` in `api-stack.ts`; routes require a valid Cognito token unless `auth: false`. |
-| `infra/scripts/admin.ts` | Operator CLI: `pnpm admin create-user\|reset-password\|list-users`. |
+| `infra/scripts/admin.ts` | Operator CLI: `pnpm admin create-user\|reset-password\|list-users`, and `pnpm admin ai-key issue\|revoke <user>` / `ai-key list` for AI client keys. |
 | `apps/web/src/server` | Server-only code: Cognito `fetch` client, cookie helpers, API client (`apiFetch`), session DAL (`getMe`, `requireProfile`), Server Actions. `src/proxy.ts` gates routes and refreshes tokens. |
 
 ## Commands
@@ -63,3 +63,12 @@ pnpm deploy:dev     # deploy Data + Api stacks to AWS (needs AWS creds)
 - Today, the 3-day edit window, calories and macro math are server-authoritative; list entries (built-in or own food) always follow servings × the entry's own rate snapshot, typed entries are free-form. Macros are all-or-none.
 - `buildFoodDay` / `applyFoodChange` in `packages/shared/src/domain/food-day.ts` are shared by the server and the optimistic client. The ledger is derived on read: burned comes from the workout entries of the same day, remaining = target − (eaten − burned). It is informational; scoring is feature 004.
 - Built-in foods are code (`STANDARD_FOODS`, 40 items); recent foods are derived from the last 90 days of entries.
+
+## AI Coach / MCP (feature 004)
+
+- `POST /mcp` (`services/api/src/handlers/mcp.ts`) is a stateless MCP server (Streamable HTTP, JSON responses) with **no Cognito authorizer**: the handler checks an operator-issued bearer key (`sfk_...`, only its SHA-256 is stored; helpers in `@calci/shared/ai-credential`, server/CLI only, never import in the web bundle). One key per member; `pnpm admin ai-key issue` rotates.
+- Tools (`services/api/src/lib/mcp/tools.ts`): `get_user_history`, `post_daily_coach_note`, `update_user_targets`. They act only as the key's member and never take a user id. No leaderboard tool until the scoring feature exists.
+- Items: `USER#<sub>/COACH#<date>` (one AI note per day, shown on `/food` via `GET /coach-note`), `MCPCRED` + `MCPTOKEN#<hash>` (keys), `MCPRATE#...` counters with a table `ttl` (60 requests/min per member).
+- Profile gained an optional `dailyProteinTarget`; the food ledger carries `proteinTarget`.
+- Notes are rendered with `react-markdown` (no raw HTML, no images); never use `dangerouslySetInnerHTML`.
+- Never log the key, note text or entries.

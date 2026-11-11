@@ -27,6 +27,7 @@ export const FoodDayViewSchema = z.object({
     burned: z.number(),
     net: z.number(),
     target: z.number(),
+    proteinTarget: z.number().nullable().default(null),
     remaining: z.number(),
     macros: z.object({
       protein: z.number(),

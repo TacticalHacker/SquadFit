@@ -1,4 +1,4 @@
-import { RemovalPolicy, Stack, type StackProps } from "aws-cdk-lib";
+import { CfnOutput, RemovalPolicy, Stack, type StackProps } from "aws-cdk-lib";
 import { AttributeType, Billing, TableV2 } from "aws-cdk-lib/aws-dynamodb";
 import { BlockPublicAccess, Bucket, BucketEncryption } from "aws-cdk-lib/aws-s3";
 import type { Construct } from "constructs";
@@ -24,6 +24,8 @@ export class DataStack extends Stack {
       partitionKey: { name: "pk", type: AttributeType.STRING },
       sortKey: { name: "sk", type: AttributeType.STRING },
       billing: Billing.onDemand(),
+      // Expires AI-key rate-limit counters (feature 004).
+      timeToLiveAttribute: "ttl",
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: props.config.retainData },
       deletionProtection: props.config.retainData,
       removalPolicy: props.config.retainData ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
@@ -35,6 +37,8 @@ export class DataStack extends Stack {
         },
       ],
     });
+
+    new CfnOutput(this, "TableName", { value: this.table.tableName });
 
     this.avatarBucket = new Bucket(this, "AvatarBucket", {
       blockPublicAccess: BlockPublicAccess.BLOCK_ALL,

@@ -1,6 +1,8 @@
 import type { APIGatewayProxyEventV2WithJWTAuthorizer, APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import type { ProfileInput } from "@calci/shared";
 import type { AvatarStore } from "../src/lib/avatar-store";
+import type { CoachNoteItem, CoachRepo } from "../src/lib/coach-repo";
+import type { CredentialRepo } from "../src/lib/credential-repo";
 import type { Deps } from "../src/lib/deps";
 import type { FoodEntryItem, FoodRepo, OwnFoodItem, EntryUpdate } from "../src/lib/food-repo";
 import type { CustomWorkoutItem, EntryItem, WorkoutRepo } from "../src/lib/workout-repo";
@@ -22,11 +24,27 @@ export class InMemoryProfileRepo implements ProfileRepo {
       displayName: input.displayName,
       timezone: input.timezone,
       dailyCalorieTarget: input.dailyCalorieTarget,
+      ...(input.dailyProteinTarget != null ? { dailyProteinTarget: input.dailyProteinTarget } : {}),
       createdAt: existing?.createdAt ?? nowIso,
       updatedAt: nowIso,
     };
     this.items.set(userId, item);
     return item;
+  }
+
+  async setTargets(userId: string, targets: { dailyCalorieTarget?: number; dailyProteinTarget?: number | null }, nowIso: string) {
+    const existing = this.items.get(userId);
+    if (!existing) return null;
+    const { dailyProteinTarget: _drop, ...rest } = existing;
+    const protein = targets.dailyProteinTarget === undefined ? existing.dailyProteinTarget : (targets.dailyProteinTarget ?? undefined);
+    const next: ProfileItem = {
+      ...rest,
+      ...(targets.dailyCalorieTarget !== undefined ? { dailyCalorieTarget: targets.dailyCalorieTarget } : {}),
+      ...(protein !== undefined ? { dailyProteinTarget: protein } : {}),
+      updatedAt: nowIso,
+    };
+    this.items.set(userId, next);
+    return next;
   }
 
   async setAvatarKey(userId: string, key: string | null, nowIso: string) {
@@ -159,6 +177,48 @@ export class InMemoryFoodRepo implements FoodRepo {
   }
 }
 
+export class InMemoryCoachRepo implements CoachRepo {
+  readonly notes = new Map<string, CoachNoteItem>();
+  async get(userId: string, date: string) {
+    return this.notes.get(`${userId}|${date}`) ?? null;
+  }
+  async put(userId: string, note: Pick<CoachNoteItem, "date" | "summaryMarkdown" | "recommendations">, nowIso: string) {
+    const existing = this.notes.get(`${userId}|${note.date}`);
+    this.notes.set(`${userId}|${note.date}`, { ...note, generatedBy: "AI", createdAt: existing?.createdAt ?? nowIso, updatedAt: nowIso });
+  }
+}
+
+export class InMemoryCredentialRepo implements CredentialRepo {
+  readonly byHash = new Map<string, string>();
+  readonly byUser = new Map<string, { tokenHash: string; createdAt: string }>();
+  readonly counts = new Map<string, number>();
+  async findUserId(hash: string) {
+    return this.byHash.get(hash) ?? null;
+  }
+  async get(userId: string) {
+    return this.byUser.get(userId) ?? null;
+  }
+  async issue(userId: string, hash: string, nowIso: string) {
+    const prev = this.byUser.get(userId);
+    if (prev) this.byHash.delete(prev.tokenHash);
+    this.byHash.set(hash, userId);
+    this.byUser.set(userId, { tokenHash: hash, createdAt: nowIso });
+  }
+  async revoke(userId: string) {
+    const prev = this.byUser.get(userId);
+    if (!prev) return false;
+    this.byHash.delete(prev.tokenHash);
+    this.byUser.delete(userId);
+    return true;
+  }
+  async hit(userId: string, nowMs: number) {
+    const k = `${userId}#${Math.floor(nowMs / 60_000)}`;
+    const n = (this.counts.get(k) ?? 0) + 1;
+    this.counts.set(k, n);
+    return n;
+  }
+}
+
 export class FakeAvatarStore implements AvatarStore {
   readonly objects = new Map<string, Uint8Array>();
   private n = 0;
@@ -180,10 +240,12 @@ export function makeDeps(now = "2026-11-11T10:00:00.000Z") {
   const profiles = new InMemoryProfileRepo();
   const workouts = new InMemoryWorkoutRepo();
   const food = new InMemoryFoodRepo();
+  const coach = new InMemoryCoachRepo();
+  const credentials = new InMemoryCredentialRepo();
   const avatars = new FakeAvatarStore();
   let clock = new Date(now);
-  const deps: Deps = { profiles, workouts, food, avatars, now: () => clock };
-  return { deps, profiles, workouts, food, avatars, setNow: (iso: string) => (clock = new Date(iso)) };
+  const deps: Deps = { profiles, workouts, food, coach, credentials, avatars, now: () => clock };
+  return { deps, profiles, workouts, food, coach, credentials, avatars, setNow: (iso: string) => (clock = new Date(iso)) };
 }
 
 export function makeEvent(opts: {

@@ -39,7 +39,7 @@ describe("buildFoodDay", () => {
     const v = buildFoodDay({ ...base, entries: [] });
     expect(v.meals.map((m) => m.meal)).toEqual(["breakfast", "lunch", "dinner", "snacks"]);
     expect(v.ledger).toEqual({
-      eaten: 0, burned: 0, net: 0, target: 2200, remaining: 2200,
+      eaten: 0, burned: 0, net: 0, target: 2200, proteinTarget: null, remaining: 2200,
       macros: { protein: 0, carbs: 0, fat: 0, entriesWithoutMacros: 0 },
     });
     expect(v.editable).toBe(true);
@@ -138,5 +138,15 @@ describe("defaultMealForHour / localHour", () => {
     expect(localHour(t, "America/Los_Angeles")).toBe(12);
     expect(localHour(new Date("2026-11-11T18:30:00Z"), "UTC")).toBe(18);
     expect(localHour(new Date("2026-11-11T00:10:00Z"), "UTC")).toBe(0);
+  });
+});
+
+describe("proteinTarget on the ledger", () => {
+  it("defaults to null and carries the given value through changes", () => {
+    expect(buildFoodDay({ ...base, entries: [] }).ledger.proteinTarget).toBeNull();
+    const v = buildFoodDay({ ...base, proteinTarget: 130, entries: [] });
+    expect(v.ledger.proteinTarget).toBe(130);
+    const next = applyFoodChange(v, { type: "add", entry: typed("a", "lunch", "Rice", 300) });
+    expect(next.ledger.proteinTarget).toBe(130);
   });
 });

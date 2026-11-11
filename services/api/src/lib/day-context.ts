@@ -10,6 +10,8 @@ export interface DayContext {
   today: string;
   /** The profile's daily calorie target as it is now (feature 003 ledger). */
   target: number;
+  /** The profile's optional daily protein target in grams (feature 004). */
+  proteinTarget: number | null;
 }
 
 export type Result<T> = ({ ok: true } & T) | { ok: false; response: APIGatewayProxyResultV2 };
@@ -19,7 +21,7 @@ export async function loadDayContext(caller: Caller, deps: Deps): Promise<Result
   if (!profile) {
     return { ok: false, response: apiError(409, "PROFILE_REQUIRED", "Complete your profile first") };
   }
-  return { ok: true, ctx: { timezone: profile.timezone, today: localDate(deps.now(), profile.timezone), target: profile.dailyCalorieTarget } };
+  return { ok: true, ctx: { timezone: profile.timezone, today: localDate(deps.now(), profile.timezone), target: profile.dailyCalorieTarget, proteinTarget: profile.dailyProteinTarget ?? null } };
 }
 
 const badDate = (field: string) =>

@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { DateSchema, FoodDayViewSchema, OwnFoodsResponseSchema, RecentFoodsResponseSchema } from "@calci/shared";
+import { CoachNoteResponseSchema, DateSchema, FoodDayViewSchema, OwnFoodsResponseSchema, RecentFoodsResponseSchema } from "@calci/shared";
+import { CoachCard } from "@/components/coach-card";
 import { DayNav } from "@/components/day-nav";
 import { FoodScreen } from "@/components/food-screen";
 import { ApiRequestError, apiFetch } from "@/server/api";
@@ -17,6 +18,8 @@ async function FoodContent({ searchParams }: { searchParams: PageProps<"/food">[
 
   // A future date is rejected by the API (400, from the server's own "today"); fall back to today (FR-016).
   const query = raw ? `?date=${raw}` : "";
+  // The coach note is optional decoration: a failed fetch must never break the day screen.
+  const notePromise = apiFetch(`/coach-note${query}`, { schema: CoachNoteResponseSchema }).catch(() => ({ note: null }));
   const view = await apiFetch(`/food${query}`, { schema: FoodDayViewSchema }).catch((err: unknown) => {
     if (raw && err instanceof ApiRequestError && err.status === 400) redirect("/food");
     throw err;
@@ -29,9 +32,12 @@ async function FoodContent({ searchParams }: { searchParams: PageProps<"/food">[
       ])
     : [{ foods: [] }, { foods: [] }];
 
+  const { note } = await notePromise;
+
   return (
     <div className="flex flex-col gap-5 rounded-3xl bg-[#0F172A] p-4 text-slate-100 sm:p-6">
       <DayNav date={view.date} today={view.today} basePath="/food" />
+      {note ? <CoachCard note={note} /> : null}
       <FoodScreen initialView={view} own={own.foods} recent={recent.foods} />
       <p className="text-sm">
         <Link href="/food/mine" className="text-lime-300 underline">

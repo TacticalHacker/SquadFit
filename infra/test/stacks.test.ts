@@ -78,7 +78,7 @@ describe("stacks", () => {
       "DELETE /workouts/custom/{workoutId}",
       "GET /food", "GET /food/recent", "POST /food/entries/{date}", "PUT /food/entries/{date}/{entryId}",
       "DELETE /food/entries/{date}/{entryId}", "GET /food/foods", "POST /food/foods", "PUT /food/foods/{foodId}",
-      "DELETE /food/foods/{foodId}"]) {
+      "DELETE /food/foods/{foodId}", "GET /coach-note", "ANY /mcp"]) {
       apiT.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: key });
     }
   });
@@ -87,7 +87,8 @@ describe("stacks", () => {
     const routes = apiT.findResources("AWS::ApiGatewayV2::Route");
     for (const route of Object.values(routes)) {
       const props = route.Properties as { RouteKey: string; AuthorizationType?: string };
-      if (props.RouteKey === "GET /health") expect(props.AuthorizationType).toBe("NONE");
+      // /mcp is guarded by an operator-issued bearer key checked in the handler (feature 004, research R2).
+      if (props.RouteKey === "GET /health" || props.RouteKey === "ANY /mcp") expect(props.AuthorizationType).toBe("NONE");
       else expect(props.AuthorizationType, props.RouteKey).toBe("JWT");
     }
   });
@@ -95,6 +96,22 @@ describe("stacks", () => {
   it("has no CORS configuration (only the Next.js server calls the API)", () => {
     const apis = apiT.findResources("AWS::ApiGatewayV2::Api");
     for (const a of Object.values(apis)) expect(a.Properties.CorsConfiguration).toBeUndefined();
+  });
+
+  it("expires rate-limit counters with a ttl attribute and exposes the table name", () => {
+    dataT.hasResourceProperties("AWS::DynamoDB::GlobalTable", {
+      TimeToLiveSpecification: { AttributeName: "ttl", Enabled: true },
+    });
+    expect(Object.keys(dataT.findOutputs("TableName"))).toHaveLength(1);
+  });
+
+  it("the MCP function can read and write the table but not the avatar bucket", () => {
+    // Each function has its own role; its policy references the role id (least privilege per function).
+    const policies = Object.values(apiT.findResources("AWS::IAM::Policy"));
+    const json = JSON.stringify(policies.filter((p) => JSON.stringify(p).includes("mcpFnServiceRole")));
+    expect(json).toContain("dynamodb:PutItem");
+    expect(json).toContain("dynamodb:UpdateItem");
+    expect(json).not.toContain("s3:");
   });
 
   it("runs on Node 24 / arm64", () => {

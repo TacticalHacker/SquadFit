@@ -72,12 +72,17 @@ export class ApiStack extends Stack {
       write?: boolean;
       /** Grant access to the avatar bucket. */
       avatars?: "read" | "readwrite";
+      /** Override the default function size/timeout (the MCP function). */
+      memorySize?: number;
+      timeoutSeconds?: number;
     }
 
     const route = (name: string, method: HttpMethod, routePath: string, opts: RouteOptions = {}) => {
       const fn = new NodejsFunction(this, `${name}Fn`, {
         ...fnDefaults,
         entry: path.join(handlersDir, `${name}.ts`),
+        ...(opts.memorySize ? { memorySize: opts.memorySize } : {}),
+        ...(opts.timeoutSeconds ? { timeout: Duration.seconds(opts.timeoutSeconds) } : {}),
         logGroup: new LogGroup(this, `${name}Logs`, {
           retention: RetentionDays.TWO_WEEKS,
           removalPolicy: RemovalPolicy.DESTROY,
@@ -120,6 +125,11 @@ export class ApiStack extends Stack {
     route("own-foods-post", HttpMethod.POST, "/food/foods", { write: true });
     route("own-foods-put", HttpMethod.PUT, "/food/foods/{foodId}", { write: true });
     route("own-foods-delete", HttpMethod.DELETE, "/food/foods/{foodId}", { write: true });
+
+    // AI Coach (feature 004). /mcp has no Cognito authorizer: AI clients send an operator-issued bearer key,
+    // verified in the handler. ANY so the handler can answer OPTIONS (CORS) and 405.
+    route("coach-note-get", HttpMethod.GET, "/coach-note");
+    route("mcp", HttpMethod.ANY, "/mcp", { auth: false, write: true, memorySize: 512, timeoutSeconds: 15 });
 
     new CfnOutput(this, "ApiUrl", { value: this.api.apiEndpoint });
   }

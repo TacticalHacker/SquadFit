@@ -13,6 +13,7 @@ export async function loadFoodDay(userId: string, ctx: DayContext, date: string,
     today: ctx.today,
     timezone: ctx.timezone,
     target: ctx.target,
+    proteinTarget: ctx.proteinTarget,
     burnedCalories: summarize(workoutEntries).totalCalories,
     entries,
   });

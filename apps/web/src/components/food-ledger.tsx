@@ -40,6 +40,7 @@ export function FoodLedgerCard({ ledger }: { ledger: FoodLedger }) {
           <Macro label="Carbs" grams={m.carbs} tone="bg-cyan-400" />
           <Macro label="Fat" grams={m.fat} tone="bg-amber-400" />
         </dl>
+        {ledger.proteinTarget ? <ProteinProgress grams={m.protein} target={ledger.proteinTarget} /> : null}
         {m.entriesWithoutMacros > 0 ? (
           <p className="mt-2 text-xs text-slate-400">
             {m.entriesWithoutMacros === 1 ? "1 item has" : `${m.entriesWithoutMacros} items have`} no macros, so these totals are partial.
@@ -67,6 +68,24 @@ function Macro({ label, grams, tone }: { label: string; grams: number; tone: str
         {label}
       </dt>
       <dd className="font-semibold tabular-nums">{grams} g</dd>
+    </div>
+  );
+}
+
+function ProteinProgress({ grams, target }: { grams: number; target: number }) {
+  const pct = Math.min(100, Math.max(0, (grams / target) * 100));
+  return (
+    <div className="mt-3">
+      <p className="text-xs text-slate-400">
+        Protein <span className="font-semibold tabular-nums text-slate-100">{grams}</span> / {target} g
+      </p>
+      <div
+        role="img"
+        aria-label={`${grams} of ${target} grams of protein`}
+        className="mt-1 h-2 overflow-hidden rounded-full bg-slate-700/70"
+      >
+        <div className="h-full rounded-full bg-purple-400 transition-[width] duration-500 ease-out motion-reduce:transition-none" style={{ width: `${pct}%` }} />
+      </div>
     </div>
   );
 }
