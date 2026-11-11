@@ -16,3 +16,4 @@ export * from "./domain/day";
 export * from "./domain/workouts";
 export * from "./domain/day-view";
 export * from "./contracts/workouts";
+export * from "./domain/streak";

@@ -2,11 +2,11 @@ import Link from "next/link";
 import { addDays } from "@calci/shared";
 
 const link =
-  "rounded px-2 py-1 text-lg hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-emerald-600 dark:hover:bg-zinc-800";
+  "rounded-lg px-2.5 py-1 text-lg text-slate-300 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-lime-400";
 
-export function DayNav({ date, today }: { date: string; today: string }) {
+export function DayNav({ date, today, streak }: { date: string; today: string; streak: number }) {
   const isToday = date === today;
-  const label = new Intl.DateTimeFormat("en", { dateStyle: "full", timeZone: "UTC" }).format(
+  const label = new Intl.DateTimeFormat("en", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" }).format(
     new Date(`${date}T00:00:00Z`),
   );
   const href = (d: string) => (d === today ? "/workouts" : `/workouts?date=${d}`);
@@ -15,24 +15,28 @@ export function DayNav({ date, today }: { date: string; today: string }) {
       <Link href={href(addDays(date, -1))} className={link} aria-label="Previous day">
         ◀
       </Link>
-      <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
-        {label}
-        {isToday ? (
-          <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 align-middle text-xs font-medium text-emerald-800 dark:bg-emerald-900 dark:text-emerald-100">
-            Today
-          </span>
-        ) : null}
-      </h1>
-      {isToday ? null : (
-        <>
-          <Link href={href(addDays(date, 1))} className={link} aria-label="Next day">
-            ▶
-          </Link>
-          <Link href="/workouts" className="text-sm text-emerald-700 underline dark:text-emerald-400">
+      <div className="min-w-0">
+        <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{label}</h1>
+        {isToday ? null : (
+          <Link href="/workouts" className="text-xs text-lime-300 underline">
             Back to today
           </Link>
-        </>
+        )}
+      </div>
+      {isToday ? null : (
+        <Link href={href(addDays(date, 1))} className={link} aria-label="Next day">
+          ▶
+        </Link>
       )}
+      <p
+        className={`ml-auto flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold ${
+          streak > 0 ? "bg-orange-400/15 text-orange-300 shadow-[0_0_16px_-4px] shadow-orange-400/60" : "bg-white/5 text-slate-400"
+        }`}
+        title="Consecutive days with at least one workout (provisional rule)"
+      >
+        <span aria-hidden="true">🔥</span>
+        {streak > 0 ? `${streak}-day streak` : "No streak yet"}
+      </p>
     </div>
   );
 }

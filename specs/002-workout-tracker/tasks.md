@@ -288,3 +288,12 @@ Task: T021 Write failing tests in services/api/test/entry-delete.test.ts
 - Tests MUST fail before implementation (constitution III); run each new test file and see it fail before writing the code
 - The calorie and total numbers in the UI are display-only; the server recomputes and is the authority (constitution V)
 - Commit after each task or logical group
+
+---
+
+## Amendment 1: quick-log redesign (done)
+
+- [X] T065 [P] Shared `DAILY_GOAL_MINUTES`, `goalProgress`, `currentStreak` with tests first (`packages/shared/src/domain/streak.ts`, `test/streak.test.ts`)
+- [X] T066 Rebuild `apps/web/src/components/workout-checklist.tsx` as quick-add chips, logged cards with +15/+30/+45/+60 chips, ±5 stepper, live calories and remove, plus an add-activity grid; commits are debounced
+- [X] T067 [P] Add `progress-ring.tsx`, restyle `day-nav.tsx` (streak badge) and `day-strip.tsx` (goal pips), add `lib/workout-style.ts` (icons and tones), and load 62 days of summary on `/workouts`
+- [ ] T068 Visual and accessibility pass in a browser (contrast, 360 px, reduced motion, keyboard, screen reader)

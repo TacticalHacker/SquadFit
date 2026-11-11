@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { DateSchema, DayViewSchema, SummaryRangeResponseSchema, addDays } from "@calci/shared";
+import { DateSchema, DayViewSchema, SummaryRangeResponseSchema, addDays, currentStreak } from "@calci/shared";
 import { DayNav } from "@/components/day-nav";
 import { DayStrip } from "@/components/day-strip";
 import { WorkoutChecklist } from "@/components/workout-checklist";
@@ -22,17 +22,25 @@ async function WorkoutsContent({ searchParams }: { searchParams: PageProps<"/wor
     if (raw && err instanceof ApiRequestError && err.status === 400) redirect("/workouts");
     throw err;
   });
-  const strip = await apiFetch(`/workouts/summary?from=${addDays(view.date, -6)}&to=${view.date}`, {
-    schema: SummaryRangeResponseSchema,
-  });
+  // The streak needs up to two months ending today; the strip needs the 7 days ending on the viewed date.
+  const range = (from: string, to: string) =>
+    apiFetch(`/workouts/summary?from=${from}&to=${to}`, { schema: SummaryRangeResponseSchema });
+  const streakFrom = addDays(view.today, -61);
+  const stripFrom = addDays(view.date, -6);
+  const [history, stripOnly] = await Promise.all([
+    range(streakFrom, view.today),
+    stripFrom < streakFrom ? range(stripFrom, view.date) : Promise.resolve(null),
+  ]);
+  const strip = stripOnly ?? { days: history.days.filter((d) => d.date >= stripFrom && d.date <= view.date) };
+  const streak = currentStreak(history.days, view.today);
 
   return (
-    <div className="flex flex-col gap-6">
-      <DayNav date={view.date} today={view.today} />
+    <div className="flex flex-col gap-5 rounded-3xl bg-[#0F172A] p-4 text-slate-100 sm:p-6">
+      <DayNav date={view.date} today={view.today} streak={streak} />
       <DayStrip days={strip.days} current={view.date} today={view.today} />
       <WorkoutChecklist initialView={view} />
       <p className="text-sm">
-        <Link href="/workouts/mine" className="text-emerald-700 underline dark:text-emerald-400">
+        <Link href="/workouts/mine" className="text-lime-300 underline">
           My workouts
         </Link>
       </p>

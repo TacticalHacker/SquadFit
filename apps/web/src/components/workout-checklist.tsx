@@ -1,21 +1,24 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useOptimistic, useState, useTransition } from "react";
-import { applyChange, type DayChange, type DayRow, type DayView } from "@calci/shared";
-import { parseMinutesInput } from "@/lib/minutes-input";
+import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
+import { MAX_MINUTES, MIN_MINUTES, applyChange, type DayChange, type DayRow, type DayView } from "@calci/shared";
 import { hasDayChanged } from "@/lib/rollover";
+import { MINUTE_CHIPS, QUICK_PICK_IDS, TONES, workoutStyle } from "@/lib/workout-style";
 import { setEntryMinutes, tickWorkout, untickWorkout, type ChecklistResult } from "@/server/actions/workouts";
-import { DaySummary } from "./day-summary";
-import { inputClass } from "./form-bits";
+import { ProgressRing } from "./progress-ring";
 
 const CHECK_EVERY_MS = 60_000;
+const COMMIT_DELAY_MS = 600;
+const STEP = 5;
+const clamp = (m: number) => Math.min(MAX_MINUTES, Math.max(MIN_MINUTES, Math.round(m)));
 
 export function WorkoutChecklist({ initialView }: { initialView: DayView }) {
   const router = useRouter();
   const [view, setView] = useState(initialView);
   const [seen, setSeen] = useState(initialView);
   const [error, setError] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const [optimistic, applyOptimistic] = useOptimistic(view, applyChange);
 
@@ -48,6 +51,7 @@ export function WorkoutChecklist({ initialView }: { initialView: DayView }) {
       const result = await call();
       if (result.ok) {
         setView(result.view);
+        router.refresh(); // streak and week strip come from the server
       } else {
         setError(result.error);
         if (result.error === "This day can no longer be edited") router.refresh();
@@ -56,118 +60,253 @@ export function WorkoutChecklist({ initialView }: { initialView: DayView }) {
   }
 
   const date = view.date;
-  const disabled = !optimistic.editable;
+  const readOnly = !optimistic.editable;
+  const logged = optimistic.rows.filter((r) => r.entry !== null);
+  const available = optimistic.rows.filter((r) => r.entry === null && !r.removed);
+  const quick = QUICK_PICK_IDS.map((id) => available.find((r) => r.workoutId === id)).filter((r): r is DayRow => !!r);
+
+  const add = (row: DayRow) => {
+    setOpenId(row.workoutId);
+    submit({ type: "tick", workoutId: row.workoutId }, () => tickWorkout(date, row.workoutId));
+  };
 
   return (
-    <div className="flex flex-col gap-4">
-      {disabled ? (
-        <p role="status" className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100">
+    <div className="flex flex-col gap-5">
+      {readOnly ? (
+        <p role="status" className="rounded-xl bg-amber-400/15 px-4 py-2 text-sm text-amber-200">
           This day can no longer be edited
         </p>
       ) : null}
-      <DaySummary summary={optimistic.summary} />
-      <div role="alert" className="min-h-0">
-        {error ? (
-          <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">{error}</p>
-        ) : null}
+
+      <ProgressRing summary={optimistic.summary} />
+
+      <div role="alert">
+        {error ? <p className="rounded-xl bg-red-500/15 px-4 py-2 text-sm text-red-200">{error}</p> : null}
       </div>
-      <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
-        {optimistic.rows.map((row) => (
-          <Row
-            key={row.workoutId}
-            row={row}
-            disabled={disabled}
-            onToggle={(checked) =>
-              submit(
-                { type: checked ? "tick" : "untick", workoutId: row.workoutId },
-                () => (checked ? tickWorkout(date, row.workoutId) : untickWorkout(date, row.workoutId)),
-              )
-            }
-            onMinutes={(minutes) =>
-              submit({ type: "setMinutes", workoutId: row.workoutId, minutes }, () =>
-                setEntryMinutes(date, row.workoutId, minutes),
-              )
-            }
-            onInvalid={setError}
-          />
-        ))}
-      </ul>
+
+      {!readOnly && quick.length > 0 ? (
+        <section aria-labelledby="quick-h">
+          <h2 id="quick-h" className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
+            Quick add
+          </h2>
+          <ul className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+            {quick.map((row) => {
+              const s = workoutStyle(row.workoutId);
+              return (
+                <li key={row.workoutId} className="shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => add(row)}
+                    className="flex items-center gap-2 rounded-full bg-[#1E293B] py-2 pr-4 pl-2 text-sm font-medium transition hover:bg-slate-700 active:scale-95 motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-lime-400"
+                    aria-label={`Quick add ${row.name}, ${row.defaultMinutes} minutes`}
+                  >
+                    <span aria-hidden="true" className={`grid size-8 place-items-center rounded-full text-base ${TONES[s.tone].badge}`}>
+                      {s.emoji}
+                    </span>
+                    {row.name}
+                    <span className="text-slate-400">{row.defaultMinutes}m</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
+
+      <section aria-labelledby="logged-h">
+        <h2 id="logged-h" className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
+          Logged {optimistic.date === optimistic.today ? "today" : "this day"}
+        </h2>
+        {logged.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-slate-700 px-4 py-6 text-center text-sm text-slate-400">
+            Nothing yet. Tap a quick pick or add an activity below. 💪
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {logged.map((row) => (
+              <LoggedCard
+                key={row.workoutId}
+                row={row}
+                open={openId === row.workoutId}
+                readOnly={readOnly}
+                onToggle={() => setOpenId(openId === row.workoutId ? null : row.workoutId)}
+                onMinutes={(minutes) =>
+                  submit({ type: "setMinutes", workoutId: row.workoutId, minutes }, () =>
+                    setEntryMinutes(date, row.workoutId, minutes),
+                  )
+                }
+                onRemove={() => {
+                  setOpenId(null);
+                  submit({ type: "untick", workoutId: row.workoutId }, () => untickWorkout(date, row.workoutId));
+                }}
+              />
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {!readOnly ? (
+        <section aria-labelledby="add-h">
+          <h2 id="add-h" className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
+            Add activity
+          </h2>
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {available.map((row) => {
+              const s = workoutStyle(row.workoutId);
+              return (
+                <li key={row.workoutId}>
+                  <button
+                    type="button"
+                    onClick={() => add(row)}
+                    aria-label={`Add ${row.name}, ${row.defaultMinutes} minutes, ${row.defaultCalories} calories`}
+                    className="group flex w-full items-center gap-3 rounded-2xl bg-[#1E293B] p-3 text-left transition hover:bg-slate-700 active:scale-[0.98] motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-lime-400"
+                  >
+                    <span aria-hidden="true" className={`grid size-11 place-items-center rounded-xl text-xl ${TONES[s.tone].badge}`}>
+                      {s.emoji}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{row.name}</span>
+                      <span className="block text-xs text-slate-400">
+                        {row.defaultMinutes} min · {row.defaultCalories} kcal
+                      </span>
+                    </span>
+                    <span aria-hidden="true" className={`grid size-8 place-items-center rounded-full bg-white/5 text-lg ${TONES[s.tone].text} group-hover:bg-white/10`}>
+                      +
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
     </div>
   );
 }
 
-function Row({
+function LoggedCard({
   row,
-  disabled,
+  open,
+  readOnly,
   onToggle,
   onMinutes,
-  onInvalid,
+  onRemove,
 }: {
   row: DayRow;
-  disabled: boolean;
-  onToggle: (checked: boolean) => void;
+  open: boolean;
+  readOnly: boolean;
+  onToggle: () => void;
   onMinutes: (minutes: number) => void;
-  onInvalid: (message: string) => void;
+  onRemove: () => void;
 }) {
-  const ticked = row.entry !== null;
-  const minutes = row.entry?.minutes ?? row.defaultMinutes;
-  const calories = row.entry?.calories ?? row.defaultCalories;
-  const [draft, setDraft] = useState<string | null>(null);
-  const checkId = `w-${row.workoutId}`;
-  // A removed custom workout can't be newly ticked, only edited/unticked while it has an entry.
-  const cannotTick = !ticked && row.removed;
+  const entry = row.entry!;
+  const s = workoutStyle(row.workoutId);
+  const tone = TONES[s.tone];
+  // Local draft so rapid taps feel instant and only the last value is sent.
+  const [draft, setDraft] = useState<number | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(timer.current), []);
 
-  function commit() {
-    if (draft === null) return;
-    const parsed = parseMinutesInput(draft);
-    setDraft(null);
-    if (!parsed.ok) return onInvalid(parsed.error);
-    if (parsed.minutes !== minutes) onMinutes(parsed.minutes);
+  const minutes = draft ?? entry.minutes;
+  const calories = Math.round((entry.rateCalories * minutes) / entry.rateMinutes);
+
+  function change(next: number) {
+    const m = clamp(next);
+    setDraft(m);
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      setDraft(null);
+      if (m !== entry.minutes) onMinutes(m);
+    }, COMMIT_DELAY_MS);
   }
 
+  const panelId = `panel-${row.workoutId}`;
   return (
-    <li className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
-      <input
-        id={checkId}
-        type="checkbox"
-        className="size-5 accent-emerald-600"
-        checked={ticked}
-        disabled={disabled || cannotTick}
-        aria-label={`${row.name}, ${row.defaultMinutes} minutes, ${row.defaultCalories} calories`}
-        onChange={(e) => onToggle(e.target.checked)}
-      />
-      <label htmlFor={checkId} className="min-w-0 flex-1 font-medium">
-        {row.name}
-        {row.removed ? (
-          <span className="ml-2 rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-normal dark:bg-zinc-800">removed</span>
-        ) : null}
-      </label>
-      {ticked ? (
-        <input
-          type="number"
-          inputMode="numeric"
-          min={1}
-          max={600}
-          step={1}
-          aria-label={`Minutes for ${row.name}`}
-          disabled={disabled}
-          className={`${inputClass} w-20 py-1`}
-          value={draft ?? String(minutes)}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              commit();
-            }
-          }}
-        />
-      ) : (
-        <span className="text-sm text-zinc-500 tabular-nums">{minutes} min</span>
-      )}
-      <span className={`w-20 text-right text-sm tabular-nums ${ticked ? "font-medium" : "text-zinc-500"}`}>
-        {calories} kcal
-      </span>
+    <li className="overflow-hidden rounded-2xl bg-[#1E293B]">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-controls={panelId}
+        className="flex w-full items-center gap-3 p-3 text-left focus-visible:outline-2 focus-visible:outline-lime-400"
+      >
+        <span aria-hidden="true" className={`grid size-11 place-items-center rounded-xl text-xl ${tone.badge}`}>
+          {s.emoji}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-medium">
+            {row.name}
+            {row.removed ? <span className="ml-2 rounded-full bg-white/10 px-2 py-0.5 text-xs font-normal">removed</span> : null}
+          </span>
+          <span className="block text-xs text-slate-400">Tap to adjust</span>
+        </span>
+        <span className="text-right">
+          <span className={`block text-lg font-bold tabular-nums ${tone.text}`}>{minutes} min</span>
+          <span className="block text-xs tabular-nums text-slate-400">{calories} kcal</span>
+        </span>
+      </button>
+
+      <div
+        id={panelId}
+        className={`grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+      >
+        <div className="overflow-hidden">
+          <div className="flex flex-col gap-3 border-t border-white/5 p-3">
+            <div className="flex items-center justify-center gap-3">
+              <button
+                type="button"
+                disabled={readOnly || minutes <= MIN_MINUTES}
+                onClick={() => change(minutes - STEP)}
+                aria-label={`Decrease minutes for ${row.name} by ${STEP}`}
+                tabIndex={open ? 0 : -1}
+                className="grid size-11 place-items-center rounded-full bg-white/10 text-xl transition active:scale-90 disabled:opacity-30 motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-lime-400"
+              >
+                −
+              </button>
+              <p className="w-28 text-center" aria-live="polite">
+                <span className="text-3xl font-bold tabular-nums">{minutes}</span>
+                <span className="ml-1 text-sm text-slate-400">min</span>
+              </p>
+              <button
+                type="button"
+                disabled={readOnly || minutes >= MAX_MINUTES}
+                onClick={() => change(minutes + STEP)}
+                aria-label={`Increase minutes for ${row.name} by ${STEP}`}
+                tabIndex={open ? 0 : -1}
+                className="grid size-11 place-items-center rounded-full bg-white/10 text-xl transition active:scale-90 disabled:opacity-30 motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-lime-400"
+              >
+                +
+              </button>
+            </div>
+            <p className={`text-center text-sm font-medium ${tone.text}`}>🔥 ≈ {calories} kcal burned</p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {MINUTE_CHIPS.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  disabled={readOnly || minutes + m > MAX_MINUTES}
+                  onClick={() => change(minutes + m)}
+                  aria-label={`Add ${m} minutes to ${row.name}`}
+                  tabIndex={open ? 0 : -1}
+                  className="rounded-full bg-white/10 px-4 py-1.5 text-sm font-semibold transition hover:bg-white/20 active:scale-90 disabled:opacity-30 motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-lime-400"
+                >
+                  +{m}m
+                </button>
+              ))}
+            </div>
+            {readOnly ? null : (
+              <button
+                type="button"
+                onClick={onRemove}
+                tabIndex={open ? 0 : -1}
+                className="self-center text-sm text-red-300 underline focus-visible:outline-2 focus-visible:outline-lime-400"
+              >
+                Remove from {row.removed ? "this day" : "today's log"}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
     </li>
   );
 }

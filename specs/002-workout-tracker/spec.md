@@ -213,3 +213,12 @@ for it remain in history.
 - Notifications, reminders and workout notes or photos are out of scope.
 - Food logging, the calorie ledger, the leaderboard and scoring formula, streaks, and nudges are separate later features. Entries recorded here are what they will read.
 - The product is a web app; offline logging is out of scope.
+
+## Amendment 1 (2026-11-11): quick-log redesign
+
+Presentation-only change to the Workouts screen; no change to data, API or the FR-001..FR-024 rules.
+
+- Logging is card-based: tapping an activity logs its default minutes; a logged card expands to +15/+30/+45/+60 chips, a ±5 minute stepper and a live calorie preview, and can be removed. Typing minutes is no longer required (FR-007 still applies server-side to the 1-600 range).
+- The screen separates **Logged today** from **Add activity** and offers **Quick add** picks (fixed set of five until a usage history exists).
+- A progress ring shows total minutes against a **provisional 30-minute daily goal** and calories burned; the week strip marks days that met it.
+- A **provisional streak** (consecutive days with at least one workout; an empty today does not break it) is shown in the header. Feature 005 owns the real streak and scoring rules (PRD section 5) and may replace both.
