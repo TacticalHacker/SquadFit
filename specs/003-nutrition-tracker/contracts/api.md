@@ -63,6 +63,8 @@ Edit an entry. Body, all fields optional:
 { "name": "…", "calories": 120, "macros": { "protein": 2, "carbs": 20, "fat": 3 }, "meal": "dinner", "servings": 2 }
 ```
 
+`macros: null` clears the macros of a typed entry. Moving an entry to another meal keeps its place in time order (it is not moved to the end).
+
 | Entry source | Allowed fields | Others |
 |---|---|---|
 | `typed` | `name`, `calories`, `macros`, `meal` | `servings` → `400` |

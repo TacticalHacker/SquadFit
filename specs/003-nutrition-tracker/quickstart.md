@@ -60,7 +60,7 @@ pnpm --filter @calci/web dev     # http://localhost:3000
 | 30 | A new user opens the Add panel | Built-in foods only; no Recent section | US4-6 |
 | 31 | Sign in as a second user | Sees none of the first user's entries, own foods or recent foods | FR-024, SC-005 |
 | 32 | Change timezone in Settings to one where the date differs, reload | Today follows the new timezone; entries already logged stay on their dates | FR-015 |
-| 33 | `GET /food` for a day in the last month | One response, under 1 s | SC-006 |
+| 33 | `GET /food` for a day months back | One response, under 1 s | SC-006 |
 
 ## 4. Cleanup
 

@@ -197,7 +197,7 @@ under recent foods on another day.
 - **SC-003**: In 100% of tested cases the day's eaten total equals the sum of the entries shown, each meal subtotal equals its entries, and net equals eaten minus burned.
 - **SC-004**: In 100% of tested cases across at least five timezones (including one that changes clocks for daylight saving), an entry added at a given moment appears under the correct local date.
 - **SC-005**: A user's food data (entries, own foods, recent foods) is never visible to other users; access checks pass in 100% of tested cases.
-- **SC-006**: A past day, or a month of days, loads in under 1 second for a user with a year of history.
+- **SC-006**: A past day loads in under 1 second for a user with a year of history.
 - **SC-007**: In 100% of tested cases the burned figure on the Food screen equals the workout total shown for the same day on the Workouts screen.
 - **SC-008**: A user can find and add a common food from the built-in list in under 15 seconds.
 - **SC-009**: In 100% of tested cases each day's macro totals equal the sum of the macro values of the entries shown (scaled by servings).
@@ -210,5 +210,6 @@ under recent foods on another day.
 - Typed entries (no list) are a name plus total calories, with servings fixed at 1. Macros are optional on typed entries and own foods; every built-in food has them.
 - The editable window (today and the two days before) and the "no future days" rule are the same as for workouts.
 - Net calories are eaten minus burned; remaining under target is target minus net. These are display figures only; scoring rules belong to the leaderboard feature (PRD section 5.1).
+- If a user fills in only some of protein, carbs and fat on a typed item, the blank ones are saved as 0; leaving all three blank saves the item with no macros.
 - Out of scope: leaderboard and scoring, streaks, nudges, barcode scanning, photo logging, external food databases, micronutrients, macro goals or targets, and editing entries older than the window.
 - Depends on feature 002 for the burned figure and for day and edit-window behaviour.

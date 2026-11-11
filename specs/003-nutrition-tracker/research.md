@@ -95,7 +95,7 @@ Decisions for [plan.md](plan.md). Builds on [002's research](../002-workout-trac
 
 ## R6. Recent foods are derived, not stored
 
-**Decision**: `GET /food/recent` runs one range Query over the last 90 days of the user's `FOODLOG#` items (`today−89` to `today`), then `recentFoods(entries, 20)` (pure) keeps the latest entry per normalized name (trimmed, inner spaces collapsed, lower-cased), orders by date then entry id descending, and returns name, calories and macros. It is called only when the add panel needs it, not on every day view.
+**Decision**: `GET /food/recent` runs one range Query over the last 90 days of the user's `FOODLOG#` items (`today−89` to `today`), then `recentFoods(entries, 20)` (pure) keeps the latest entry per normalized name (trimmed, inner spaces collapsed, lower-cased), orders by date then entry id descending, and returns name, calories and macros. "Last 90 days" is by the entry's logged-for date, not the time it was typed. It is called only when the add panel needs it, not on every day view.
 
 **Rationale**: FR-022 and FR-023 with no extra table or maintenance; at about 15 entries a day, 90 days is at most about 1,400 small items. Choosing a recent food adds a typed entry (clarification Q5), so the result does not need food ids.
 

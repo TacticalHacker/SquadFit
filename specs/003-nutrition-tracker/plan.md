@@ -28,7 +28,7 @@ Approach:
 
 **Project Type**: Web application (extends the 001/002 monorepo)
 
-**Performance Goals**: Add → UI updated < 1 s (SC-001, met by the optimistic update); a day or a month loads < 1 s (SC-006: one Query for the day, one for that day's workouts, one profile Get)
+**Performance Goals**: Add → UI updated < 1 s (SC-001, met by the optimistic update); a day loads < 1 s even with a year of history (SC-006: one Query for the day, one for that day's workouts, one profile Get)
 
 **Constraints**: "Today" and the edit window computed only on the server from the profile timezone; entries immutable in date and snapshot values; food data never exposed to other users
 

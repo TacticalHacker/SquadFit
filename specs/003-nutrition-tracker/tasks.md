@@ -51,6 +51,7 @@ description: "Task list for 003 Nutrition Tracker"
   - `CaloriesSchema` accepts whole 1–5,000; rejects 0, 5001, 99.5, `NaN`, with "Calories must be a whole number from 1 to 5,000"
   - `MacrosSchema` `{ protein, carbs, fat }` each 0–500 with at most one decimal; rejects -1, 500.1, 12.34; `MAX_MACRO_GRAMS = 500`
   - `MEALS` is `["breakfast","lunch","dinner","snacks"]` in that order
+  - `completeMacros(input)`: all blank/undefined → `null`; any given → all three with blanks as 0 (analysis C1)
 - [ ] T003 [P] Write failing tests in `packages/shared/test/foods.test.ts`:
   - catalog invariants for `STANDARD_FOODS`: exactly 40 items; ids unique and matching `^sf-[a-z0-9-]+$`; names unique ignoring case; `name` 1–60 chars, `serving` 1–40 chars; `calories` integer 1–5,000; macros 0–500 with at most one decimal; values equal the table in [research R1](research.md#r1-built-in-food-catalog-lives-in-code)
   - energy sanity: for every food `|calories − (4·protein + 4·carbs + 9·fat)| ≤ 10% of calories`
