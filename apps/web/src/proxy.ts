@@ -13,7 +13,9 @@ import {
  * Optimistic gate + token refresh (spec 001 research R3). The authoritative check is the data access
  * layer in src/server/session.ts, and API Gateway verifies the token on every API call.
  */
-const PUBLIC_PATHS = new Set(["/sign-in", "/sign-in/new-password"]);
+const PUBLIC_PATHS = new Set(["/", "/sign-in", "/sign-in/new-password"]);
+/** Where members land (feature 006 made Gym the default tab; feature 009 made `/` the public landing page). */
+const HOME = "/workouts/gym";
 
 function toSignIn(request: NextRequest, clearCookies: boolean) {
   const url = new URL("/sign-in", request.url);
@@ -50,8 +52,8 @@ export async function proxy(request: NextRequest) {
     refreshed = true;
   }
 
-  // A signed-in user has no business on the sign-in page.
-  if (pathname === "/sign-in") return NextResponse.redirect(new URL("/", request.url));
+  // A signed-in member skips the landing page and the sign-in page (feature 009, research R1).
+  if (pathname === "/" || pathname === "/sign-in") return NextResponse.redirect(new URL(HOME, request.url));
 
   // Make the fresh token visible to THIS request's Server Components/Actions, not just the next one (analysis U1).
   const headers = new Headers(request.headers);

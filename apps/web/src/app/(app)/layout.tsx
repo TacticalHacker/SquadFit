@@ -24,7 +24,7 @@ async function Shell({ children }: { children: ReactNode }) {
       <header className="border-b border-zinc-200 dark:border-zinc-800">
         <nav aria-label="Main" className="mx-auto flex max-w-2xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-4">
           <div className="flex items-center justify-between gap-3">
-            <Link href="/" className="text-lg font-bold tracking-tight">
+            <Link href="/workouts/gym" className="text-lg font-bold tracking-tight">
               SquadFit
             </Link>
             <span className="flex items-center gap-3 sm:hidden">

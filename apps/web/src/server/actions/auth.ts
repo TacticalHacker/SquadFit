@@ -57,7 +57,7 @@ export async function setNewPassword(_prev: ActionState, formData: FormData): Pr
   const result = await respondNewPassword(challenge.username, challenge.session, newPassword);
   if (result.kind === "tokens") {
     await setSessionCookies(result); // also clears the challenge cookie
-    redirect("/setup"); // /setup bounces to "/" if a profile already exists
+    redirect("/setup"); // /setup bounces to the app if a profile already exists
   }
   if (result.kind === "error") {
     if (result.error === "expired_session") redirect("/sign-in?error=expired");

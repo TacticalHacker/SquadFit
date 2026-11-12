@@ -147,6 +147,11 @@ export class ApiStack extends Stack {
     // Feature 008: same function, key in the path for clients that can't send headers (ChatGPT "No authentication").
     this.api.addRoutes({ path: "/mcp/{key}", methods: [HttpMethod.ANY], integration: new HttpLambdaIntegration("mcpKeyIntegration", mcpFn) });
 
+    // Public landing page (feature 009): anonymous, called only by the Next server. Pulse returns two counts
+    // (constitution VI); the waitlist is rate-limited and dedupes by email in the handler.
+    route("public-pulse-get", HttpMethod.GET, "/public/pulse", { auth: false });
+    route("public-waitlist-post", HttpMethod.POST, "/public/waitlist", { auth: false, write: true });
+
     new CfnOutput(this, "ApiUrl", { value: this.api.apiEndpoint });
   }
 }
