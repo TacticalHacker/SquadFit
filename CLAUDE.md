@@ -101,3 +101,8 @@ pnpm deploy:dev     # deploy Data + Api stacks to AWS (needs AWS creds)
 - Web: `PulseBar` under `DayStrip` on both Workouts tabs (inline card ≥ 640 px, `BottomSheet` on phones); `AiBadge` next to AI-adjusted calories. Food has no coach block.
 - Profile `bodyWeightKg` (20–400, 1 decimal; 75 default via `effectiveBodyWeight`), edited in Settings only; never in public views.
 - Never log notes, reasons, action items, body weight or entries.
+
+## ChatGPT connector (feature 008)
+
+- ChatGPT custom connectors can't send headers, so `ANY /mcp/{key}` (same Lambda, no authorizer) accepts the member's `sfk_` key as the last path segment (`parsePathKey`). The header still wins when present. Use "No authentication" in ChatGPT with URL `<api>/mcp/<sfk_key>`.
+- The URL is a secret: never log request paths in the MCP function, and don't add API Gateway access logs without redacting `/mcp/{key}`.

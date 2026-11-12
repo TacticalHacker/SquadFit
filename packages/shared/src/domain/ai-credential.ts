@@ -15,6 +15,14 @@ export function hashToken(token: string): string {
 }
 
 /** The token from an `Authorization: Bearer sfk_...` header, or null when absent or malformed. */
+/**
+ * Feature 008: ChatGPT connectors can't send a header, so the same key may be given as the last path segment
+ * (`/mcp/sfk_...`). Returns the key only if it has the key format.
+ */
+export function parsePathKey(segment: string | undefined): string | null {
+  return segment && TOKEN_PATTERN.test(segment) ? segment : null;
+}
+
 export function parseBearer(header: string | undefined): string | null {
   const m = /^Bearer\s+(\S+)$/i.exec(header?.trim() ?? "");
   const token = m?.[1];

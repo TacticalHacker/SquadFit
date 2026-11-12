@@ -143,7 +143,9 @@ export class ApiStack extends Stack {
     // verified in the handler. ANY so the handler can answer OPTIONS (CORS) and 405.
     route("coach-note-get", HttpMethod.GET, "/coach-note");
     route("coach-action-put", HttpMethod.PUT, "/coach-note/{date}/actions/{index}", { write: true });
-    route("mcp", HttpMethod.ANY, "/mcp", { auth: false, write: true, photos: "read", memorySize: 512, timeoutSeconds: 15 });
+    const mcpFn = route("mcp", HttpMethod.ANY, "/mcp", { auth: false, write: true, photos: "read", memorySize: 512, timeoutSeconds: 15 });
+    // Feature 008: same function, key in the path for clients that can't send headers (ChatGPT "No authentication").
+    this.api.addRoutes({ path: "/mcp/{key}", methods: [HttpMethod.ANY], integration: new HttpLambdaIntegration("mcpKeyIntegration", mcpFn) });
 
     new CfnOutput(this, "ApiUrl", { value: this.api.apiEndpoint });
   }
