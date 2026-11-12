@@ -16,6 +16,7 @@
 - Q: Where should the Gym screen live in the app? → A: As a "Gym" tab inside Workouts (an "Activities | Gym" switch on the Workouts screen), sharing its day navigation and totals; no new top-level navigation item.
 - Q: Should an unsaved drawer survive the phone locking or the page reloading? → A: Yes. Unsaved drawer values are kept as a draft on the member's device per exercise and day, restored on reopen until saved or discarded; nothing is sent to the server until Save.
 - Q: Should the member's AI coach see gym sets, reps and weights? → A: Yes. The coach's history tool includes each gym entry's exercise, muscle group, sets (reps, weight, completed) and volume, for that member only.
+- Q (2026-11-12, after implementation): Which Workouts tab opens by default? → A: Gym. The app home and the Workouts nav link open the Gym tab; the switch reads "Gym | Activities".
 - Q: How to handle a day with both the generic "Strength training" activity and gym entries? → A: Allow both and count both; on a day with gym entries the Strength training card shows a hint with the gym minutes already logged.
 
 ## User Scenarios & Testing *(mandatory)*

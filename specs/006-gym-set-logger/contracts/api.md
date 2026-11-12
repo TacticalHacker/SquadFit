@@ -55,7 +55,7 @@ Remove that day's entry; idempotent (absent → still 200). Same day rules. Resp
 |---|---|---|
 | `POST /workouts/gym/exercises` | `{ name: 1–40 chars, group: MuscleGroup except "cardio" }` | `201 { exercise: GymExercise }` (`entry`/`last` null); 409 `DUPLICATE_NAME` / `LIMIT_REACHED` |
 | `PUT /workouts/gym/exercises/{exerciseId}` | same | `200 { exercise }`; 404 if not the caller's or removed; 409 `DUPLICATE_NAME` |
-| `DELETE /workouts/gym/exercises/{exerciseId}` | none | `204`; soft remove, idempotent; built-in id → 404 |
+| `DELETE /workouts/gym/exercises/{exerciseId}` | none | `200 { ok: true }` (as feature 002/003 deletes); soft remove, idempotent; built-in id → 404 |
 
 ## Changes to feature 002 routes
 

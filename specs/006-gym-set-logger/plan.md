@@ -28,11 +28,11 @@ Approach:
 
 **Project Type**: Web application (monorepo: `apps/web`, `services/api`, `packages/shared`, `infra`)
 
-**Performance Goals**: Drawer opens with pre-filled values with no network wait (SC-001); save round-trip < 1 s (SC-006); `GET /workouts/gym` < 1 s with ≤ 80 parallel single-item GSI reads (R5).
+**Performance Goals**: Drawer opens with pre-filled values with no network wait (SC-001); save round-trip < 1 s (SC-006); `GET /workouts/gym` < 1 s with ≤ 78 parallel single-item GSI reads (R5).
 
 **Constraints**: 44 × 44 px tap targets; 16 px inputs (no iOS zoom); drawer ≤ 85 dvh; no horizontal page scroll at 375 px; server recomputes all totals; "today" from profile timezone; never log sets, weights or names.
 
-**Scale/Scope**: ~3 members; 30 built-in exercises, ≤ 50 own per member; ≤ 20 sets per entry; one entry per exercise per day.
+**Scale/Scope**: ~3 members; 28 built-in exercises, ≤ 50 own per member; ≤ 20 sets per entry; one entry per exercise per day.
 
 ## Constitution Check
 
@@ -106,4 +106,4 @@ apps/web/src/
 
 | Choice | Why needed | Simpler alternative rejected because |
 |---|---|---|
-| Up to 80 parallel `Limit 1` GSI queries per `GET /workouts/gym` (R5) | Drawer must open with "last time" values already in place (SC-001) | Fetch-on-open swaps numbers under the thumb after opening; a stored "last" pointer goes stale on back-dated saves and removes. Fallback documented if latency is a problem. |
+| Up to 78 parallel `Limit 1` GSI queries per `GET /workouts/gym` (R5) | Drawer must open with "last time" values already in place (SC-001) | Fetch-on-open swaps numbers under the thumb after opening; a stored "last" pointer goes stale on back-dated saves and removes. Fallback documented if latency is a problem. |

@@ -57,3 +57,36 @@ describe("get_user_history", () => {
     expect(bad.isError).toBe(true);
   });
 });
+
+describe("get_user_history: gym entries (feature 006)", () => {
+  it("adds kind, muscle group, sets and volume; plain workouts unchanged", async () => {
+    const { deps, profiles, workouts, gym } = makeDeps();
+    await seedProfile(profiles);
+    await seedProfile(profiles, "user-2", "Asia/Kolkata", "bob");
+    const token = await seedKey(deps);
+    await seedWorkoutEntry(workouts, "user-1", "2026-11-11", 250);
+    const set = (n: number) => ({ setNumber: n, reps: 8, weightKg: 80, completed: n < 3 });
+    await gym.putGymEntry("user-1", {
+      date: "2026-11-11", workoutId: "gx-bench-press", name: "Bench Press", kind: "gym", muscleGroup: "chest", exerciseKind: "strength",
+      sets: [set(1), set(2), set(3)], volumeKg: 1920, rateMinutes: 5, rateCalories: 30, minutes: 8, calories: 45, createdAt: "t", updatedAt: "t",
+    });
+    await gym.putGymEntry("user-1", {
+      date: "2026-11-11", workoutId: "gx-stairmaster", name: "Stairmaster", kind: "gym", muscleGroup: "cardio", exerciseKind: "cardio",
+      rateMinutes: 20, rateCalories: 180, minutes: 20, calories: 180, createdAt: "t", updatedAt: "t",
+    });
+    await gym.putGymEntry("user-2", {
+      date: "2026-11-11", workoutId: "gx-deadlift", name: "Deadlift", kind: "gym", muscleGroup: "back", exerciseKind: "strength",
+      sets: [set(1)], volumeKg: 640, rateMinutes: 5, rateCalories: 30, minutes: 3, calories: 15, createdAt: "t", updatedAt: "t",
+    });
+    const out = JSON.parse(toolText(await callTool(deps, token, "get_user_history", { startDate: "2026-11-11", endDate: "2026-11-11" })).text);
+    const w = out.days[0].workouts;
+    expect(w).toContainEqual({ name: "std-running", minutes: 30, calories: 250 });
+    expect(w).toContainEqual({
+      name: "Bench Press", minutes: 8, calories: 45, kind: "gym", muscleGroup: "chest", volumeKg: 1920,
+      sets: [{ set: 1, reps: 8, kg: 80, done: true }, { set: 2, reps: 8, kg: 80, done: true }, { set: 3, reps: 8, kg: 80, done: false }],
+    });
+    expect(w).toContainEqual({ name: "Stairmaster", minutes: 20, calories: 180, kind: "gym", muscleGroup: "cardio" });
+    expect(w.some((x: { name: string }) => x.name === "Deadlift")).toBe(false);
+    expect(out.days[0].totals.burned).toBe(475);
+  });
+});

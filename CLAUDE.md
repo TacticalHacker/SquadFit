@@ -80,3 +80,13 @@ pnpm deploy:dev     # deploy Data + Api stacks to AWS (needs AWS creds)
 - Pictures are private objects `food-photos/<sub>/<entryId>.jpg|webp` in the same bucket as avatars; each function gets S3 access to that prefix only (`photos: "read"|"readwrite"` in `api-stack.ts`). Views carry 1-hour signed URLs; the MCP agent receives the bytes as an MCP image, never a URL.
 - MCP tools (feature 004 server): `list_pending_food_photos`, `get_food_photo` (image), `submit_food_estimate` (only while `pending`, only on editable days). Status changes use `FoodRepo.updateEntryIf` (conditional on `photoStatus`) so the member and the agent can never both win; a lost race is a 409 on the web.
 - Never log captions, photos or estimates.
+
+## Gym logger (feature 006)
+
+- Route `/workouts/gym` is the default Workouts tab ("Gym | Activities" in `WorkoutsTabs`; `/` and the Workouts nav link land there; `?date=` kept; `?open=<exerciseId>` opens a drawer). API: `GET /workouts/gym`, `PUT|DELETE /workouts/gym/entries/{date}/{exerciseId}`, `POST|PUT|DELETE /workouts/gym/exercises[/{id}]`.
+- A gym entry is a workout entry: `USER#<sub>/ENTRY#<date>#<exerciseId>` with `kind: "gym"`, so day totals, the strip, the food ledger's burned and AI history include it automatically. It also sets `gsi1pk = GYM#<sub>#<exerciseId>`, `gsi1sk = <date>` for "last time" lookups. Own exercises: `GYMEX#gc-<uuid>` (max 50, never Cardio).
+- Ids: built-in `gx-<slug>` (`GYM_EXERCISES`, 28 items), own `gc-<uuid>`. Feature 002's entry routes return 404 for these ids.
+- `gymTotals` / `cardioTotals` in `packages/shared/src/domain/gym.ts` are the only gym math (2.5 min/set, 15 kcal/set, every set counts); the server recomputes and rejects client totals. `drawerReducer` (`gym-drawer.ts`) drives the steppers.
+- Save/remove return `GymSaveResult` (no per-exercise "last" fan-out); the client keeps its `last` values.
+- Unsaved drawer values are drafts in `localStorage` (`sf:gymdraft:v1:<username>:<date>:<id>`, `lib/gym-draft.ts`), read via `useSyncExternalStore`, never sent to the server.
+- Never log sets, weights or exercise names.

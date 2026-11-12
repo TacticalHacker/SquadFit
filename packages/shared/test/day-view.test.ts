@@ -84,3 +84,47 @@ describe("applyChange", () => {
     expect(v.summary).toEqual({ totalMinutes: 75, totalCalories: 540 });
   });
 });
+
+describe("buildDayView with gym entries (feature 006)", () => {
+  const gym = (id: string, minutes: number, calories: number, createdAt: string): StoredEntry => ({
+    workoutId: id,
+    name: id,
+    rateMinutes: 5,
+    rateCalories: 30,
+    minutes,
+    calories,
+    kind: "gym",
+    muscleGroup: "chest",
+    exerciseKind: "strength",
+    sets: [{ setNumber: 1, reps: 10, weightKg: 60, completed: true }],
+    volumeKg: 600,
+    createdAt,
+    updatedAt: createdAt,
+  });
+
+  it("puts gym entries in `gym` (oldest first), never in rows, and sums both", () => {
+    const view = buildDayView({
+      ...base,
+      customWorkouts: [],
+      entries: [entry("std-running", "Running", 30, 300, 30), gym("gx-deadlift", 8, 45, "2026-11-11T09:00:00Z"), gym("gx-bench-press", 3, 15, "2026-11-11T08:00:00Z")],
+    });
+    expect(view.rows.some((r) => r.workoutId.startsWith("gx-"))).toBe(false);
+    expect(view.gym.map((g) => g.exerciseId)).toEqual(["gx-bench-press", "gx-deadlift"]);
+    expect(view.gym[0]).toMatchObject({ name: "gx-bench-press", muscleGroup: "chest", exerciseKind: "strength", volumeKg: 600, minutes: 3, calories: 15 });
+    expect(view.summary).toEqual({ totalMinutes: 41, totalCalories: 360 });
+    expect(view.gymMinutes).toBe(11);
+  });
+
+  it("a day without gym entries has an empty gym list", () => {
+    const view = buildDayView({ ...base, customWorkouts: [], entries: [entry("std-yoga", "Yoga", 30, 90, 30)] });
+    expect(view.gym).toEqual([]);
+    expect(view.gymMinutes).toBe(0);
+  });
+
+  it("applyChange keeps gym entries and their totals", () => {
+    const view = buildDayView({ ...base, customWorkouts: [], entries: [gym("gx-deadlift", 8, 45, "t")] });
+    const next = applyChange(view, { type: "tick", workoutId: "std-running" });
+    expect(next.gym).toHaveLength(1);
+    expect(next.summary).toEqual({ totalMinutes: 38, totalCalories: 345 });
+  });
+});

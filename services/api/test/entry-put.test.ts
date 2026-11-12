@@ -129,3 +129,13 @@ describe("PUT entry: minutes", () => {
     expect((await put(deps, "2026-11-08", "std-running", { minutes: 40 })).status).toBe(409);
   });
 });
+
+describe("PUT entry: gym ids (feature 006)", () => {
+  it("404 so gym minutes can only change with their sets", async () => {
+    const { deps } = await setup();
+    for (const id of ["gx-bench-press", "gc-anything"]) {
+      const r = await put(deps, "2026-11-11", id, { minutes: 30 });
+      expect(r.status).toBe(404);
+    }
+  });
+});

@@ -10,14 +10,29 @@ import {
   TargetsShape,
   validateHistoryWindow,
   validateNoteDate,
+  type StoredEntry,
 } from "@calci/shared";
 import { photoTools } from "./photos";
 import { describeIssues, fail, stripUnknown, type Tool, type ToolContext, type ToolResult } from "./types";
 
+/** One workout line in the history. Gym entries add their muscle group and sets (feature 006, FR-024). */
+function historyWorkout(w: StoredEntry) {
+  const base = { name: w.name, minutes: w.minutes, calories: w.calories };
+  if (w.kind !== "gym") return base;
+  return {
+    ...base,
+    kind: "gym" as const,
+    muscleGroup: w.muscleGroup,
+    ...(w.exerciseKind !== "cardio" && w.sets
+      ? { sets: w.sets.map((s) => ({ set: s.setNumber, reps: s.reps, kg: s.weightKg, done: s.completed })), volumeKg: w.volumeKg ?? 0 }
+      : {}),
+  };
+}
+
 const getUserHistory: Tool = {
   name: "get_user_history",
   description:
-    "Returns the member's own food and workout entries for each day in a date window (at most 31 days, ending no later than today), with daily totals and their current targets.",
+    "Returns the member's own food and workout entries for each day in a date window (at most 31 days, ending no later than today), with daily totals and their current targets. Gym exercises carry kind \"gym\", their muscle group and, for lifts, each set's reps, weight in kg (0 = bodyweight) and whether it was completed, plus total volume.",
   shape: HistoryShape,
   async run(args, ctx) {
     const parsed = HistoryInputSchema.safeParse(args);
@@ -55,7 +70,7 @@ const getUserHistory: Tool = {
               : {}),
           })),
         ),
-        workouts: dayWorkouts.map((w) => ({ name: w.name, minutes: w.minutes, calories: w.calories })),
+        workouts: dayWorkouts.map(historyWorkout),
         totals: {
           eaten: view.ledger.eaten,
           burned: view.ledger.burned,

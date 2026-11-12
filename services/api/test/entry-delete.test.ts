@@ -40,3 +40,12 @@ describe("DELETE entry", () => {
     expect(r.body.rows).toHaveLength(12);
   });
 });
+
+describe("DELETE entry: gym ids (feature 006)", () => {
+  it("404; gym entries are removed through /workouts/gym", async () => {
+    const { deps, workouts } = await setup();
+    await workouts.putEntryIfAbsent("user-1", { date: "2026-11-11", workoutId: "gx-deadlift", name: "Deadlift", rateMinutes: 5, rateCalories: 30, minutes: 8, calories: 45, kind: "gym", createdAt: "t", updatedAt: "t" });
+    expect((await untick(deps, "2026-11-11", "gx-deadlift")).status).toBe(404);
+    expect(workouts.entries.size).toBe(1);
+  });
+});

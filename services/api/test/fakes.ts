@@ -7,6 +7,7 @@ import { photoKey, type PhotoContentType, type PhotoStore } from "../src/lib/pho
 import type { Deps } from "../src/lib/deps";
 import type { FoodEntryItem, FoodRepo, OwnFoodItem, EntryUpdate } from "../src/lib/food-repo";
 import type { CustomWorkoutItem, EntryItem, WorkoutRepo } from "../src/lib/workout-repo";
+import type { GymEntryItem, GymRepo, OwnExerciseItem } from "../src/lib/gym-repo";
 import { ProfileMissingError, type ProfileItem, type ProfileRepo } from "../src/lib/profile-repo";
 
 export class InMemoryProfileRepo implements ProfileRepo {
@@ -118,6 +119,56 @@ export class InMemoryWorkoutRepo implements WorkoutRepo {
     const w = this.customs.get(this.k(userId, workoutId));
     if (!w) return false;
     this.customs.set(this.k(userId, workoutId), { ...w, removedAt: w.removedAt ?? nowIso, updatedAt: nowIso });
+    return true;
+  }
+}
+
+/** Gym repo over the workout fake's entry map, so day/range reads see gym entries like DynamoDB does. */
+export class InMemoryGymRepo implements GymRepo {
+  readonly exercises = new Map<string, OwnExerciseItem>();
+  /** Counts `lastBefore` calls (save responses must not fan out, SC-006). */
+  lastQueries = 0;
+
+  constructor(private readonly workouts: InMemoryWorkoutRepo) {}
+
+  private key = (u: string, d: string, id: string) => `${u}|ENTRY#${d}#${id}`;
+
+  async getGymEntry(userId: string, date: string, exerciseId: string) {
+    return this.workouts.entries.get(this.key(userId, date, exerciseId)) ?? null;
+  }
+  async putGymEntry(userId: string, entry: GymEntryItem) {
+    this.workouts.entries.set(this.key(userId, entry.date, entry.workoutId), entry);
+  }
+  async deleteGymEntry(userId: string, date: string, exerciseId: string) {
+    this.workouts.entries.delete(this.key(userId, date, exerciseId));
+  }
+  async lastBefore(userId: string, exerciseId: string, date: string) {
+    this.lastQueries++;
+    const hits = [...this.workouts.entries.entries()]
+      .filter(([k, e]) => k.startsWith(`${userId}|`) && e.kind === "gym" && e.workoutId === exerciseId && e.date < date)
+      .map(([, e]) => e)
+      .sort((a, b) => (a.date < b.date ? 1 : -1));
+    return hits[0] ?? null;
+  }
+  async listOwnExercises(userId: string) {
+    return [...this.exercises.entries()].filter(([k, e]) => k.startsWith(`${userId}|`) && !e.removedAt).map(([, e]) => e);
+  }
+  async getOwnExercise(userId: string, exerciseId: string) {
+    return this.exercises.get(`${userId}|${exerciseId}`) ?? null;
+  }
+  async putOwnExercise(userId: string, item: OwnExerciseItem) {
+    this.exercises.set(`${userId}|${item.exerciseId}`, item);
+  }
+  async updateOwnExercise(userId: string, exerciseId: string, fields: { name: string; group: OwnExerciseItem["group"] }, nowIso: string) {
+    const e = this.exercises.get(`${userId}|${exerciseId}`);
+    if (!e || e.removedAt) return false;
+    this.exercises.set(`${userId}|${exerciseId}`, { ...e, ...fields, updatedAt: nowIso });
+    return true;
+  }
+  async markOwnRemoved(userId: string, exerciseId: string, nowIso: string) {
+    const e = this.exercises.get(`${userId}|${exerciseId}`);
+    if (!e) return false;
+    this.exercises.set(`${userId}|${exerciseId}`, { ...e, removedAt: e.removedAt ?? nowIso, updatedAt: nowIso });
     return true;
   }
 }
@@ -278,14 +329,15 @@ export class FakeAvatarStore implements AvatarStore {
 export function makeDeps(now = "2026-11-11T10:00:00.000Z") {
   const profiles = new InMemoryProfileRepo();
   const workouts = new InMemoryWorkoutRepo();
+  const gym = new InMemoryGymRepo(workouts);
   const food = new InMemoryFoodRepo();
   const coach = new InMemoryCoachRepo();
   const credentials = new InMemoryCredentialRepo();
   const avatars = new FakeAvatarStore();
   const photos = new FakePhotoStore();
   let clock = new Date(now);
-  const deps: Deps = { profiles, workouts, food, coach, credentials, avatars, photos, now: () => clock };
-  return { deps, profiles, workouts, food, coach, credentials, avatars, photos, setNow: (iso: string) => (clock = new Date(iso)) };
+  const deps: Deps = { profiles, workouts, gym, food, coach, credentials, avatars, photos, now: () => clock };
+  return { deps, profiles, workouts, gym, food, coach, credentials, avatars, photos, setNow: (iso: string) => (clock = new Date(iso)) };
 }
 
 export function makeEvent(opts: {

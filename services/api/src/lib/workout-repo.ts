@@ -16,6 +16,18 @@ export interface EntryItem extends StoredEntry {
   updatedAt: string;
 }
 
+/** Gym fields carried by feature 006 entries in the same key space; absent on plain workout entries. */
+export function gymFields(i: Record<string, unknown>): Partial<StoredEntry> {
+  if (i.kind !== "gym") return {};
+  return {
+    kind: "gym",
+    muscleGroup: i.muscleGroup as NonNullable<StoredEntry["muscleGroup"]>,
+    exerciseKind: i.exerciseKind as NonNullable<StoredEntry["exerciseKind"]>,
+    ...(Array.isArray(i.sets) ? { sets: i.sets as NonNullable<StoredEntry["sets"]> } : {}),
+    ...(typeof i.volumeKg === "number" ? { volumeKg: i.volumeKg } : {}),
+  };
+}
+
 export interface CustomWorkoutItem extends StoredCustomWorkout {
   createdAt: string;
   updatedAt: string;
@@ -59,7 +71,7 @@ const workoutSk = (workoutId: string) => `WORKOUT#${workoutId}`;
 
 const isConditionFailure = (err: unknown) => err instanceof Error && err.name === "ConditionalCheckFailedException";
 
-function toEntry(i: Record<string, unknown>): EntryItem {
+export function toEntry(i: Record<string, unknown>): EntryItem {
   return {
     date: i.date as string,
     workoutId: i.workoutId as string,
@@ -70,6 +82,7 @@ function toEntry(i: Record<string, unknown>): EntryItem {
     calories: i.calories as number,
     createdAt: i.createdAt as string,
     updatedAt: i.updatedAt as string,
+    ...gymFields(i),
   };
 }
 

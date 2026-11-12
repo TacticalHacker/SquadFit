@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { MinutesSchema } from "../domain/calories";
 import { DateSchema } from "../domain/day";
+import { GymEntryViewSchema } from "./gym";
 
 export const EntryPutSchema = z.object({ minutes: MinutesSchema.optional() });
 export type EntryPut = z.infer<typeof EntryPutSchema>;
@@ -30,6 +31,8 @@ export const DayViewSchema = z.object({
   timezone: z.string(),
   editable: z.boolean(),
   rows: z.array(WorkoutRowSchema),
+  gym: z.array(GymEntryViewSchema).default([]),
+  gymMinutes: z.number().default(0),
   summary: SummarySchema,
 });
 

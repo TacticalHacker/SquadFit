@@ -119,6 +119,13 @@ export class ApiStack extends Stack {
     route("custom-post", HttpMethod.POST, "/workouts/custom", { write: true });
     route("custom-put", HttpMethod.PUT, "/workouts/custom/{workoutId}", { write: true });
     route("custom-delete", HttpMethod.DELETE, "/workouts/custom/{workoutId}", { write: true });
+    // Gym logger (feature 006): read-only list (queries gsi1 for "last time"), write-only for mutations.
+    route("gym-get", HttpMethod.GET, "/workouts/gym");
+    route("gym-entry-put", HttpMethod.PUT, "/workouts/gym/entries/{date}/{exerciseId}", { write: true });
+    route("gym-entry-delete", HttpMethod.DELETE, "/workouts/gym/entries/{date}/{exerciseId}", { write: true });
+    route("gym-exercise-post", HttpMethod.POST, "/workouts/gym/exercises", { write: true });
+    route("gym-exercise-put", HttpMethod.PUT, "/workouts/gym/exercises/{exerciseId}", { write: true });
+    route("gym-exercise-delete", HttpMethod.DELETE, "/workouts/gym/exercises/{exerciseId}", { write: true });
     // Nutrition (feature 003)
     route("food-get", HttpMethod.GET, "/food", { photos: "read" });
     route("food-recent-get", HttpMethod.GET, "/food/recent");

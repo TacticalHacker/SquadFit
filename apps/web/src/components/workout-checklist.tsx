@@ -1,16 +1,19 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import { MAX_MINUTES, MIN_MINUTES, applyChange, type DayChange, type DayRow, type DayView } from "@calci/shared";
 import { hasDayChanged } from "@/lib/rollover";
 import { MINUTE_CHIPS, QUICK_PICK_IDS, TONES, workoutStyle } from "@/lib/workout-style";
 import { setEntryMinutes, tickWorkout, untickWorkout, type ChecklistResult } from "@/server/actions/workouts";
+import { gymEntrySummary } from "./exercise-list";
 import { ProgressRing } from "./progress-ring";
 
 const CHECK_EVERY_MS = 60_000;
 const COMMIT_DELAY_MS = 600;
 const STEP = 5;
+const STRENGTH_ID = "std-strength";
 const clamp = (m: number) => Math.min(MAX_MINUTES, Math.max(MIN_MINUTES, Math.round(m)));
 
 export function WorkoutChecklist({ initialView }: { initialView: DayView }) {
@@ -63,6 +66,11 @@ export function WorkoutChecklist({ initialView }: { initialView: DayView }) {
   const readOnly = !optimistic.editable;
   const logged = optimistic.rows.filter((r) => r.entry !== null);
   const available = optimistic.rows.filter((r) => r.entry === null && !r.removed);
+  const gym = optimistic.gym;
+  // FR-025: on a day with gym entries, remind the member before they also log generic Strength training.
+  const gymHint = optimistic.gymMinutes > 0 ? `Logged in Gym: ${optimistic.gymMinutes} min` : null;
+  const gymHref = (id: string) =>
+    `/workouts/gym?${date === optimistic.today ? "" : `date=${date}&`}open=${encodeURIComponent(id)}`;
   const quick = QUICK_PICK_IDS.map((id) => available.find((r) => r.workoutId === id)).filter((r): r is DayRow => !!r);
 
   const add = (row: DayRow) => {
@@ -117,7 +125,7 @@ export function WorkoutChecklist({ initialView }: { initialView: DayView }) {
         <h2 id="logged-h" className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
           Logged {optimistic.date === optimistic.today ? "today" : "this day"}
         </h2>
-        {logged.length === 0 ? (
+        {logged.length === 0 && gym.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-slate-700 px-4 py-6 text-center text-sm text-slate-400">
             Nothing yet. Tap a quick pick or add an activity below. 💪
           </p>
@@ -129,6 +137,7 @@ export function WorkoutChecklist({ initialView }: { initialView: DayView }) {
                 row={row}
                 open={openId === row.workoutId}
                 readOnly={readOnly}
+                hint={row.workoutId === STRENGTH_ID ? gymHint : null}
                 onToggle={() => setOpenId(openId === row.workoutId ? null : row.workoutId)}
                 onMinutes={(minutes) =>
                   submit({ type: "setMinutes", workoutId: row.workoutId, minutes }, () =>
@@ -140,6 +149,26 @@ export function WorkoutChecklist({ initialView }: { initialView: DayView }) {
                   submit({ type: "untick", workoutId: row.workoutId }, () => untickWorkout(date, row.workoutId));
                 }}
               />
+            ))}
+            {gym.map((g) => (
+              <li key={g.exerciseId}>
+                <Link
+                  href={gymHref(g.exerciseId)}
+                  className="flex min-h-14 items-center gap-3 rounded-2xl bg-[#1E293B] p-3 focus-visible:outline-2 focus-visible:outline-lime-400"
+                >
+                  <span aria-hidden="true" className={`grid size-11 place-items-center rounded-xl text-xl ${TONES.purple.badge}`}>
+                    🏋️
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">{g.name}</span>
+                    <span className="block text-xs text-slate-400">Gym · {gymEntrySummary(g)}</span>
+                  </span>
+                  <span className="text-right">
+                    <span className={`block text-lg font-bold tabular-nums ${TONES.purple.text}`}>{g.minutes} min</span>
+                    <span className="block text-xs tabular-nums text-slate-400">{g.calories} kcal</span>
+                  </span>
+                </Link>
+              </li>
             ))}
           </ul>
         )}
@@ -169,6 +198,9 @@ export function WorkoutChecklist({ initialView }: { initialView: DayView }) {
                       <span className="block text-xs text-slate-400">
                         {row.defaultMinutes} min · {row.defaultCalories} kcal
                       </span>
+                      {row.workoutId === STRENGTH_ID && gymHint ? (
+                        <span className="block text-xs font-semibold text-purple-300">{gymHint}</span>
+                      ) : null}
                     </span>
                     <span aria-hidden="true" className={`grid size-8 place-items-center rounded-full bg-white/5 text-lg ${TONES[s.tone].text} group-hover:bg-white/10`}>
                       +
@@ -188,6 +220,7 @@ function LoggedCard({
   row,
   open,
   readOnly,
+  hint,
   onToggle,
   onMinutes,
   onRemove,
@@ -195,6 +228,7 @@ function LoggedCard({
   row: DayRow;
   open: boolean;
   readOnly: boolean;
+  hint: string | null;
   onToggle: () => void;
   onMinutes: (minutes: number) => void;
   onRemove: () => void;
@@ -238,7 +272,7 @@ function LoggedCard({
             {row.name}
             {row.removed ? <span className="ml-2 rounded-full bg-white/10 px-2 py-0.5 text-xs font-normal">removed</span> : null}
           </span>
-          <span className="block text-xs text-slate-400">Tap to adjust</span>
+          <span className="block text-xs text-slate-400">{hint ?? "Tap to adjust"}</span>
         </span>
         <span className="text-right">
           <span className={`block text-lg font-bold tabular-nums ${tone.text}`}>{minutes} min</span>

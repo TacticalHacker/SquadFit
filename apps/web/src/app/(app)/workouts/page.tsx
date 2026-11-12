@@ -5,6 +5,7 @@ import { DateSchema, DayViewSchema, SummaryRangeResponseSchema, addDays, current
 import { DayNav } from "@/components/day-nav";
 import { DayStrip } from "@/components/day-strip";
 import { WorkoutChecklist } from "@/components/workout-checklist";
+import { WorkoutsTabs } from "@/components/workouts-tabs";
 import { ApiRequestError, apiFetch } from "@/server/api";
 import { requireProfile } from "@/server/session";
 
@@ -38,6 +39,7 @@ async function WorkoutsContent({ searchParams }: { searchParams: PageProps<"/wor
     <div className="flex flex-col gap-5 rounded-3xl bg-[#0F172A] p-4 text-slate-100 sm:p-6">
       <DayNav date={view.date} today={view.today} basePath="/workouts" streak={streak} />
       <DayStrip days={strip.days} current={view.date} today={view.today} />
+      <WorkoutsTabs active="activities" date={view.date} today={view.today} />
       <WorkoutChecklist initialView={view} />
       <p className="text-sm">
         <Link href="/workouts/mine" className="text-lime-300 underline">
