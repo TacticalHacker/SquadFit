@@ -81,17 +81,18 @@ describe("stacks", () => {
       "DELETE /food/foods/{foodId}", "GET /coach-note", "ANY /mcp", "POST /food/photos/{date}",
       "GET /workouts/gym", "PUT /workouts/gym/entries/{date}/{exerciseId}", "DELETE /workouts/gym/entries/{date}/{exerciseId}",
       "POST /workouts/gym/exercises", "PUT /workouts/gym/exercises/{exerciseId}", "DELETE /workouts/gym/exercises/{exerciseId}",
-      "PUT /coach-note/{date}/actions/{index}", "ANY /mcp/{key}"]) {
+      "PUT /coach-note/{date}/actions/{index}", "ANY /mcp/{key}", "GET /public/pulse", "POST /public/waitlist"]) {
       apiT.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: key });
     }
   });
 
-  it("protects every route except /health with the JWT authorizer", () => {
+  it("protects every route except /health, /mcp and /public/* with the JWT authorizer", () => {
     const routes = apiT.findResources("AWS::ApiGatewayV2::Route");
     for (const route of Object.values(routes)) {
       const props = route.Properties as { RouteKey: string; AuthorizationType?: string };
       // /mcp is guarded by an operator-issued bearer key checked in the handler (feature 004, research R2).
-      if (["GET /health", "ANY /mcp", "ANY /mcp/{key}"].includes(props.RouteKey)) expect(props.AuthorizationType).toBe("NONE");
+      // /public/* serve the landing page: two counts and the rate-limited waitlist (feature 009).
+      if (["GET /health", "ANY /mcp", "ANY /mcp/{key}", "GET /public/pulse", "POST /public/waitlist"].includes(props.RouteKey)) expect(props.AuthorizationType).toBe("NONE");
       else expect(props.AuthorizationType, props.RouteKey).toBe("JWT");
     }
   });
@@ -131,6 +132,18 @@ describe("stacks", () => {
       expect(forRole(role), role).toContain("dynamodb:PutItem");
       expect(forRole(role), role).not.toContain("s3:");
     }
+  });
+
+  it("anonymous public functions: pulse is read-only, waitlist can write; neither touches the bucket (feature 009)", () => {
+    const policies = Object.values(apiT.findResources("AWS::IAM::Policy"));
+    const forRole = (role: string) => JSON.stringify(policies.filter((p) => JSON.stringify(p).includes(role)));
+    const pulse = forRole("publicpulsegetFnServiceRole");
+    expect(pulse).toContain("dynamodb:Query");
+    expect(pulse).not.toContain("dynamodb:PutItem");
+    expect(pulse).not.toContain("s3:");
+    const waitlist = forRole("publicwaitlistpostFnServiceRole");
+    expect(waitlist).toContain("dynamodb:PutItem");
+    expect(waitlist).not.toContain("s3:");
   });
 
   it("coach-action-put can update the table but has no bucket access (feature 007)", () => {

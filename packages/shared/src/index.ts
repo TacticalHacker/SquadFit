@@ -29,3 +29,4 @@ export * from "./domain/photo-entry";
 export * from "./contracts/food";
 export * from "./domain/coach-note";
 export * from "./contracts/coach";
+export * from "./contracts/public";

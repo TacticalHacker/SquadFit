@@ -106,3 +106,11 @@ pnpm deploy:dev     # deploy Data + Api stacks to AWS (needs AWS creds)
 
 - ChatGPT custom connectors can't send headers, so `ANY /mcp/{key}` (same Lambda, no authorizer) accepts the member's `sfk_` key as the last path segment (`parsePathKey`). The header still wins when present. Use "No authentication" in ChatGPT with URL `<api>/mcp/<sfk_key>`.
 - The URL is a secret: never log request paths in the MCP function, and don't add API Gateway access logs without redacting `/mcp/{key}`.
+
+## Public landing page (feature 009)
+
+- `/` is public and static (`apps/web/src/app/page.tsx`, parts in `app/_landing/`). The proxy sends anyone with a session from `/` and `/sign-in` to `/workouts/gym` before rendering, so the page never reads cookies. Members-only pages still redirect to `/sign-in?next=...`. Link to `/workouts/gym`, not `/`, from inside the app.
+- Anonymous API routes (no authorizer), called only from the Next server via `publicFetch` (`server/public-api.ts`): `GET /public/pulse` returns only `{ lifters, workoutsLast7Days, computedAt }` (constitution VI 2.2.0 allows exactly these; `PulseResponseSchema` is strict; last 7 days in each member's timezone). `POST /public/waitlist` takes `{ name, email, primaryGoal, website }`.
+- Waitlist items: `WAITLIST` / `<iso>#<email>` plus guard `WAITLISTEMAIL#<email>` / `E` (one transaction, dedupe). Honeypot `website`, and rate counters `PUBRATE#ip#<sha256>#<hour>` (5/h) and `PUBRATE#all#<hour>` (30/h) with `ttl`. New, duplicate and honeypot submissions all get the same 202. The Server Action forwards the visitor address as `x-sf-client-ip`.
+- Operator: `pnpm admin waitlist list`. Never log names, emails, goals or addresses.
+- The preview mockups are static copy; the Squad tab stays tagged "Coming soon" until scoring/streaks/nudges ship.

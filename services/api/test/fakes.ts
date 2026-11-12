@@ -9,6 +9,7 @@ import type { FoodEntryItem, FoodRepo, OwnFoodItem, EntryUpdate } from "../src/l
 import type { CustomWorkoutItem, EntryItem, WorkoutRepo } from "../src/lib/workout-repo";
 import type { GymEntryItem, GymRepo, OwnExerciseItem } from "../src/lib/gym-repo";
 import { ProfileMissingError, type ProfileItem, type ProfileRepo } from "../src/lib/profile-repo";
+import type { WaitlistEntry, WaitlistRepo } from "../src/lib/waitlist-repo";
 
 export class InMemoryProfileRepo implements ProfileRepo {
   readonly items = new Map<string, ProfileItem>();
@@ -326,6 +327,25 @@ export class InMemoryCredentialRepo implements CredentialRepo {
   }
 }
 
+export class InMemoryWaitlistRepo implements WaitlistRepo {
+  readonly entries: WaitlistEntry[] = [];
+  readonly counts = new Map<string, number>();
+  async add(entry: Omit<WaitlistEntry, "createdAt">, nowIso: string) {
+    if (this.entries.some((e) => e.email === entry.email)) return "exists" as const;
+    this.entries.push({ ...entry, createdAt: nowIso });
+    return "created" as const;
+  }
+  async hit(key: string, hour: number) {
+    const k = `${key}#${hour}`;
+    const n = (this.counts.get(k) ?? 0) + 1;
+    this.counts.set(k, n);
+    return n;
+  }
+  async list() {
+    return [...this.entries].reverse();
+  }
+}
+
 export class FakePhotoStore implements PhotoStore {
   readonly objects = new Map<string, { bytes: Uint8Array; contentType: PhotoContentType }>();
   /** Set to make the next `put` fail (cleanup tests). */
@@ -376,9 +396,10 @@ export function makeDeps(now = "2026-11-11T10:00:00.000Z") {
   const credentials = new InMemoryCredentialRepo();
   const avatars = new FakeAvatarStore();
   const photos = new FakePhotoStore();
+  const waitlist = new InMemoryWaitlistRepo();
   let clock = new Date(now);
-  const deps: Deps = { profiles, workouts, gym, food, coach, credentials, avatars, photos, now: () => clock };
-  return { deps, profiles, workouts, gym, food, coach, credentials, avatars, photos, setNow: (iso: string) => (clock = new Date(iso)) };
+  const deps: Deps = { profiles, workouts, gym, food, coach, credentials, avatars, photos, waitlist, now: () => clock };
+  return { deps, profiles, workouts, gym, food, coach, credentials, avatars, photos, waitlist, setNow: (iso: string) => (clock = new Date(iso)) };
 }
 
 export function makeEvent(opts: {

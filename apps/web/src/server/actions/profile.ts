@@ -60,7 +60,7 @@ export async function saveProfile(_prev: ActionState, formData: FormData): Promi
   if (outcome) return outcome;
 
   revalidatePath("/", "layout");
-  if (isFirstSave) redirect("/");
+  if (isFirstSave) redirect("/workouts/gym");
   return { message: "Saved" };
 }
 

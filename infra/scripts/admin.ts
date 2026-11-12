@@ -6,6 +6,7 @@
  *   pnpm admin list-users [--stage dev|prod]
  *   pnpm admin ai-key issue|revoke <username> [--stage dev|prod]   (feature 004: AI client access keys)
  *   pnpm admin ai-key list [--stage dev|prod]
+ *   pnpm admin waitlist list [--stage dev|prod]                    (feature 009: invite requests, newest first)
  *
  * Needs AWS credentials for the target account (AWS_PROFILE etc).
  */
@@ -21,6 +22,7 @@ import {
 import { UsernameSchema } from "@calci/shared";
 import { generateToken, hashToken } from "@calci/shared/ai-credential";
 import { DynamoCredentialRepo } from "../../services/api/src/lib/credential-repo";
+import { DynamoWaitlistRepo } from "../../services/api/src/lib/waitlist-repo";
 import { formatSnippets, parseAiKeySubcommand } from "./ai-key";
 import { generateTempPassword } from "./temp-password";
 
@@ -29,7 +31,8 @@ const USAGE = `Usage:
   pnpm admin reset-password <username> [--stage dev|prod]
   pnpm admin list-users [--stage dev|prod]
   pnpm admin ai-key issue|revoke <username> [--stage dev|prod]
-  pnpm admin ai-key list [--stage dev|prod]`;
+  pnpm admin ai-key list [--stage dev|prod]
+  pnpm admin waitlist list [--stage dev|prod]`;
 
 function fail(message: string): never {
   console.error(message);
@@ -135,6 +138,15 @@ async function main() {
   const { command, username, third, stage } = parseArgs(process.argv.slice(2));
   const region = process.env.CDK_DEFAULT_REGION ?? process.env.AWS_REGION ?? "us-east-1";
   if (!command) fail(USAGE);
+
+  // Feature 009: no Cognito needed.
+  if (command === "waitlist") {
+    if (username !== "list") fail(USAGE);
+    const rows = await new DynamoWaitlistRepo(await stackOutput("Data", "TableName", stage, region)).list();
+    if (rows.length === 0) return void console.log("No invite requests yet.");
+    for (const r of rows) console.log(`${r.createdAt}  ${r.primaryGoal.padEnd(15)}  ${r.name} <${r.email}>`);
+    return;
+  }
 
   const userPoolId = await findUserPoolId(stage, region);
   const idp = new CognitoIdentityProviderClient({ region });

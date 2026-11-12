@@ -28,6 +28,6 @@ export async function requireProfile(): Promise<{ username: string; profile: Own
 /** For /setup: signed in but profile not yet complete. */
 export async function requireNoProfile(): Promise<{ username: string }> {
   const me = await getMe();
-  if (me.profile) redirect("/");
+  if (me.profile) redirect("/workouts/gym");
   return { username: me.username };
 }
