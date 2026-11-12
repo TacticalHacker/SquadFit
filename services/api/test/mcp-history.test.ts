@@ -28,7 +28,9 @@ describe("get_user_history", () => {
     expect(d.totals).toMatchObject({ eaten: 500, burned: 250, net: 250, protein: 8, carbs: 80, fat: 1 });
     expect(d.food.map((f: { name: string }) => f.name)).toEqual(["Egg", "Rice"]); // meal order: breakfast first
     expect(d.food[1]).toMatchObject({ meal: "lunch", calories: 400, protein: 8 });
-    expect(d.workouts).toEqual([{ name: "std-running", minutes: 30, calories: 250 }]);
+    expect(d.workouts).toEqual([
+      { logId: "2026-11-10#std-running", kind: "activity", name: "std-running", minutes: 30, calories: 250, aiNote: null },
+    ]);
     expect(out.days[0].food).toEqual([]);
   });
 
@@ -80,13 +82,37 @@ describe("get_user_history: gym entries (feature 006)", () => {
     });
     const out = JSON.parse(toolText(await callTool(deps, token, "get_user_history", { startDate: "2026-11-11", endDate: "2026-11-11" })).text);
     const w = out.days[0].workouts;
-    expect(w).toContainEqual({ name: "std-running", minutes: 30, calories: 250 });
+    expect(w).toContainEqual({ logId: "2026-11-11#std-running", kind: "activity", name: "std-running", minutes: 30, calories: 250, aiNote: null });
     expect(w).toContainEqual({
-      name: "Bench Press", minutes: 8, calories: 45, kind: "gym", muscleGroup: "chest", volumeKg: 1920,
-      sets: [{ set: 1, reps: 8, kg: 80, done: true }, { set: 2, reps: 8, kg: 80, done: true }, { set: 3, reps: 8, kg: 80, done: false }],
+      logId: "2026-11-11#gx-bench-press", kind: "gym", name: "Bench Press", minutes: 8, calories: 45, aiNote: null,
+      muscleGroup: "chest", exerciseKind: "strength", volumeKg: 1920,
+      sets: [
+        { set: 1, reps: 8, weightKg: 80, done: true },
+        { set: 2, reps: 8, weightKg: 80, done: true },
+        { set: 3, reps: 8, weightKg: 80, done: false },
+      ],
     });
-    expect(w).toContainEqual({ name: "Stairmaster", minutes: 20, calories: 180, kind: "gym", muscleGroup: "cardio" });
+    expect(w).toContainEqual({
+      logId: "2026-11-11#gx-stairmaster", kind: "gym", name: "Stairmaster", minutes: 20, calories: 180, aiNote: null,
+      muscleGroup: "cardio", exerciseKind: "cardio",
+    });
     expect(w.some((x: { name: string }) => x.name === "Deadlift")).toBe(false);
     expect(out.days[0].totals.burned).toBe(475);
+  });
+});
+
+describe("get_user_history: feature 007 additions", () => {
+  it("adds body weight, log ids, sources and gym volume", async () => {
+    const { deps, profiles, food } = makeDeps();
+    await seedProfile(profiles);
+    const token = await seedKey(deps);
+    await food.putEntry("user-1", entry("2026-11-11", "0000000000001-aaaaaa", "Rice", 400));
+    let out = JSON.parse(toolText(await callTool(deps, token, "get_user_history", { startDate: "2026-11-11", endDate: "2026-11-11" })).text);
+    expect(out.profile).toEqual({ bodyWeightKg: 75, bodyWeightIsDefault: true, calorieTarget: 2200, proteinTarget: null });
+    expect(out.days[0].food[0]).toMatchObject({ logId: "2026-11-11#0000000000001-aaaaaa", source: "typed" });
+    expect(out.days[0].totals.gymVolumeKg).toBe(0);
+    await profiles.upsert("user-1", "alice", { displayName: "Alice", timezone: "Asia/Kolkata", dailyCalorieTarget: 2200, bodyWeightKg: 78.5 }, "t");
+    out = JSON.parse(toolText(await callTool(deps, token, "get_user_history", { startDate: "2026-11-11", endDate: "2026-11-11" })).text);
+    expect(out.profile).toMatchObject({ bodyWeightKg: 78.5, bodyWeightIsDefault: false });
   });
 });

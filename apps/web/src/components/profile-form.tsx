@@ -12,6 +12,7 @@ export interface ProfileFormValues {
   timezone?: string;
   dailyCalorieTarget?: number;
   dailyProteinTarget?: number | null;
+  bodyWeightKg?: number | null;
   avatarUrl: string | null;
 }
 
@@ -97,6 +98,30 @@ export function ProfileForm({
           className={inputClass}
         />
       </Field>
+
+      {mode === "edit" ? (
+        <Field
+          id="bodyWeightKg"
+          label="Body weight (kg), optional"
+          error={f.bodyWeightKg}
+          hint="Used by your AI coach for calorie estimates. 75 kg is used until you set it. Only you can see this."
+        >
+          <input
+            id="bodyWeightKg"
+            name="bodyWeightKg"
+            type="number"
+            inputMode="decimal"
+            min={20}
+            max={400}
+            step={0.1}
+            placeholder="75"
+            defaultValue={initial.bodyWeightKg ?? undefined}
+            aria-invalid={f.bodyWeightKg ? true : undefined}
+            aria-describedby={describedBy("bodyWeightKg", f.bodyWeightKg, "hint")}
+            className={inputClass}
+          />
+        </Field>
+      ) : null}
 
       <button type="submit" disabled={pending} className={buttonClass}>
         {pending ? "Saving…" : submitLabel}

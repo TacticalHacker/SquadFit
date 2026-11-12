@@ -10,7 +10,7 @@ export const metadata = { title: "My workouts · SquadFit" };
 async function Mine() {
   await requireProfile();
   const view = await apiFetch("/workouts", { schema: DayViewSchema });
-  const mine = view.rows.filter((r) => !r.isStandard && !r.removed);
+  const mine = view.rows.filter((r) => !r.removed);
   return (
     <div className="flex flex-col gap-6">
       <section aria-labelledby="add-h">

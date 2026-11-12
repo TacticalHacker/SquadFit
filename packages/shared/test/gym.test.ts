@@ -12,8 +12,10 @@ import {
   parseReps,
   parseWeight,
   topSet,
+  dayGymVolume,
+  findGymExerciseByName,
 } from "../src/domain/gym";
-import { STANDARD_WORKOUTS, normalizeWorkoutName } from "../src/domain/workouts";
+import { normalizeWorkoutName } from "../src/domain/workouts";
 
 const sets = (n: number, weightKg: number, reps: number) =>
   Array.from({ length: n }, (_, i) => ({ setNumber: i + 1, weightKg, reps, completed: false }));
@@ -34,7 +36,7 @@ describe("GYM_EXERCISES", () => {
   it("uses unique gx- ids and names that clash with nothing", () => {
     expect(GYM_EXERCISES.every((e) => /^gx-[a-z0-9-]+$/.test(e.id))).toBe(true);
     expect(new Set(GYM_EXERCISES.map((e) => e.id)).size).toBe(28);
-    const names = [...GYM_EXERCISES.map((e) => e.name), ...STANDARD_WORKOUTS.map((w) => w.name)].map(normalizeWorkoutName);
+    const names = GYM_EXERCISES.map((e) => normalizeWorkoutName(e.name));
     expect(new Set(names).size).toBe(names.length);
   });
 
@@ -123,5 +125,37 @@ describe("own exercise names", () => {
     expect(isExerciseNameTaken("  bench   press ", [])).toBe(true);
     expect(isExerciseNameTaken("Hip Thrust", ["hip thrust"])).toBe(true);
     expect(isExerciseNameTaken("Hip Thrust", ["Cable Kickback"])).toBe(false);
+  });
+});
+
+describe("dayGymVolume (feature 007)", () => {
+  const base = { name: "x", rateMinutes: 1, rateCalories: 1, minutes: 5, calories: 10 };
+  it("is 0 for no entries", () => expect(dayGymVolume([])).toBe(0));
+  it("sums the volume of gym lifts only", () => {
+    expect(
+      dayGymVolume([
+        { ...base, workoutId: "gx-a", kind: "gym", exerciseKind: "strength", volumeKg: 1440 },
+        { ...base, workoutId: "gx-b", kind: "gym", exerciseKind: "strength", volumeKg: 562.5 },
+        { ...base, workoutId: "gx-run", kind: "gym", exerciseKind: "cardio" },
+        { ...base, workoutId: "c-padel", volumeKg: 999 },
+      ]),
+    ).toBe(2002.5);
+  });
+});
+
+describe("findGymExerciseByName (feature 007)", () => {
+  const own = [
+    { exerciseId: "gc-1", name: "Zercher Squat" },
+    { exerciseId: "gc-2", name: "Old Move", removedAt: "t" },
+  ];
+  it("matches built-ins ignoring case and spacing", () => {
+    expect(findGymExerciseByName("  bench   PRESS ", own)).toBe("gx-bench-press");
+  });
+  it("matches the member's active own exercises", () => {
+    expect(findGymExerciseByName("zercher squat", own)).toBe("gc-1");
+  });
+  it("ignores removed own exercises and unknown names", () => {
+    expect(findGymExerciseByName("Old Move", own)).toBeNull();
+    expect(findGymExerciseByName("Benchpress", own)).toBeNull();
   });
 });

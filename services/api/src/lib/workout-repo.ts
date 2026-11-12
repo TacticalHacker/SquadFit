@@ -49,6 +49,18 @@ export interface WorkoutRepo {
     calories: number,
     nowIso: string,
   ): Promise<boolean>;
+  /**
+   * Feature 007: the AI's calorie/duration adjustment with its reason. Applied only while the entry is still the
+   * version the agent read (`updatedAt`), so a newer member edit is never overwritten (research R4).
+   */
+  setAiAdjustment(
+    userId: string,
+    date: string,
+    workoutId: string,
+    fields: { minutes: number; calories: number; aiNote: string },
+    expectedUpdatedAt: string,
+    nowIso: string,
+  ): Promise<"ok" | "missing" | "conflict">;
   deleteEntry(userId: string, date: string, workoutId: string): Promise<void>;
   /** Active (non-removed) custom workouts. */
   listCustomWorkouts(userId: string): Promise<CustomWorkoutItem[]>;
@@ -82,6 +94,7 @@ export function toEntry(i: Record<string, unknown>): EntryItem {
     calories: i.calories as number,
     createdAt: i.createdAt as string,
     updatedAt: i.updatedAt as string,
+    ...(typeof i.aiNote === "string" ? { aiNote: i.aiNote } : {}),
     ...gymFields(i),
   };
 }
@@ -174,7 +187,8 @@ export class DynamoWorkoutRepo implements WorkoutRepo {
           TableName: this.tableName,
           Key: { pk: pk(userId), sk: entrySk(date, workoutId) },
           ConditionExpression: "attribute_exists(pk)",
-          UpdateExpression: "SET minutes = :m, calories = :c, updatedAt = :now",
+          // A member's change replaces any AI adjustment (feature 007, FR-013).
+          UpdateExpression: "SET minutes = :m, calories = :c, updatedAt = :now REMOVE aiNote",
           ExpressionAttributeValues: { ":m": minutes, ":c": calories, ":now": nowIso },
         }),
       );
@@ -182,6 +196,37 @@ export class DynamoWorkoutRepo implements WorkoutRepo {
     } catch (err) {
       if (isConditionFailure(err)) return false;
       throw err;
+    }
+  }
+
+  async setAiAdjustment(
+    userId: string,
+    date: string,
+    workoutId: string,
+    fields: { minutes: number; calories: number; aiNote: string },
+    expectedUpdatedAt: string,
+    nowIso: string,
+  ) {
+    try {
+      await this.doc.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: { pk: pk(userId), sk: entrySk(date, workoutId) },
+          ConditionExpression: "attribute_exists(pk) AND updatedAt = :seen",
+          UpdateExpression: "SET minutes = :m, calories = :c, aiNote = :n, updatedAt = :now",
+          ExpressionAttributeValues: {
+            ":m": fields.minutes,
+            ":c": fields.calories,
+            ":n": fields.aiNote,
+            ":seen": expectedUpdatedAt,
+            ":now": nowIso,
+          },
+        }),
+      );
+      return "ok" as const;
+    } catch (err) {
+      if (!isConditionFailure(err)) throw err;
+      return (await this.getEntry(userId, date, workoutId)) ? ("conflict" as const) : ("missing" as const);
     }
   }
 

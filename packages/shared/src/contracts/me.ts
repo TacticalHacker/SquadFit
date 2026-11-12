@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CalorieTargetSchema, DisplayNameSchema, ProteinTargetSchema } from "../domain/profile";
+import { BodyWeightSchema, CalorieTargetSchema, DisplayNameSchema, ProteinTargetSchema } from "../domain/profile";
 import { isValidTimeZone } from "../domain/timezone";
 
 export const ProfileInputSchema = z.object({
@@ -7,6 +7,8 @@ export const ProfileInputSchema = z.object({
   timezone: z.string().refine(isValidTimeZone, "Unknown timezone"),
   dailyCalorieTarget: CalorieTargetSchema,
   dailyProteinTarget: ProteinTargetSchema.nullish(),
+  /** Feature 007: null clears it, absent leaves it unchanged. */
+  bodyWeightKg: BodyWeightSchema.nullish(),
 });
 export type ProfileInput = z.infer<typeof ProfileInputSchema>;
 
@@ -16,6 +18,7 @@ export const OwnProfileSchema = z.object({
   dailyCalorieTarget: z.number(),
   // default: an API deployed before feature 004 omits the field (rollout skew).
   dailyProteinTarget: z.number().nullable().default(null),
+  bodyWeightKg: z.number().nullable().default(null),
   avatarUrl: z.string().nullable(),
   joinedAt: z.iso.datetime(),
 });

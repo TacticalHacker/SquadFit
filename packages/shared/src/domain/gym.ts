@@ -199,6 +199,8 @@ export interface GymEntryView {
   volumeKg: number | null;
   minutes: number;
   calories: number;
+  /** Feature 007: the AI's one-line reason when it adjusted calories; null otherwise. */
+  aiNote: string | null;
   updatedAt: string;
 }
 
@@ -250,6 +252,7 @@ export function toGymEntryView(e: StoredEntry): GymEntryView {
     volumeKg: kind === "strength" ? (e.volumeKg ?? 0) : null,
     minutes: e.minutes,
     calories: e.calories,
+    aiNote: e.aiNote ?? null,
     updatedAt: e.updatedAt ?? "",
   };
 }
@@ -324,4 +327,24 @@ export function filterExercises<T extends { name: string; group: MuscleGroup }>(
   const q = normalizeWorkoutName(query);
   if (q) return list.filter((e) => normalizeWorkoutName(e.name).includes(q));
   return list.filter((e) => e.group === group);
+}
+
+/** Total lifted volume (kg) of a day's gym entries; cardio and activity entries add nothing (feature 007, R7). */
+export function dayGymVolume(entries: readonly StoredEntry[]): number {
+  return entries.reduce((sum, e) => sum + (e.kind === "gym" && typeof e.volumeKg === "number" ? e.volumeKg : 0), 0);
+}
+
+/**
+ * Exercise id for an exact name (case and spacing ignored) among the built-ins and the member's active own
+ * exercises, or null. Used by the AI's upsert_workout_log (feature 007, R12): no fuzzy matching, so a typo never
+ * logs the wrong lift.
+ */
+export function findGymExerciseByName(
+  name: string,
+  own: readonly { exerciseId: string; name: string; removedAt?: string }[],
+): string | null {
+  const n = normalizeWorkoutName(name);
+  const builtIn = GYM_EXERCISES.find((e) => normalizeWorkoutName(e.name) === n);
+  if (builtIn) return builtIn.id;
+  return own.find((e) => !e.removedAt && normalizeWorkoutName(e.name) === n)?.exerciseId ?? null;
 }

@@ -12,7 +12,7 @@ describe("MCP privacy", () => {
       entryId: "x", date: "2026-11-11", meal: "lunch", source: "typed", name: "Bob's secret snack", servings: 1,
       calories: 999, macros: null, rate: { calories: 999, macros: null }, createdAt: "t", updatedAt: "t",
     } as never);
-    await coach.put("user-2", { date: "2026-11-11", summaryMarkdown: "bob note", recommendations: ["r"] }, "t");
+    await coach.put("user-2", { date: "2026-11-11", headline: "bob note", status: "on_track", highlights: ["r"], actionItems: [] }, "t");
 
     const hist = toolText(await callTool(deps, a, "get_user_history", { startDate: "2026-11-11", endDate: "2026-11-11" }));
     expect(hist.text).not.toContain("Bob");
@@ -21,15 +21,19 @@ describe("MCP privacy", () => {
 
     await callTool(deps, a, "update_user_targets", { dailyCalorieTarget: 3000, userId: "user-2" });
     expect(profiles.items.get("user-2")?.dailyCalorieTarget).toBe(2200);
-    await callTool(deps, a, "post_daily_coach_note", { date: "2026-11-11", summaryMarkdown: "mine", recommendations: ["r"], userId: "user-2" });
-    expect((await coach.get("user-2", "2026-11-11"))?.summaryMarkdown).toBe("bob note");
+    await callTool(deps, a, "post_overall_coach_note", {
+      date: "2026-11-11", headline: "mine", status: "on_track", highlights: ["r"], actionItems: [], userId: "user-2",
+    });
+    expect((await coach.get("user-2", "2026-11-11"))?.headline).toBe("bob note");
   });
 
   it("never echoes the key or the note text in error output", async () => {
     const { deps, profiles } = makeDeps();
     await seedProfile(profiles);
     const a = await seedKey(deps);
-    const r = toolText(await callTool(deps, a, "post_daily_coach_note", { date: "2030-01-01", summaryMarkdown: "SECRET-NOTE", recommendations: ["r"] }));
+    const r = toolText(
+      await callTool(deps, a, "post_overall_coach_note", { date: "2030-01-01", headline: "SECRET-NOTE", status: "on_track", highlights: ["r"], actionItems: [] }),
+    );
     expect(r.isError).toBe(true);
     expect(r.text).not.toContain(a);
     expect(r.text).not.toContain("SECRET-NOTE");

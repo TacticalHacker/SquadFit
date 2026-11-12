@@ -48,3 +48,21 @@ describe("PUT /me/profile", () => {
     expect(parse(await handle(makeEvent({ rawBody: "nope" }), deps)).status).toBe(400);
   });
 });
+
+describe("PUT /me/profile body weight (feature 007)", () => {
+  it("sets, keeps when absent, and clears with null", async () => {
+    const { deps } = makeDeps();
+    let r = parse(await handle(makeEvent({ body: { ...validProfile, bodyWeightKg: 78.5 } }), deps));
+    expect(r.body.profile.bodyWeightKg).toBe(78.5);
+    r = parse(await handle(makeEvent({ body: validProfile }), deps));
+    expect(r.body.profile.bodyWeightKg).toBe(78.5);
+    r = parse(await handle(makeEvent({ body: { ...validProfile, bodyWeightKg: null } }), deps));
+    expect(r.body.profile.bodyWeightKg).toBeNull();
+  });
+  it("rejects an out-of-range body weight", async () => {
+    const { deps } = makeDeps();
+    const r = parse(await handle(makeEvent({ body: { ...validProfile, bodyWeightKg: 500 } }), deps));
+    expect(r.status).toBe(400);
+    expect(r.body.error.fields.bodyWeightKg).toBeDefined();
+  });
+});

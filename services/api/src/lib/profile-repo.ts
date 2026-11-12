@@ -10,6 +10,8 @@ export interface ProfileItem {
   timezone: string;
   dailyCalorieTarget: number;
   dailyProteinTarget?: number;
+  /** Feature 007; absent means the 75 kg default. */
+  bodyWeightKg?: number;
   avatarKey?: string;
   createdAt: string;
   updatedAt: string;
@@ -47,6 +49,7 @@ function fromItem(item: Record<string, unknown>): ProfileItem {
     timezone: item.timezone as string,
     dailyCalorieTarget: item.dailyCalorieTarget as number,
     ...(typeof item.dailyProteinTarget === "number" ? { dailyProteinTarget: item.dailyProteinTarget } : {}),
+    ...(typeof item.bodyWeightKg === "number" ? { bodyWeightKg: item.bodyWeightKg } : {}),
     ...(typeof item.avatarKey === "string" ? { avatarKey: item.avatarKey } : {}),
     createdAt: item.createdAt as string,
     updatedAt: item.updatedAt as string,
@@ -73,6 +76,9 @@ export class DynamoProfileRepo implements ProfileRepo {
   async upsert(userId: string, username: string, input: ProfileInput, nowIso: string) {
     // if_not_exists keeps createdAt/gsi keys stable after the first write, atomically.
     const protein = input.dailyProteinTarget ?? null;
+    const weight = input.bodyWeightKg;
+    // Protein: absent or null clears it (feature 004). Body weight: null clears, absent keeps it (feature 007).
+    const removes = [...(protein === null ? ["dailyProteinTarget"] : []), ...(weight === null ? ["bodyWeightKg"] : [])];
     const res = await this.doc.send(
       new UpdateCommand({
         TableName: this.tableName,
@@ -80,7 +86,9 @@ export class DynamoProfileRepo implements ProfileRepo {
         UpdateExpression:
           "SET userId = :uid, username = :un, displayName = :dn, #tz = :tz, dailyCalorieTarget = :t, updatedAt = :now, " +
           "createdAt = if_not_exists(createdAt, :now), gsi1pk = :community, gsi1sk = if_not_exists(gsi1sk, :gsi1sk)" +
-          (protein === null ? " REMOVE dailyProteinTarget" : ", dailyProteinTarget = :pt"),
+          (protein === null ? "" : ", dailyProteinTarget = :pt") +
+          (typeof weight === "number" ? ", bodyWeightKg = :bw" : "") +
+          (removes.length ? ` REMOVE ${removes.join(", ")}` : ""),
         ExpressionAttributeNames: { "#tz": "timezone" },
         ExpressionAttributeValues: {
           ":uid": userId,
@@ -92,6 +100,7 @@ export class DynamoProfileRepo implements ProfileRepo {
           ":community": "COMMUNITY",
           ":gsi1sk": `JOINED#${nowIso}#${userId}`,
           ...(protein === null ? {} : { ":pt": protein }),
+          ...(typeof weight === "number" ? { ":bw": weight } : {}),
         },
         ReturnValues: "ALL_NEW",
       }),

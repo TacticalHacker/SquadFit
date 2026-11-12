@@ -51,6 +51,7 @@ export const GymEntryViewSchema = z.object({
   volumeKg: z.number().nullable(),
   minutes: z.number(),
   calories: z.number(),
+  aiNote: z.string().nullable().default(null),
   updatedAt: z.string(),
 });
 

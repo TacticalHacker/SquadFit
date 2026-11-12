@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { handle as foodGet } from "../src/handlers/food-get";
 import { handle as workoutsGet } from "../src/handlers/workouts-get";
 import { handle as summaryGet } from "../src/handlers/workouts-summary-get";
-import { makeDeps, makeEvent, parse, seedProfile } from "./fakes";
+import { makeDeps, makeEvent, parse, seedActivities, seedProfile } from "./fakes";
 import { exercise, gymDelete, gymGet, gymPut, sets } from "./gym-helpers";
 
 const setup = async (now = "2026-11-11T10:00:00.000Z") => {
@@ -114,10 +114,11 @@ describe("DELETE gym entry", () => {
 
 describe("gym entries count once in every total (FR-015)", () => {
   it("day view, summary range and food ledger", async () => {
-    const { deps } = await setup();
+    const { deps, workouts } = await setup();
     await workoutsGet(makeEvent({}), deps);
     const { handle: tick } = await import("../src/handlers/entry-put");
-    await tick(makeEvent({ pathParameters: { date: "2026-11-11", workoutId: "std-running" } }), deps);
+    await seedActivities(workouts);
+    await tick(makeEvent({ pathParameters: { date: "2026-11-11", workoutId: "c-run" } }), deps);
     await gymPut(deps, "2026-11-11", "gx-bench-press", { sets: sets(3, 80, 8) });
 
     const day = parse(await workoutsGet(makeEvent({}), deps));
@@ -149,5 +150,18 @@ describe("privacy (FR-022, SC-007)", () => {
     expect((await gymPut(deps, "2026-11-11", "gc-mine", { sets: sets(1, 1, 1) }, "user-2")).status).toBe(404);
     await gymDelete(deps, "2026-11-11", "gx-deadlift", "user-2");
     expect(exercise(await gymGet(deps, "2026-11-11"), "gx-deadlift")?.entry).not.toBeNull();
+  });
+});
+
+describe("gym save clears an AI adjustment (feature 007, FR-013)", () => {
+  it("drops aiNote and restores the app estimate", async () => {
+    const ctx = makeDeps();
+    await seedProfile(ctx.profiles);
+    await gymPut(ctx.deps, "2026-11-11", "gx-bench-press", { sets: sets(3, 60, 8, true) });
+    const before = (await ctx.workouts.getEntry("user-1", "2026-11-11", "gx-bench-press"))!;
+    await ctx.workouts.setAiAdjustment("user-1", "2026-11-11", "gx-bench-press", { minutes: 14, calories: 62, aiNote: "x" }, before.updatedAt, "t2");
+    const r = await gymPut(ctx.deps, "2026-11-11", "gx-bench-press", { sets: sets(2, 60, 8, true) });
+    expect(r.body.entry).toMatchObject({ calories: 30, aiNote: null });
+    expect((await ctx.workouts.getEntry("user-1", "2026-11-11", "gx-bench-press"))?.aiNote).toBeUndefined();
   });
 });

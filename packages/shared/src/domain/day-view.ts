@@ -1,6 +1,5 @@
 import { caloriesFor, summarize, type Summary } from "./calories";
 import { isEditableDay } from "./day";
-import { STANDARD_WORKOUTS } from "./workouts";
 import { isGymEntry, toGymEntryView, type ExerciseKind, type GymEntryView, type GymSet, type MuscleGroup } from "./gym";
 
 export interface StoredCustomWorkout {
@@ -24,6 +23,8 @@ export interface StoredEntry {
   exerciseKind?: ExerciseKind;
   sets?: GymSet[];
   volumeKg?: number;
+  /** Feature 007: one-line reason; present while calories/minutes are the AI's adjustment (FR-008, FR-013). */
+  aiNote?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -34,12 +35,14 @@ export interface DayEntry {
   calories: number;
   rateMinutes: number;
   rateCalories: number;
+  /** Feature 007: set when the AI adjusted this entry's calories; null otherwise. */
+  aiNote: string | null;
 }
 
 export interface DayRow {
   workoutId: string;
   name: string;
-  isStandard: boolean;
+  /** No longer an active own workout (removed, or a former built-in activity) but logged on this day. */
   removed: boolean;
   defaultMinutes: number;
   defaultCalories: number;
@@ -85,24 +88,16 @@ export function buildDayView(input: {
   const toEntry = (id: string) => {
     const e = byId.get(id);
     return e
-      ? { minutes: e.minutes, calories: e.calories, rateMinutes: e.rateMinutes, rateCalories: e.rateCalories }
+      ? { minutes: e.minutes, calories: e.calories, rateMinutes: e.rateMinutes, rateCalories: e.rateCalories, aiNote: e.aiNote ?? null }
       : null;
   };
-  const rows: DayRow[] = STANDARD_WORKOUTS.map((w) => ({
-    workoutId: w.id,
-    name: w.name,
-    isStandard: true,
-    removed: false,
-    defaultMinutes: w.defaultMinutes,
-    defaultCalories: w.defaultCalories,
-    entry: toEntry(w.id),
-  }));
+  // Own workouts only (feature 007 removed the built-in list).
+  const rows: DayRow[] = [];
   const customSorted = [...input.customWorkouts].sort((a, b) => a.name.localeCompare(b.name, "en"));
   for (const c of customSorted) {
     rows.push({
       workoutId: c.workoutId,
       name: c.name,
-      isStandard: false,
       removed: false,
       defaultMinutes: c.defaultMinutes,
       defaultCalories: c.defaultCalories,
@@ -115,11 +110,10 @@ export function buildDayView(input: {
     rows.push({
       workoutId: e.workoutId,
       name: e.name,
-      isStandard: false,
       removed: true,
       defaultMinutes: e.rateMinutes,
       defaultCalories: e.rateCalories,
-      entry: { minutes: e.minutes, calories: e.calories, rateMinutes: e.rateMinutes, rateCalories: e.rateCalories },
+      entry: { minutes: e.minutes, calories: e.calories, rateMinutes: e.rateMinutes, rateCalories: e.rateCalories, aiNote: e.aiNote ?? null },
     });
   }
   return withSummary({
@@ -146,6 +140,7 @@ export function applyChange(view: DayView, change: DayChange): DayView {
           calories: row.defaultCalories,
           rateMinutes: row.defaultMinutes,
           rateCalories: row.defaultCalories,
+          aiNote: null,
         },
       };
     }
@@ -153,7 +148,8 @@ export function applyChange(view: DayView, change: DayChange): DayView {
     const rc = row.entry?.rateCalories ?? row.defaultCalories;
     return {
       ...row,
-      entry: { minutes: change.minutes, calories: caloriesFor(rm, rc, change.minutes), rateMinutes: rm, rateCalories: rc },
+      // A member's minutes change replaces any AI adjustment (FR-013).
+      entry: { minutes: change.minutes, calories: caloriesFor(rm, rc, change.minutes), rateMinutes: rm, rateCalories: rc, aiNote: null },
     };
   });
   return withSummary({ ...view, rows });

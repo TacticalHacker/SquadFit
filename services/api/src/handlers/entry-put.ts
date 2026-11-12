@@ -1,5 +1,5 @@
 import type { APIGatewayProxyEventV2WithJWTAuthorizer, APIGatewayProxyHandlerV2WithJWTAuthorizer } from "aws-lambda";
-import { EntryPutSchema, caloriesFor, findStandardWorkout, isGymId } from "@calci/shared";
+import { EntryPutSchema, caloriesFor, isGymId } from "@calci/shared";
 import { getCaller } from "../lib/auth";
 import { loadDayContext, resolveWriteDate } from "../lib/day-context";
 import { loadDayView } from "../lib/day-view-loader";
@@ -35,9 +35,9 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
       await deps.workouts.updateEntryMinutes(userId, d.date, workoutId, minutes, calories, nowIso);
     }
   } else {
-    const std = findStandardWorkout(workoutId);
-    const def = std ?? (await deps.workouts.getCustomWorkout(userId, workoutId));
-    if (!def || ("removedAt" in def && def.removedAt)) {
+    // New entries come only from the caller's active own workouts (feature 007 removed the built-in list).
+    const def = await deps.workouts.getCustomWorkout(userId, workoutId);
+    if (!def || def.removedAt) {
       return apiError(404, "NOT_FOUND", "Workout not found");
     }
     const m = minutes ?? def.defaultMinutes;

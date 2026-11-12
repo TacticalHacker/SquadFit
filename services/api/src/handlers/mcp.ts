@@ -1,5 +1,5 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyHandlerV2, APIGatewayProxyStructuredResultV2 } from "aws-lambda";
-import { localDate } from "@calci/shared";
+import { effectiveBodyWeight, localDate } from "@calci/shared";
 import { hashToken, parseBearer } from "@calci/shared/ai-credential";
 import { RATE_LIMIT_PER_MINUTE } from "../lib/credential-repo";
 import { getDeps, type Deps } from "../lib/deps";
@@ -64,6 +64,7 @@ async function route(event: APIGatewayProxyEventV2, deps: Deps): Promise<APIGate
       today: localDate(deps.now(), profile.timezone),
       calorieTarget: profile.dailyCalorieTarget,
       proteinTarget: profile.dailyProteinTarget ?? null,
+      bodyWeight: effectiveBodyWeight(profile),
       deps,
     },
     request,

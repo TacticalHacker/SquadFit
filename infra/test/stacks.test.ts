@@ -80,7 +80,8 @@ describe("stacks", () => {
       "DELETE /food/entries/{date}/{entryId}", "GET /food/foods", "POST /food/foods", "PUT /food/foods/{foodId}",
       "DELETE /food/foods/{foodId}", "GET /coach-note", "ANY /mcp", "POST /food/photos/{date}",
       "GET /workouts/gym", "PUT /workouts/gym/entries/{date}/{exerciseId}", "DELETE /workouts/gym/entries/{date}/{exerciseId}",
-      "POST /workouts/gym/exercises", "PUT /workouts/gym/exercises/{exerciseId}", "DELETE /workouts/gym/exercises/{exerciseId}"]) {
+      "POST /workouts/gym/exercises", "PUT /workouts/gym/exercises/{exerciseId}", "DELETE /workouts/gym/exercises/{exerciseId}",
+      "PUT /coach-note/{date}/actions/{index}"]) {
       apiT.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: key });
     }
   });
@@ -130,6 +131,13 @@ describe("stacks", () => {
       expect(forRole(role), role).toContain("dynamodb:PutItem");
       expect(forRole(role), role).not.toContain("s3:");
     }
+  });
+
+  it("coach-action-put can update the table but has no bucket access (feature 007)", () => {
+    const policies = Object.values(apiT.findResources("AWS::IAM::Policy"));
+    const json = JSON.stringify(policies.filter((p) => JSON.stringify(p).includes("coachactionputFnServiceRole")));
+    expect(json).toContain("dynamodb:UpdateItem");
+    expect(json).not.toContain("s3:");
   });
 
   it("scopes food photo access to the food-photos/ prefix per function (feature 005)", () => {

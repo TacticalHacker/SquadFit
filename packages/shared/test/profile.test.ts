@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { CalorieTargetSchema, DisplayNameSchema, initials, PasswordSchema, ProteinTargetSchema } from "../src/domain/profile";
+import {
+  BodyWeightSchema,
+  CalorieTargetSchema,
+  DEFAULT_BODY_WEIGHT_KG,
+  DisplayNameSchema,
+  effectiveBodyWeight,
+  initials,
+  PasswordSchema,
+  ProteinTargetSchema,
+} from "../src/domain/profile";
 
 describe("DisplayNameSchema", () => {
   it("trims and accepts 1–40 chars", () => {
@@ -50,5 +59,20 @@ describe("ProteinTargetSchema", () => {
   });
   it.each([9, 501, 100.5, 0, Number.NaN])("rejects %d", (v) => {
     expect(ProteinTargetSchema.safeParse(v).success).toBe(false);
+  });
+});
+
+describe("BodyWeightSchema / effectiveBodyWeight (feature 007)", () => {
+  it("accepts 20–400 kg with at most one decimal", () => {
+    for (const ok of [20, 78.5, 400, 75]) expect(BodyWeightSchema.safeParse(ok).success, String(ok)).toBe(true);
+    for (const bad of [19.9, 400.1, 78.55, Number.NaN, "78", null]) {
+      expect(BodyWeightSchema.safeParse(bad).success, String(bad)).toBe(false);
+    }
+  });
+  it("defaults to 75 kg when unset", () => {
+    expect(DEFAULT_BODY_WEIGHT_KG).toBe(75);
+    expect(effectiveBodyWeight({})).toEqual({ kg: 75, isDefault: true });
+    expect(effectiveBodyWeight({ bodyWeightKg: null })).toEqual({ kg: 75, isDefault: true });
+    expect(effectiveBodyWeight({ bodyWeightKg: 80 })).toEqual({ kg: 80, isDefault: false });
   });
 });

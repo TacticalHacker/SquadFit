@@ -36,10 +36,10 @@ describe("POST /workouts/custom", () => {
     expect(Object.keys(r.body.error.fields)).toEqual(expect.arrayContaining(["name", "defaultMinutes", "defaultCalories"]));
   });
 
-  it("409 DUPLICATE_NAME for standard names and own repeats, ignoring case/space", async () => {
+  it("409 DUPLICATE_NAME for own repeats, ignoring case/space", async () => {
     const { deps } = await setup();
     await create(deps, valid);
-    for (const name of ["running", " RUNNING ", "badminton ", "Bad minton".replace(" ", "")]) {
+    for (const name of ["badminton ", " BADMINTON", "Bad minton".replace(" ", "")]) {
       const r = await create(deps, { ...valid, name });
       expect(r.status).toBe(409);
       expect(r.body.error.code).toBe("DUPLICATE_NAME");
@@ -72,12 +72,16 @@ describe("PUT /workouts/custom/{id}", () => {
     expect((await workouts.getEntry("user-1", "2026-11-11", id))?.calories).toBe(400);
   });
 
-  it("409 when renamed onto another name or standard", async () => {
+  it("409 when renamed onto another own name", async () => {
     const { deps } = await setup();
     await create(deps, valid);
     const id = (await create(deps, { ...valid, name: "Squash" })).body.workout.workoutId as string;
     expect((await edit(deps, id, { ...valid, name: "badminton" })).status).toBe(409);
-    expect((await edit(deps, id, { ...valid, name: "Yoga" })).status).toBe(409);
+  });
+
+  it("accepts names of the former built-in activities (feature 007, FR-024)", async () => {
+    const { deps } = await setup();
+    for (const name of ["Running", "Yoga", "Team sport"]) expect((await create(deps, { ...valid, name })).status).toBe(200);
   });
 
   it("404 for another user's, standard and removed ids", async () => {

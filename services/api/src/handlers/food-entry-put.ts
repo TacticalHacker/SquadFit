@@ -1,15 +1,14 @@
 import type { APIGatewayProxyEventV2WithJWTAuthorizer, APIGatewayProxyHandlerV2WithJWTAuthorizer } from "aws-lambda";
-import { EntryPatchSchema, canTransition, completeMacros, photoEntryName, scaleCalories, scaleMacros, type PhotoStatus } from "@calci/shared";
+import { EntryPatchSchema, canTransition, completeMacros, photoEntryName, type PhotoStatus } from "@calci/shared";
 import { getCaller } from "../lib/auth";
 import { loadDayContext, resolveWriteDate, type DayContext } from "../lib/day-context";
 import { getDeps, type Deps } from "../lib/deps";
 import { loadFoodDay } from "../lib/food-day-loader";
+import { patchFoodEntry } from "../lib/food-write";
 import { ENTRY_ID_PATTERN, type EntryUpdate, type FoodEntryItem } from "../lib/food-repo";
 import { apiError, ok, parseBody } from "../lib/http";
 
-const LIST_MESSAGE = "Calories and macros follow the servings for foods from a list";
-
-/** PUT /food/entries/{date}/{entryId} : typed entries edit name/calories/macros/meal; list entries servings/meal. */
+/** PUT /food/entries/{date}/{entryId} : typed entries edit name/calories/macros/meal; list entries servings/meal (via `patchFoodEntry`). */
 export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, deps: Deps) {
   const caller = getCaller(event);
   const c = await loadDayContext(caller, deps);
@@ -24,46 +23,13 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
   const existing = ENTRY_ID_PATTERN.test(entryId) ? await deps.food.getEntry(caller.userId, d.date, entryId) : null;
   if (!existing) return apiError(404, "NOT_FOUND", "Entry not found");
 
-  const fields: EntryUpdate = {};
-  if (patch.meal !== undefined) fields.meal = patch.meal;
-
   if (existing.source === "photo" && existing.photo) {
+    const fields: EntryUpdate = {};
+    if (patch.meal !== undefined) fields.meal = patch.meal;
     return handlePhotoEdit(existing, patch, fields, { caller, c, d, entryId }, deps);
   }
-  if (patch.caption !== undefined) {
-    return apiError(400, "VALIDATION_FAILED", "Only photo entries have a caption", { caption: "Only photo entries have a caption" });
-  }
-
-  if (existing.source === "typed") {
-    if (patch.servings !== undefined) {
-      return apiError(400, "VALIDATION_FAILED", "Servings can't be changed here", {
-        servings: "Servings can't be changed for typed entries",
-      });
-    }
-    const calories = patch.calories ?? existing.calories;
-    const macros = patch.macros === undefined ? existing.macros : completeMacros(patch.macros);
-    if (patch.name !== undefined) fields.name = patch.name;
-    fields.calories = calories;
-    fields.macros = macros;
-    fields.rate = { calories, macros };
-  } else {
-    const bad = (["name", "calories", "macros"] as const).find((k) => patch[k] !== undefined);
-    if (bad) return apiError(400, "VALIDATION_FAILED", LIST_MESSAGE, { [bad]: LIST_MESSAGE });
-    if (patch.servings !== undefined) {
-      const calories = scaleCalories(existing.rate.calories, patch.servings);
-      if (calories < 1 || calories > 5000) {
-        return apiError(400, "VALIDATION_FAILED", "Too many calories", {
-          servings: "That amount comes to more than 5,000 calories. Use fewer servings.",
-        });
-      }
-      fields.servings = patch.servings;
-      fields.calories = calories;
-      fields.macros = scaleMacros(existing.rate.macros, patch.servings);
-    }
-  }
-
-  const updated = await deps.food.updateEntry(caller.userId, d.date, entryId, fields, deps.now().toISOString());
-  if (!updated) return apiError(404, "NOT_FOUND", "Entry not found");
+  const saved = await patchFoodEntry(caller.userId, existing, patch, deps);
+  if (!saved.ok) return apiError(saved.status, saved.code, saved.message, saved.fields);
   return ok(await loadFoodDay(caller.userId, c.ctx, d.date, deps));
 }
 

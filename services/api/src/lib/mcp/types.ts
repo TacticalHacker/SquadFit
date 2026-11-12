@@ -8,6 +8,8 @@ export interface ToolContext {
   today: string;
   calorieTarget: number;
   proteinTarget: number | null;
+  /** Feature 007: stored body weight, or the 75 kg default. */
+  bodyWeight: { kg: number; isDefault: boolean };
   deps: Deps;
 }
 

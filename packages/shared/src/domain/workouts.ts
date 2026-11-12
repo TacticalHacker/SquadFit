@@ -1,30 +1,10 @@
 import { z } from "zod";
 import { MAX_CALORIES, MAX_MINUTES, MIN_CALORIES, MIN_MINUTES } from "./calories";
 
-export interface WorkoutDef {
-  id: string;
-  name: string;
-  defaultMinutes: number;
-  defaultCalories: number;
-}
-
-/** Standard catalog (research R1). kcal figures are rough estimates for a ~70 kg adult. Ids are never reused. */
-export const STANDARD_WORKOUTS: readonly WorkoutDef[] = [
-  { id: "std-walking", name: "Walking", defaultMinutes: 30, defaultCalories: 120 },
-  { id: "std-running", name: "Running", defaultMinutes: 30, defaultCalories: 300 },
-  { id: "std-cycling", name: "Cycling", defaultMinutes: 30, defaultCalories: 240 },
-  { id: "std-swimming", name: "Swimming", defaultMinutes: 30, defaultCalories: 250 },
-  { id: "std-yoga", name: "Yoga", defaultMinutes: 30, defaultCalories: 90 },
-  { id: "std-strength", name: "Strength training", defaultMinutes: 45, defaultCalories: 220 },
-  { id: "std-hiit", name: "HIIT", defaultMinutes: 20, defaultCalories: 200 },
-  { id: "std-jump-rope", name: "Jump rope", defaultMinutes: 15, defaultCalories: 150 },
-  { id: "std-hiking", name: "Hiking", defaultMinutes: 60, defaultCalories: 350 },
-  { id: "std-stretching", name: "Stretching", defaultMinutes: 15, defaultCalories: 45 },
-  { id: "std-dancing", name: "Dancing", defaultMinutes: 30, defaultCalories: 150 },
-  { id: "std-team-sport", name: "Team sport", defaultMinutes: 60, defaultCalories: 400 },
-];
-
-export const findStandardWorkout = (id: string) => STANDARD_WORKOUTS.find((w) => w.id === id);
+/*
+ * Feature 007 removed the 12 built-in activities (walking, running, …, team sport). Members log their own
+ * activities only; past entries with the old `std-*` ids keep their stored name, minutes and calories.
+ */
 
 export const normalizeWorkoutName = (name: string) => name.trim().replace(/\s+/g, " ").toLowerCase();
 
@@ -48,9 +28,8 @@ export const CustomWorkoutInputSchema = z.object({
 });
 export type CustomWorkoutInput = z.infer<typeof CustomWorkoutInputSchema>;
 
-/** True if `name` clashes with a standard workout or one of `existingNames` (ignoring case and spacing, FR-020). */
+/** True if `name` clashes with one of `existingNames`, ignoring case and spacing (002 FR-020; own names only since 007). */
 export function isNameTaken(name: string, existingNames: readonly string[]): boolean {
   const n = normalizeWorkoutName(name);
-  return STANDARD_WORKOUTS.some((w) => normalizeWorkoutName(w.name) === n) ||
-    existingNames.some((e) => normalizeWorkoutName(e) === n);
+  return existingNames.some((e) => normalizeWorkoutName(e) === n);
 }

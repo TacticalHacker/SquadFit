@@ -11,7 +11,6 @@ const SummarySchema = z.object({ totalMinutes: z.number(), totalCalories: z.numb
 export const WorkoutRowSchema = z.object({
   workoutId: z.string(),
   name: z.string(),
-  isStandard: z.boolean(),
   removed: z.boolean(),
   defaultMinutes: z.number(),
   defaultCalories: z.number(),
@@ -21,6 +20,8 @@ export const WorkoutRowSchema = z.object({
       calories: z.number(),
       rateMinutes: z.number(),
       rateCalories: z.number(),
+      // default: an API deployed before feature 007 omits it (rollout skew).
+      aiNote: z.string().nullable().default(null),
     })
     .nullable(),
 });

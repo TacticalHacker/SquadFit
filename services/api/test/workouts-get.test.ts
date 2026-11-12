@@ -18,7 +18,7 @@ describe("GET /workouts", () => {
     expect(r.body.error.code).toBe("PROFILE_REQUIRED");
   });
 
-  it("gives a new user the 12 standard rows, empty", async () => {
+  it("gives a new user no rows: there are no built-in activities (feature 007)", async () => {
     const { deps, profiles } = makeDeps("2026-11-11T10:00:00.000Z");
     await seedProfile(profiles);
     const r = await get(deps);
@@ -26,13 +26,11 @@ describe("GET /workouts", () => {
     expect(r.body.date).toBe("2026-11-11");
     expect(r.body.today).toBe("2026-11-11");
     expect(r.body.editable).toBe(true);
-    expect(r.body.rows).toHaveLength(12);
-    expect(r.body.rows.every((x: { entry: unknown }) => x.entry === null)).toBe(true);
-    expect(r.body.rows[0].workoutId).toBe("std-walking");
+    expect(r.body.rows).toEqual([]);
     expect(r.body.summary).toEqual({ totalMinutes: 0, totalCalories: 0 });
   });
 
-  it("appends custom workouts A→Z and hides removed ones", async () => {
+  it("lists custom workouts A→Z and hides removed ones", async () => {
     const { deps, profiles, workouts } = makeDeps();
     await seedProfile(profiles);
     const w = (id: string, name: string) => ({ workoutId: id, name, defaultMinutes: 10, defaultCalories: 50, createdAt: "t", updatedAt: "t" });
@@ -40,7 +38,7 @@ describe("GET /workouts", () => {
     await workouts.putCustomWorkout("user-1", w("c-1", "Badminton"));
     await workouts.putCustomWorkout("user-1", { ...w("c-3", "Padel"), removedAt: "t" });
     const r = await get(deps);
-    expect(r.body.rows.slice(12).map((x: { workoutId: string }) => x.workoutId)).toEqual(["c-1", "c-2"]);
+    expect(r.body.rows.map((x: { workoutId: string }) => x.workoutId)).toEqual(["c-1", "c-2"]);
   });
 
   it("never shows another user's entries or workouts", async () => {
@@ -49,7 +47,7 @@ describe("GET /workouts", () => {
     await workouts.putEntryIfAbsent("user-2", entry("2026-11-11", "std-running"));
     await workouts.putCustomWorkout("user-2", { workoutId: "c-9", name: "Secret", defaultMinutes: 1, defaultCalories: 1, createdAt: "t", updatedAt: "t" });
     const r = await get(deps);
-    expect(r.body.rows).toHaveLength(12);
+    expect(r.body.rows).toEqual([]);
     expect(r.body.summary.totalMinutes).toBe(0);
   });
 

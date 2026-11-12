@@ -54,3 +54,11 @@ describe("filterExercises", () => {
     expect(names(filterExercises(list, "chest", "  CURL "))).toEqual(["Hamstring Curl", "Barbell Curl", "Hammer Curl", "Cable Curl Machine"]);
   });
 });
+
+describe("GymEntryView.aiNote (feature 007)", () => {
+  it("is the stored note, or null", async () => {
+    const { toGymEntryView } = await import("../src/domain/gym");
+    expect(toGymEntryView({ ...gymEntry("gx-a", "A"), calories: 62, aiNote: "6 MET" })).toMatchObject({ calories: 62, aiNote: "6 MET" });
+    expect(toGymEntryView(gymEntry("gx-a", "A")).aiNote).toBeNull();
+  });
+});

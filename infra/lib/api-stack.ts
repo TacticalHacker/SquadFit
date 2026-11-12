@@ -142,6 +142,7 @@ export class ApiStack extends Stack {
     // AI Coach (feature 004). /mcp has no Cognito authorizer: AI clients send an operator-issued bearer key,
     // verified in the handler. ANY so the handler can answer OPTIONS (CORS) and 405.
     route("coach-note-get", HttpMethod.GET, "/coach-note");
+    route("coach-action-put", HttpMethod.PUT, "/coach-note/{date}/actions/{index}", { write: true });
     route("mcp", HttpMethod.ANY, "/mcp", { auth: false, write: true, photos: "read", memorySize: 512, timeoutSeconds: 15 });
 
     new CfnOutput(this, "ApiUrl", { value: this.api.apiEndpoint });

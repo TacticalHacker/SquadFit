@@ -13,24 +13,7 @@ export const TONES: Record<Tone, { badge: string; text: string; bar: string }> =
   indigo: { badge: "bg-indigo-400/15 shadow-[0_0_14px_-2px] shadow-indigo-400/40", text: "text-indigo-300", bar: "bg-indigo-400" },
 };
 
-const STYLE: Record<string, { emoji: string; tone: Tone }> = {
-  "std-walking": { emoji: "🚶", tone: "lime" },
-  "std-running": { emoji: "🏃", tone: "lime" },
-  "std-cycling": { emoji: "🚴", tone: "cyan" },
-  "std-swimming": { emoji: "🏊", tone: "sky" },
-  "std-yoga": { emoji: "🧘", tone: "teal" },
-  "std-strength": { emoji: "🏋️", tone: "purple" },
-  "std-hiit": { emoji: "🔥", tone: "orange" },
-  "std-jump-rope": { emoji: "🪢", tone: "orange" },
-  "std-hiking": { emoji: "🥾", tone: "amber" },
-  "std-stretching": { emoji: "🤸", tone: "teal" },
-  "std-dancing": { emoji: "💃", tone: "pink" },
-  "std-team-sport": { emoji: "⚽", tone: "amber" },
-};
-
-export const workoutStyle = (workoutId: string) => STYLE[workoutId] ?? { emoji: "⭐", tone: "indigo" as Tone };
-
-/** One-tap picks at the top of the screen (provisional until a history endpoint can rank by use). */
-export const QUICK_PICK_IDS = ["std-walking", "std-running", "std-strength", "std-cycling", "std-yoga"] as const;
+/** Every activity is the member's own since feature 007 removed the built-in list, so they share one style. */
+export const ACTIVITY_STYLE: { emoji: string; tone: Tone } = { emoji: "⭐", tone: "indigo" };
 
 export const MINUTE_CHIPS = [15, 30, 45, 60] as const;
