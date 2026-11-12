@@ -131,6 +131,10 @@ A tool list means it works; `Invalid or missing access key` means a wrong or rot
 estimate photo meals (`list_pending_food_photos`, `get_food_photo`, `submit_food_estimate`).
 Limit: 60 requests a minute per member, shared across all your clients.
 
+**Turn it into a coach:** paste [docs/ai-coach-instructions.md](docs/ai-coach-instructions.md) into a
+Claude or ChatGPT Project's instructions, then say "daily review". It estimates photo meals, fixes
+gym calories for your body weight, and posts your coach note.
+
 **Lost or leaked key?** The operator runs `pnpm admin ai-key revoke <user>` (stops it now) or
 `ai-key issue` (new key), then you update each client.
 
