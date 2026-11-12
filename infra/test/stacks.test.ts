@@ -81,7 +81,7 @@ describe("stacks", () => {
       "DELETE /food/foods/{foodId}", "GET /coach-note", "ANY /mcp", "POST /food/photos/{date}",
       "GET /workouts/gym", "PUT /workouts/gym/entries/{date}/{exerciseId}", "DELETE /workouts/gym/entries/{date}/{exerciseId}",
       "POST /workouts/gym/exercises", "PUT /workouts/gym/exercises/{exerciseId}", "DELETE /workouts/gym/exercises/{exerciseId}",
-      "PUT /coach-note/{date}/actions/{index}"]) {
+      "PUT /coach-note/{date}/actions/{index}", "ANY /mcp/{key}"]) {
       apiT.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: key });
     }
   });
@@ -91,7 +91,7 @@ describe("stacks", () => {
     for (const route of Object.values(routes)) {
       const props = route.Properties as { RouteKey: string; AuthorizationType?: string };
       // /mcp is guarded by an operator-issued bearer key checked in the handler (feature 004, research R2).
-      if (props.RouteKey === "GET /health" || props.RouteKey === "ANY /mcp") expect(props.AuthorizationType).toBe("NONE");
+      if (["GET /health", "ANY /mcp", "ANY /mcp/{key}"].includes(props.RouteKey)) expect(props.AuthorizationType).toBe("NONE");
       else expect(props.AuthorizationType, props.RouteKey).toBe("JWT");
     }
   });

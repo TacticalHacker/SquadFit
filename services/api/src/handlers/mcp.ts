@@ -1,6 +1,6 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyHandlerV2, APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { effectiveBodyWeight, localDate } from "@calci/shared";
-import { hashToken, parseBearer } from "@calci/shared/ai-credential";
+import { hashToken, parseBearer, parsePathKey } from "@calci/shared/ai-credential";
 import { RATE_LIMIT_PER_MINUTE } from "../lib/credential-repo";
 import { getDeps, type Deps } from "../lib/deps";
 import { apiError } from "../lib/http";
@@ -32,7 +32,8 @@ async function route(event: APIGatewayProxyEventV2, deps: Deps): Promise<APIGate
     return { ...(apiError(405, "VALIDATION_FAILED", "Use POST") as APIGatewayProxyStructuredResultV2), headers: { allow: "POST, OPTIONS", "content-type": "application/json" } };
   }
 
-  const token = parseBearer(event.headers.authorization);
+  // Header for Claude/Codex; `/mcp/{key}` for clients that can't set headers, like ChatGPT (feature 008).
+  const token = parseBearer(event.headers.authorization) ?? parsePathKey(event.pathParameters?.key);
   const userId = token ? await deps.credentials.findUserId(hashToken(token)) : null;
   if (!userId) return apiError(401, "UNAUTHORIZED", "Invalid or missing access key") as APIGatewayProxyStructuredResultV2;
 

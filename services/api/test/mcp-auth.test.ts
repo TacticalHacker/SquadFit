@@ -89,3 +89,16 @@ describe("POST /mcp authentication and gating", () => {
     expect(String(o.headers["access-control-allow-headers"])).toContain("Authorization");
   });
 });
+
+describe("key in the path (feature 008, ChatGPT)", () => {
+  it("accepts /mcp/{key} without a header, and rejects a bad path key", async () => {
+    const { deps, profiles } = makeDeps();
+    await seedProfile(profiles);
+    const token = await seedKey(deps);
+    const body = { jsonrpc: "2.0", id: 1, method: "tools/list" };
+    const ok = await call(deps, { ...mcpEvent({ body }), pathParameters: { key: token } } as never);
+    expect(ok.status).toBe(200);
+    const bad = await call(deps, { ...mcpEvent({ body }), pathParameters: { key: "sfk_wrong" } } as never);
+    expect(bad.status).toBe(401);
+  });
+});
