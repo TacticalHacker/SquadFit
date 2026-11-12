@@ -18,7 +18,7 @@ Features are built only through the Spec Kit skills in `.claude/skills/`:
 
 | Path | What |
 |---|---|
-| `apps/web` | Next.js 16 App Router + Tailwind 4. Deployed to Vercel. See `apps/web/AGENTS.md`: read `node_modules/next/dist/docs/` before writing Next code. |
+| `apps/web` | Next.js 16 App Router + Tailwind 4. Deployed to AWS Amplify Hosting (`amplify.yml`). See `apps/web/AGENTS.md`: read `node_modules/next/dist/docs/` before writing Next code. |
 | `services/api/src/handlers/*.ts` | One Lambda per file, exporting `handler`. Thin: parse with shared schema → domain → DynamoDB → `json()`. |
 | `packages/shared/src/contracts` | zod request/response schemas (single source of truth for the API). |
 | `packages/shared/src/domain` | Pure, test-first domain logic (scoring, streaks, day boundaries, nudge limits). |
