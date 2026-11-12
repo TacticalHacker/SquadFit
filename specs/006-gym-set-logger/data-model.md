@@ -71,7 +71,7 @@ The client never sends `volumeKg`, `minutes` (strength) or `calories`; the serve
 
 **Write rules (server-enforced)**:
 - Same day rules as feature 002 (FR-020): future → 400; older than `today−2` → 409 `DAY_LOCKED`.
-- To save, the exercise must be built-in or one of the member's non-removed own exercises, **unless** an entry already exists for that day (it can be re-saved / removed even if the own exercise was removed since). A re-save keeps the entry's existing `name`/`muscleGroup` snapshot (FR-018), and locked days are never written.
+- To save, the exercise must be built-in or one of the member's non-removed own exercises, **unless** an entry already exists for that day (it can be re-saved / removed even if the own exercise was removed since). A re-save stores the exercise's current `name`/`muscleGroup` if it still exists, else keeps the stored snapshot (FR-018); locked days are never written.
 - `PUT|DELETE /workouts/entries/{date}/{workoutId}` (feature 002) return 404 for ids starting `gx-`/`gc-` (research R2).
 
 ### State of one (member, exercise, day) slot
@@ -99,7 +99,7 @@ Init order: draft (if any) → saved entry for this day → last earlier entry (
 
 ## Draft (browser `localStorage`, never sent to the server)
 
-Key `sf:gymdraft:v1:<userId>:<date>:<exerciseId>`; value `{ v: 1, savedAt, baseUpdatedAt: string | null, state }` validated by `GymDraftSchema`. Removed on Save, Remove, Discard, or when `date < today − 2` (FR-023, research R8).
+Key `sf:gymdraft:v1:<username>:<date>:<exerciseId>`; value `{ v: 1, savedAt, baseUpdatedAt: string | null, state }` validated by `GymDraftSchema`. Removed on Save, Remove, Discard, or when `date < today − 2` (FR-023, research R8).
 
 ## Derived
 

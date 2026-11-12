@@ -22,6 +22,7 @@ GymExerciseSchema = {
   exerciseId, name, group: MuscleGroup, kind: "strength"|"cardio", isBuiltIn: boolean,
   entry: GymEntryView | null, last: GymLast | null
 }
+GymSaveResultSchema = { date, editable: boolean, exerciseId, entry: GymEntryView | null, summary: { totalMinutes, totalCalories } }
 GymViewSchema = { date, today, timezone, editable: boolean, exercises: GymExercise[], summary: { totalMinutes, totalCalories } }
 ```
 
@@ -42,11 +43,11 @@ Save (create or replace) one exercise on one day. Body, by exercise kind:
 
 The body is `GymEntryPutSchema` (strict: extra keys like `totalVolumeKg`/`calories` are rejected with 400, FR-014). Wrong shape for the exercise's kind → 400. Unknown exercise / not the caller's / removed own exercise with no existing entry that day → 404. Day older than `today−2` → 409 `DAY_LOCKED`; after today → 400.
 
-Response `200 GymView` for `{date}` (so the client replaces its state with server truth).
+Response `200 GymSaveResult` = `{ date, editable, exerciseId, entry: GymEntryView | null, summary }`. It skips the per-exercise "last" lookups: saving on day D never changes `last` for day D, so the client keeps the `last` values it has and replaces that exercise's `entry` and the day `summary` with server truth (SC-006).
 
 ## DELETE /workouts/gym/entries/{date}/{exerciseId}
 
-Remove that day's entry; idempotent (absent → still 200). Same day rules. Response `200 GymView`.
+Remove that day's entry; idempotent (absent → still 200). Same day rules. Response `200 GymSaveResult` with `entry: null`.
 
 ## Own exercises
 

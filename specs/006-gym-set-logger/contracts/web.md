@@ -26,11 +26,11 @@ Read `node_modules/next/dist/docs/` before writing Next code (apps/web/AGENTS.md
 
 ## Server Actions (`src/server/actions/gym.ts`)
 
-`saveGymEntry(date, exerciseId, body)`, `removeGymEntry(date, exerciseId)`, `createGymExercise(input)`, `updateGymExercise(id, input)`, `removeGymExercise(id)`. Each validates input with the shared schema, calls `apiFetch`, parses the response, and returns `{ ok: true, view } | { ok: false, code, message, fields? }`. A `DAY_LOCKED` result makes the drawer read-only and keeps the draft until the member discards it (it is dropped on next load anyway).
+`saveGymEntry(date, exerciseId, body)`, `removeGymEntry(date, exerciseId)`, `createGymExercise(input)`, `updateGymExercise(id, input)`, `removeGymExercise(id)`. Each validates input with the shared schema, calls `apiFetch`, parses the response, and returns `{ ok: true, result } | { ok: false, code, message, fields? }` (`result` is `GymSaveResult` for entry actions, `{ exercise }` for exercise actions). A `DAY_LOCKED` result makes the drawer read-only and keeps the draft until the member discards it (it is dropped on next load anyway).
 
 ## Drafts (`src/lib/gym-draft.ts`)
 
-`loadDraft`, `saveDraft` (debounced 300 ms), `clearDraft`, `listDraftKeys`, `pruneDrafts(today)`; all wrapped in try/catch (storage can be unavailable: then drafts are simply off). Key/shape in [data-model](../data-model.md#draft-browser-localstorage-never-sent-to-the-server). `userId` comes from `getMe()` passed to `GymScreen`.
+`loadDraft`, `saveDraft` (debounced 300 ms), `clearDraft`, `listDraftKeys`, `pruneDrafts(today)`; all wrapped in try/catch (storage can be unavailable: then drafts are simply off). Key/shape in [data-model](../data-model.md#draft-browser-localstorage-never-sent-to-the-server). `username` comes from `getMe()` passed to `GymScreen`.
 
 ## Global
 

@@ -116,7 +116,7 @@ header shows "Last: 80kg × 8".
 
 ---
 
-### User Story 5 - Add a custom exercise (Priority: P3)
+### User Story 5 - Add an own exercise (Priority: P3)
 
 A member whose gym has a machine that isn't in the library taps **+ Custom Exercise**, enters a
 name and picks a muscle group, and can then log it like any preset.
@@ -129,7 +129,7 @@ search, log 3 sets of it, and confirm another member cannot see it.
 **Acceptance Scenarios**:
 
 1. **Given** the Gym screen, **When** the member adds a custom exercise with a name and muscle group, **Then** it appears in that group's list and in search, marked as their own.
-2. **Given** a name that matches a preset or one of their own exercises (ignoring capitalisation and surrounding spaces), **When** they try to add it, **Then** it is refused with a message.
+2. **Given** a name that matches a preset or one of their own exercises (ignoring capitalisation and surrounding spaces), **When** they try to add it, **Then** it is refused with a message. Cardio is not offered as a group, and a 51st own exercise is refused with a message.
 3. **Given** a custom exercise, **When** the member renames, moves or removes it, **Then** only future logging is affected; past entries keep the name and group they were saved with.
 
 ---
@@ -165,11 +165,11 @@ search, log 3 sets of it, and confirm another member cannot see it.
 - **FR-002**: Built-in exercises MUST NOT be editable or removable by members.
 - **FR-003**: The Gym screen MUST show a muscle-group selector with Chest, Back, Legs, Shoulders, Arms, Core and Cardio, which stays visible while the exercise list scrolls and scrolls sideways on its own when it does not fit.
 - **FR-004**: The Gym screen MUST offer a search that matches any part of an exercise name, ignoring capitalisation, across all groups including the member's own exercises.
-- **FR-005**: Members MUST be able to add their own exercises with a name (1–40 characters) and one muscle group, unique within their own list and not duplicating a built-in name (ignoring capitalisation and surrounding spaces), and MUST be able to rename, regroup and remove them. Removing hides the exercise from the list but keeps past entries. A member's own exercises MUST be visible only to that member.
+- **FR-005**: Members MUST be able to add their own exercises with a name (1–40 characters) and one muscle group other than Cardio (own exercises are always logged as sets; a custom cardio activity uses feature 002's own workouts), unique within their own list and not duplicating a built-in name (ignoring capitalisation and surrounding spaces), and MUST be able to rename, regroup and remove them. A member can have at most 50 own exercises at once (removed ones don't count); adding a 51st is refused with a message. Removing hides the exercise from the list but keeps past entries. A member's own exercises MUST be visible only to that member.
 
 **Drawer and controls**
 
-- **FR-006**: Opening an exercise MUST show a drawer that slides up from the bottom edge, is no taller than 85% of the screen, has rounded top corners, a drag handle, a dimmed backdrop, a fixed header (exercise name, group, "Last" line), a scrollable middle and a fixed footer (totals and Save). It MUST be dismissable by backdrop tap, downward swipe and a close button; dismissing keeps unsaved changes as a draft (FR-023).
+- **FR-006**: Opening an exercise MUST show a drawer that slides up from the bottom edge, is no taller than 85% of the screen, has rounded top corners, a drag handle, a dimmed backdrop, a fixed header (exercise name, group, "Last" line), a scrollable middle and a fixed footer (totals and Save). It MUST be dismissable by backdrop tap, a downward swipe starting on the drag handle or header, and a close button; dismissing keeps unsaved changes as a draft (FR-023).
 - **FR-007**: Every stepper button and the per-set checkmark MUST have a tap area of at least 44 × 44 points and MUST respond on the first tap without a double-tap zoom or delay.
 - **FR-008**: Typed number fields MUST NOT cause the page to zoom when focused on iOS Safari, MUST open a decimal keypad for weight and a whole-number keypad for reps and minutes.
 - **FR-009**: The drawer MUST provide a Sets stepper (1–20, default 3). Adding a set MUST append a row copying the weight and reps of the last row, not completed. Removing a set MUST remove the last row.
@@ -191,7 +191,7 @@ search, log 3 sets of it, and confirm another member cannot see it.
 **Saving, editing, days**
 
 - **FR-017**: A member MUST have at most one entry per exercise per day. Saving an exercise already logged that day MUST replace its sets and totals.
-- **FR-018**: Each saved entry MUST record the exercise name and muscle group as they were at save time, and for strength exercises each set's number, reps, weight and completed state, plus total volume, estimated minutes and estimated calories. Later changes to a custom exercise MUST NOT change past entries.
+- **FR-018**: Each saved entry MUST record the exercise name and muscle group as they were at save time, and for strength exercises each set's number, reps, weight and completed state, plus total volume, estimated minutes and estimated calories. Later changes to a custom exercise MUST NOT change past entries; re-saving an entry on an editable day stores the exercise's current name and group (or keeps the stored ones if the exercise was removed).
 - **FR-019**: Members MUST be able to remove a logged gym entry, which removes its minutes and calories from that day's totals.
 - **FR-020**: Logging, changing and removing gym entries MUST follow feature 002's day rules: "today" in the member's own timezone, edits allowed only for today and the previous 2 days, older days viewable read-only, all decided by the server.
 - **FR-021**: The Gym screen MUST be a "Gym" tab of the Workouts screen (an "Activities | Gym" switch), not a separate top-level navigation item. It MUST show the same day being viewed as the Activities tab (with the same previous/next day navigation and daily totals), and logged gym entries MUST also appear among that day's logged workouts on the Workouts screen, showing name, set count and volume; tapping one there opens its drawer.

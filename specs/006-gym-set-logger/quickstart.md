@@ -48,6 +48,12 @@ Open Deadlift, change a weight, tick a set, swipe the drawer down → list shows
 
 On a 375 px-wide iPhone in Safari: focusing any number field does not zoom; the page never scrolls sideways; pills swipe without a scrollbar; with the keyboard open the Save button stays reachable; 20 sets → body scrolls, header/footer fixed, drawer ≤ 85% of height.
 
+## 7b. Timed checks (SC-001, SC-002, SC-006)
+
+- SC-001: with Barbell Squat pre-filled from yesterday, start a timer, open it, tick 3 sets, Save: < 15 s, one thumb.
+- SC-002: from the Gym tab, any built-in exercise drawer opens in ≤ 3 taps (pill → exercise; or search → result).
+- SC-006: Save shows the updated badge and totals in < 1 s (devtools network: PUT round trip).
+
 ## 8. AI history (FR-024)
 
 ```sh

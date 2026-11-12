@@ -34,6 +34,7 @@ No `NEEDS CLARIFICATION` items remained after `/speckit-clarify` (5 answers, see
 - **Decision**: Each gym entry also sets `gsi1pk = GYM#<sub>#<exerciseId>`, `gsi1sk = <date>`. `GET /workouts/gym?date=D` returns, for every exercise in the member's list, the most recent entry with `date < D` via a `Query gsi1pk, gsi1sk < D, ScanIndexForward=false, Limit=1`, run in parallel (≤ 30 built-in + ≤ 50 own = 80 tiny reads).
 - **Rationale**: The drawer must open instantly with values already in place (SC-001); a pre-fill that loads after opening would change numbers under the member's thumb. Expected scale is ~3 members, so 80 single-item reads per page load are negligible. No new index: `gsi1` already exists (projection ALL), and its existing `COMMUNITY` partition never starts with `GYM#`.
 - **Alternatives considered**: (a) Fetch on drawer open via a Server Action: simpler server, but a visible delay or late value swap in the drawer; rejected for UX. (b) A denormalised `LAST#<exerciseId>` pointer item updated on save: goes stale when a back-dated entry is saved or the latest is removed, needs recompute logic; rejected (VII). (c) Read the last 180 days of `ENTRY#` items and pick per exercise: unbounded item counts and reads every workout too; rejected.
+- Save/remove responses do not repeat the fan-out (they return `GymSaveResult`, contracts/api.md), so writes stay one put + one day query.
 - Only exercises the member has logged before return a `last`; the GSI query cost for never-logged exercises is one empty read each. If page latency is ever a problem, (a) is the fallback.
 
 ## R6. "Last: 80kg × 8" choice of set
@@ -47,8 +48,8 @@ No `NEEDS CLARIFICATION` items remained after `/speckit-clarify` (5 answers, see
 
 ## R8. Drafts in `localStorage`
 
-- **Decision**: Key `sf:gymdraft:v1:<userId>:<date>:<exerciseId>` → JSON `{ savedAt, baseUpdatedAt, state }`, validated with a zod schema on read (bad JSON → dropped). Written (debounced 300 ms) on every reducer change once the state differs from its initial value; removed on Save success, Remove, Discard draft. On Gym tab load, drafts for dates outside `today-2..today` (server's `today`) are deleted (FR-023). `baseUpdatedAt` is the saved entry's `updatedAt` when the draft started; if the loaded entry's `updatedAt` differs, the drawer shows "A saved version also exists" (spec edge case).
-- **Rationale**: Survives screen lock / tab discard on iOS Safari and Android Chrome (both persist `localStorage`); no server writes until Save, as clarified. `userId` in the key prevents a draft leaking between members on a shared phone. `sessionStorage` was rejected: iOS may discard the tab, losing it.
+- **Decision**: Key `sf:gymdraft:v1:<username>:<date>:<exerciseId>` → JSON `{ savedAt, baseUpdatedAt, state }`, validated with a zod schema on read (bad JSON → dropped). Written (debounced 300 ms) on every reducer change once the state differs from its initial value; removed on Save success, Remove, Discard draft. On Gym tab load, drafts for dates outside `today-2..today` (server's `today`) are deleted (FR-023). `baseUpdatedAt` is the saved entry's `updatedAt` when the draft started; if the loaded entry's `updatedAt` differs, the drawer shows "A saved version also exists" (spec edge case).
+- **Rationale**: Survives screen lock / tab discard on iOS Safari and Android Chrome (both persist `localStorage`); no server writes until Save, as clarified. `username` (from `getMe()`, unique per member; the web never sees the Cognito `sub`) in the key prevents a draft leaking between members on a shared phone. `sessionStorage` was rejected: iOS may discard the tab, losing it.
 - Drafts hold no data that isn't the member's own and never leave the device.
 
 ## R9. Bottom sheet: hand-built, no library
