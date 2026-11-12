@@ -12,6 +12,7 @@ export async function toOwnProfile(item: ProfileItem, avatars: AvatarStore): Pro
     timezone: item.timezone,
     dailyCalorieTarget: item.dailyCalorieTarget,
     dailyProteinTarget: item.dailyProteinTarget ?? null,
+    bodyWeightKg: item.bodyWeightKg ?? null,
     avatarUrl: await avatarUrl(item, avatars),
     joinedAt: item.createdAt,
   };

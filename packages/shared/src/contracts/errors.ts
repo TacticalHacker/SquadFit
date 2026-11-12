@@ -9,6 +9,7 @@ export const ApiErrorCodeSchema = z.enum([
   "DUPLICATE_NAME",
   "NOT_FOUND",
   "RATE_LIMITED",
+  "LIMIT_REACHED",
 ]);
 export type ApiErrorCode = z.infer<typeof ApiErrorCodeSchema>;
 

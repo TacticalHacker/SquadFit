@@ -78,7 +78,10 @@ describe("stacks", () => {
       "DELETE /workouts/custom/{workoutId}",
       "GET /food", "GET /food/recent", "POST /food/entries/{date}", "PUT /food/entries/{date}/{entryId}",
       "DELETE /food/entries/{date}/{entryId}", "GET /food/foods", "POST /food/foods", "PUT /food/foods/{foodId}",
-      "DELETE /food/foods/{foodId}", "GET /coach-note", "ANY /mcp", "POST /food/photos/{date}"]) {
+      "DELETE /food/foods/{foodId}", "GET /coach-note", "ANY /mcp", "POST /food/photos/{date}",
+      "GET /workouts/gym", "PUT /workouts/gym/entries/{date}/{exerciseId}", "DELETE /workouts/gym/entries/{date}/{exerciseId}",
+      "POST /workouts/gym/exercises", "PUT /workouts/gym/exercises/{exerciseId}", "DELETE /workouts/gym/exercises/{exerciseId}",
+      "PUT /coach-note/{date}/actions/{index}"]) {
       apiT.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: key });
     }
   });
@@ -114,6 +117,27 @@ describe("stacks", () => {
     // It may read food photos (feature 005) but has no other bucket access: no writes or deletes.
     expect(json).not.toContain("s3:PutObject");
     expect(json).not.toContain("s3:DeleteObject");
+  });
+
+  it("gym-get reads the table and its indexes but cannot write; gym mutations can write (feature 006)", () => {
+    const policies = Object.values(apiT.findResources("AWS::IAM::Policy"));
+    const forRole = (role: string) => JSON.stringify(policies.filter((p) => JSON.stringify(p).includes(role)));
+    const get = forRole("gymgetFnServiceRole");
+    expect(get).toContain("dynamodb:Query");
+    expect(get).toContain("/index/*");
+    expect(get).not.toContain("dynamodb:PutItem");
+    expect(get).not.toContain("s3:");
+    for (const role of ["gymentryputFnServiceRole", "gymentrydeleteFnServiceRole", "gymexercisepostFnServiceRole"]) {
+      expect(forRole(role), role).toContain("dynamodb:PutItem");
+      expect(forRole(role), role).not.toContain("s3:");
+    }
+  });
+
+  it("coach-action-put can update the table but has no bucket access (feature 007)", () => {
+    const policies = Object.values(apiT.findResources("AWS::IAM::Policy"));
+    const json = JSON.stringify(policies.filter((p) => JSON.stringify(p).includes("coachactionputFnServiceRole")));
+    expect(json).toContain("dynamodb:UpdateItem");
+    expect(json).not.toContain("s3:");
   });
 
   it("scopes food photo access to the food-photos/ prefix per function (feature 005)", () => {

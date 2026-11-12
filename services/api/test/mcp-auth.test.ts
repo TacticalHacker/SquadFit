@@ -35,14 +35,26 @@ describe("POST /mcp authentication and gating", () => {
     expect(r.json.error.code).toBe("PROFILE_REQUIRED");
   });
 
-  it("lists exactly the six tools for a valid key", async () => {
+  it("lists exactly the expected tools for a valid key", async () => {
     const { deps, profiles } = makeDeps();
     await seedProfile(profiles);
     const token = await seedKey(deps);
     const r = await rpc(deps, token, "tools/list");
     expect(r.status).toBe(200);
     const names = r.json.result.tools.map((t: { name: string }) => t.name).sort();
-    expect(names).toEqual(["get_food_photo", "get_user_history", "list_pending_food_photos", "post_daily_coach_note", "submit_food_estimate", "update_user_targets"]);
+    expect(names).toEqual([
+      "get_food_photo",
+      "get_full_context",
+      "get_user_history",
+      "list_pending_food_photos",
+      "post_daily_coach_note",
+      "post_overall_coach_note",
+      "submit_food_estimate",
+      "update_user_targets",
+      "update_workout_calories",
+      "upsert_food_log",
+      "upsert_workout_log",
+    ]);
   });
 
   it("rate limits at 60 requests a minute with Retry-After", async () => {

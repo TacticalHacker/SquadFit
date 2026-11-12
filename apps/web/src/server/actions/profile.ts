@@ -27,12 +27,15 @@ async function guard<T>(fn: () => Promise<T>): Promise<T | ActionState> {
 export async function saveProfile(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const rawTarget = str(formData, "dailyCalorieTarget").trim();
   const rawProtein = str(formData, "dailyProteinTarget").trim();
+  // Only the settings form has the field: absent keeps the stored weight, blank clears it (feature 007).
+  const rawWeight = formData.has("bodyWeightKg") ? str(formData, "bodyWeightKg").trim() : undefined;
   const parsed = ProfileInputSchema.safeParse({
     displayName: str(formData, "displayName"),
     timezone: str(formData, "timezone"),
     dailyCalorieTarget: rawTarget === "" ? Number.NaN : Number(rawTarget),
     // Optional: blank clears the protein target.
     dailyProteinTarget: rawProtein === "" ? null : Number(rawProtein),
+    ...(rawWeight === undefined ? {} : { bodyWeightKg: rawWeight === "" ? null : Number(rawWeight.replace(",", ".")) }),
   });
   if (!parsed.success) {
     const fields: Record<string, string> = {};

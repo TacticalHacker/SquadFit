@@ -24,3 +24,14 @@ export function validateHistoryWindow(start: string, end: string, today: string)
   if (daysBetween(start, end) + 1 > HISTORY_MAX_DAYS) return `The window can span at most ${HISTORY_MAX_DAYS} days`;
   return null;
 }
+
+/** Structured overall coach note (feature 007, FR-015). */
+export const HEADLINE_MAX = 65;
+export const HIGHLIGHT_MAX = 120;
+export const ACTION_MAX = 80;
+export const MAX_HIGHLIGHTS = 3;
+export const MAX_ACTIONS = 3;
+export const COACH_STATUSES = ["on_track", "needs_attention", "pr_alert"] as const;
+export type CoachStatus = (typeof COACH_STATUSES)[number];
+/** One-line reason the AI gives when it adjusts a workout's calories (FR-008). */
+export const AI_NOTE_MAX = 120;

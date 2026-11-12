@@ -1,6 +1,9 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.0 → 2.0.0 (MAJOR: principle VI redefined)
+- Version change: 2.0.0 → 2.1.0 (MINOR: "Lean tests" rule added under principle III)
+- Modified principles: III. Test-First Domain Logic now caps test volume (owner request, 2026-11-12)
+- Templates requiring updates: none (tasks are generated from this file) ✅
+- Previous: 1.0.0 → 2.0.0 (MAJOR: principle VI redefined)
 - Modified principles: VI. Privacy Within the Squad → VI. Members-Only Visibility (no groups; one global community and leaderboard)
 - Prior: template → 1.0.0
 - Added principles: I. Spec-Driven Delivery; II. End-to-End Type Safety; III. Test-First Domain Logic;
@@ -32,6 +35,13 @@ Scoring, calorie aggregation, streak transitions, day-boundary and timezone math
 rate limiting are pure functions in `packages/shared/src/domain`. Each one gets failing Vitest
 tests before it is implemented. Handlers stay thin: parse → call domain → persist → respond.
 CDK stacks get assertion tests for every resource that holds data or controls access.
+
+**Lean tests.** Test only what can silently break money-like math or access: new pure domain
+functions, and a handler's or tool's authorization and edit-window rules. Per behavior, write one
+happy-path test plus the one or two rejections that matter, never a table of every invalid input.
+Do not add tests for UI components, copy, styling, schema field limits, or code that only moves
+existing logic; rely on the existing suite and the typechecker there. Update an existing test only
+when the behavior it checks changed. `/speckit-tasks` MUST generate test tasks under this rule.
 
 ### IV. Infrastructure as Code, Serverless by Default
 Every AWS resource is defined in `infra/` with CDK. Changes made in the console are drift and
@@ -85,4 +95,4 @@ principle or section is added; PATCH: wording only), and propagates the change t
 `.specify/templates/*`. Reviewers check plans against the "Constitution Check" gate. Runtime
 guidance for agents lives in `CLAUDE.md`.
 
-**Version**: 2.0.0 | **Ratified**: 2026-11-11 | **Last Amended**: 2026-11-11
+**Version**: 2.1.0 | **Ratified**: 2026-11-11 | **Last Amended**: 2026-11-12

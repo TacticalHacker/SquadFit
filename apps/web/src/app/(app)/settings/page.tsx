@@ -25,6 +25,7 @@ async function ProfileSection() {
           timezone: profile.timezone,
           dailyCalorieTarget: profile.dailyCalorieTarget,
           dailyProteinTarget: profile.dailyProteinTarget,
+          bodyWeightKg: profile.bodyWeightKg,
           avatarUrl: profile.avatarUrl,
         }}
       />

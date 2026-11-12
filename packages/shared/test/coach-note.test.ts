@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   HISTORY_MAX_DAYS,
-  NOTE_MAX_RECOMMENDATIONS,
   NOTE_WINDOW_DAYS,
   validateHistoryWindow,
   validateNoteDate,
 } from "../src/domain/coach-note";
-import { CoachNoteInputSchema, HistoryInputSchema, TargetsInputSchema } from "../src/contracts/coach";
+import { HistoryInputSchema, OverallNoteInputSchema, TargetsInputSchema } from "../src/contracts/coach";
 
 const today = "2026-11-11";
 
@@ -37,29 +36,6 @@ describe("validateHistoryWindow", () => {
   });
 });
 
-describe("CoachNoteInputSchema", () => {
-  const ok = { date: today, summaryMarkdown: "  **Good** day  ", recommendations: ["  Walk  ", "Eat protein"] };
-  it("trims and accepts valid input", () => {
-    const r = CoachNoteInputSchema.parse(ok);
-    expect(r.summaryMarkdown).toBe("**Good** day");
-    expect(r.recommendations[0]).toBe("Walk");
-  });
-  it("enforces limits", () => {
-    expect(CoachNoteInputSchema.safeParse({ ...ok, summaryMarkdown: "   " }).success).toBe(false);
-    expect(CoachNoteInputSchema.safeParse({ ...ok, summaryMarkdown: "a".repeat(4001) }).success).toBe(false);
-    expect(CoachNoteInputSchema.safeParse({ ...ok, summaryMarkdown: "a".repeat(4000) }).success).toBe(true);
-    expect(CoachNoteInputSchema.safeParse({ ...ok, recommendations: [] }).success).toBe(false);
-    expect(
-      CoachNoteInputSchema.safeParse({ ...ok, recommendations: Array(NOTE_MAX_RECOMMENDATIONS + 1).fill("x") }).success,
-    ).toBe(false);
-    expect(CoachNoteInputSchema.safeParse({ ...ok, recommendations: ["a".repeat(281)] }).success).toBe(false);
-    expect(CoachNoteInputSchema.safeParse({ ...ok, recommendations: ["  "] }).success).toBe(false);
-  });
-  it("rejects unknown keys such as a user id", () => {
-    expect(CoachNoteInputSchema.safeParse({ ...ok, userId: "someone-else" }).success).toBe(false);
-  });
-});
-
 describe("TargetsInputSchema", () => {
   it("needs at least one field and validates ranges", () => {
     expect(TargetsInputSchema.safeParse({}).success).toBe(false);
@@ -77,5 +53,36 @@ describe("HistoryInputSchema", () => {
   it("requires both dates as strings", () => {
     expect(HistoryInputSchema.safeParse({ startDate: "2026-11-01", endDate: "2026-11-11" }).success).toBe(true);
     expect(HistoryInputSchema.safeParse({ startDate: "2026-11-01" }).success).toBe(false);
+  });
+});
+
+describe("OverallNoteInputSchema (feature 007)", () => {
+  const good = {
+    date: "2026-11-11",
+    headline: "Chest PR today, protein 30 g short",
+    status: "pr_alert",
+    highlights: ["Bench 3×8 @ 62.5 kg", "Protein 110/140 g"],
+    actionItems: ["Protein shake after dinner"],
+  };
+  it("accepts a valid note and trims strings", () => {
+    const r = OverallNoteInputSchema.parse({ ...good, headline: `  ${good.headline}  ` });
+    expect(r.headline).toBe(good.headline);
+    expect(OverallNoteInputSchema.safeParse({ ...good, actionItems: [] }).success).toBe(true);
+    expect(OverallNoteInputSchema.safeParse({ ...good, headline: "a".repeat(65) }).success).toBe(true);
+  });
+  it.each([
+    ["empty headline", { headline: "  " }],
+    ["66-char headline", { headline: "a".repeat(66) }],
+    ["multi-line headline", { headline: "one\ntwo" }],
+    ["unknown status", { status: "great" }],
+    ["no highlights", { highlights: [] }],
+    ["4 highlights", { highlights: ["a", "b", "c", "d"] }],
+    ["121-char highlight", { highlights: ["a".repeat(121)] }],
+    ["blank highlight", { highlights: ["  "] }],
+    ["4 action items", { actionItems: ["a", "b", "c", "d"] }],
+    ["81-char action", { actionItems: ["a".repeat(81)] }],
+    ["blank action", { actionItems: [" "] }],
+  ])("rejects %s", (_n, patch) => {
+    expect(OverallNoteInputSchema.safeParse({ ...good, ...patch }).success).toBe(false);
   });
 });

@@ -4,7 +4,8 @@ import { requireProfile } from "@/server/session";
 
 async function ToWorkouts(): Promise<null> {
   await requireProfile();
-  redirect("/workouts");
+  // Gym is the default Workouts tab: most members log lifts (feature 006).
+  redirect("/workouts/gym");
 }
 
 export default function Home() {

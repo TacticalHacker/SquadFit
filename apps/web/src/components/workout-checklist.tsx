@@ -1,11 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import { MAX_MINUTES, MIN_MINUTES, applyChange, type DayChange, type DayRow, type DayView } from "@calci/shared";
 import { hasDayChanged } from "@/lib/rollover";
-import { MINUTE_CHIPS, QUICK_PICK_IDS, TONES, workoutStyle } from "@/lib/workout-style";
+import { ACTIVITY_STYLE, MINUTE_CHIPS, TONES } from "@/lib/workout-style";
 import { setEntryMinutes, tickWorkout, untickWorkout, type ChecklistResult } from "@/server/actions/workouts";
+import { AiBadge } from "./ai-badge";
+import { gymEntrySummary } from "./exercise-list";
 import { ProgressRing } from "./progress-ring";
 
 const CHECK_EVERY_MS = 60_000;
@@ -63,7 +66,9 @@ export function WorkoutChecklist({ initialView }: { initialView: DayView }) {
   const readOnly = !optimistic.editable;
   const logged = optimistic.rows.filter((r) => r.entry !== null);
   const available = optimistic.rows.filter((r) => r.entry === null && !r.removed);
-  const quick = QUICK_PICK_IDS.map((id) => available.find((r) => r.workoutId === id)).filter((r): r is DayRow => !!r);
+  const gym = optimistic.gym;
+  const gymHref = (id: string) =>
+    `/workouts/gym?${date === optimistic.today ? "" : `date=${date}&`}open=${encodeURIComponent(id)}`;
 
   const add = (row: DayRow) => {
     setOpenId(row.workoutId);
@@ -84,42 +89,13 @@ export function WorkoutChecklist({ initialView }: { initialView: DayView }) {
         {error ? <p className="rounded-xl bg-red-500/15 px-4 py-2 text-sm text-red-200">{error}</p> : null}
       </div>
 
-      {!readOnly && quick.length > 0 ? (
-        <section aria-labelledby="quick-h">
-          <h2 id="quick-h" className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
-            Quick add
-          </h2>
-          <ul className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
-            {quick.map((row) => {
-              const s = workoutStyle(row.workoutId);
-              return (
-                <li key={row.workoutId} className="shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => add(row)}
-                    className="flex items-center gap-2 rounded-full bg-[#1E293B] py-2 pr-4 pl-2 text-sm font-medium transition hover:bg-slate-700 active:scale-95 motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-lime-400"
-                    aria-label={`Quick add ${row.name}, ${row.defaultMinutes} minutes`}
-                  >
-                    <span aria-hidden="true" className={`grid size-8 place-items-center rounded-full text-base ${TONES[s.tone].badge}`}>
-                      {s.emoji}
-                    </span>
-                    {row.name}
-                    <span className="text-slate-400">{row.defaultMinutes}m</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ) : null}
-
       <section aria-labelledby="logged-h">
         <h2 id="logged-h" className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
           Logged {optimistic.date === optimistic.today ? "today" : "this day"}
         </h2>
-        {logged.length === 0 ? (
+        {logged.length === 0 && gym.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-slate-700 px-4 py-6 text-center text-sm text-slate-400">
-            Nothing yet. Tap a quick pick or add an activity below. 💪
+            Nothing yet. Add an activity below. 💪
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
@@ -141,6 +117,27 @@ export function WorkoutChecklist({ initialView }: { initialView: DayView }) {
                 }}
               />
             ))}
+            {gym.map((g) => (
+              <li key={g.exerciseId}>
+                <Link
+                  href={gymHref(g.exerciseId)}
+                  className="flex min-h-14 items-center gap-3 rounded-2xl bg-[#1E293B] p-3 focus-visible:outline-2 focus-visible:outline-lime-400"
+                >
+                  <span aria-hidden="true" className={`grid size-11 place-items-center rounded-xl text-xl ${TONES.purple.badge}`}>
+                    🏋️
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">{g.name}</span>
+                    <span className="block text-xs text-slate-400">Gym · {gymEntrySummary(g)}</span>
+                  </span>
+                  <span className="text-right">
+                    <span className={`block text-lg font-bold tabular-nums ${TONES.purple.text}`}>{g.minutes} min</span>
+                    <span className="block text-xs tabular-nums text-slate-400">{g.calories} kcal</span>
+                  </span>
+                </Link>
+                {g.aiNote ? <AiBadge reason={g.aiNote} subject={g.name} /> : null}
+              </li>
+            ))}
           </ul>
         )}
       </section>
@@ -150,9 +147,17 @@ export function WorkoutChecklist({ initialView }: { initialView: DayView }) {
           <h2 id="add-h" className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
             Add activity
           </h2>
+          {available.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-slate-700 px-4 py-6 text-center text-sm text-slate-400">
+              No activities yet. Add the ones you do, like padel or a morning run.{" "}
+              <Link href="/workouts/mine" className="font-semibold text-lime-300 underline">
+                Add an activity
+              </Link>
+            </p>
+          ) : null}
           <ul className="grid gap-2 sm:grid-cols-2">
             {available.map((row) => {
-              const s = workoutStyle(row.workoutId);
+              const s = ACTIVITY_STYLE;
               return (
                 <li key={row.workoutId}>
                   <button
@@ -200,7 +205,7 @@ function LoggedCard({
   onRemove: () => void;
 }) {
   const entry = row.entry!;
-  const s = workoutStyle(row.workoutId);
+  const s = ACTIVITY_STYLE;
   const tone = TONES[s.tone];
   // Local draft so rapid taps feel instant and only the last value is sent.
   const [draft, setDraft] = useState<number | null>(null);
@@ -208,7 +213,8 @@ function LoggedCard({
   useEffect(() => () => clearTimeout(timer.current), []);
 
   const minutes = draft ?? entry.minutes;
-  const calories = Math.round((entry.rateCalories * minutes) / entry.rateMinutes);
+  // Stored calories are authoritative (they may be the AI's adjustment); a pending minutes change previews the app math.
+  const calories = draft === null ? entry.calories : Math.round((entry.rateCalories * minutes) / entry.rateMinutes);
 
   function change(next: number) {
     const m = clamp(next);
@@ -245,6 +251,7 @@ function LoggedCard({
           <span className="block text-xs tabular-nums text-slate-400">{calories} kcal</span>
         </span>
       </button>
+      {entry.aiNote && draft === null ? <AiBadge reason={entry.aiNote} subject={row.name} /> : null}
 
       <div
         id={panelId}

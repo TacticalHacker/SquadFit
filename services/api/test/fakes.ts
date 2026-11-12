@@ -1,12 +1,13 @@
 import type { APIGatewayProxyEventV2WithJWTAuthorizer, APIGatewayProxyStructuredResultV2 } from "aws-lambda";
-import type { ProfileInput } from "@calci/shared";
+import type { OverallNoteInput, ProfileInput } from "@calci/shared";
 import type { AvatarStore } from "../src/lib/avatar-store";
-import type { CoachNoteItem, CoachRepo } from "../src/lib/coach-repo";
+import { newCoachItem, toCoachNote, type CoachNoteItem, type CoachRepo, type TickResult } from "../src/lib/coach-repo";
 import type { CredentialRepo } from "../src/lib/credential-repo";
 import { photoKey, type PhotoContentType, type PhotoStore } from "../src/lib/photo-store";
 import type { Deps } from "../src/lib/deps";
 import type { FoodEntryItem, FoodRepo, OwnFoodItem, EntryUpdate } from "../src/lib/food-repo";
 import type { CustomWorkoutItem, EntryItem, WorkoutRepo } from "../src/lib/workout-repo";
+import type { GymEntryItem, GymRepo, OwnExerciseItem } from "../src/lib/gym-repo";
 import { ProfileMissingError, type ProfileItem, type ProfileRepo } from "../src/lib/profile-repo";
 
 export class InMemoryProfileRepo implements ProfileRepo {
@@ -26,6 +27,9 @@ export class InMemoryProfileRepo implements ProfileRepo {
       timezone: input.timezone,
       dailyCalorieTarget: input.dailyCalorieTarget,
       ...(input.dailyProteinTarget != null ? { dailyProteinTarget: input.dailyProteinTarget } : {}),
+      ...(input.bodyWeightKg === undefined
+        ? existing?.bodyWeightKg !== undefined ? { bodyWeightKg: existing.bodyWeightKg } : {}
+        : input.bodyWeightKg !== null ? { bodyWeightKg: input.bodyWeightKg } : {}),
       createdAt: existing?.createdAt ?? nowIso,
       updatedAt: nowIso,
     };
@@ -91,8 +95,27 @@ export class InMemoryWorkoutRepo implements WorkoutRepo {
     const key = this.entryKey(userId, date, workoutId);
     const e = this.entries.get(key);
     if (!e) return false;
-    this.entries.set(key, { ...e, minutes, calories, updatedAt: nowIso });
+    const { aiNote: _cleared, ...rest } = e;
+    this.entries.set(key, { ...rest, minutes, calories, updatedAt: nowIso });
     return true;
+  }
+  /** Test hook: runs between the agent's read and its conditional write (simulates a concurrent member edit). */
+  beforeAiWrite: (() => Promise<void>) | null = null;
+  async setAiAdjustment(
+    userId: string,
+    date: string,
+    workoutId: string,
+    fields: { minutes: number; calories: number; aiNote: string },
+    expectedUpdatedAt: string,
+    nowIso: string,
+  ) {
+    if (this.beforeAiWrite) await this.beforeAiWrite();
+    const key = this.entryKey(userId, date, workoutId);
+    const e = this.entries.get(key);
+    if (!e) return "missing" as const;
+    if (e.updatedAt !== expectedUpdatedAt) return "conflict" as const;
+    this.entries.set(key, { ...e, ...fields, updatedAt: nowIso });
+    return "ok" as const;
   }
   async deleteEntry(userId: string, date: string, workoutId: string) {
     this.entries.delete(this.entryKey(userId, date, workoutId));
@@ -118,6 +141,56 @@ export class InMemoryWorkoutRepo implements WorkoutRepo {
     const w = this.customs.get(this.k(userId, workoutId));
     if (!w) return false;
     this.customs.set(this.k(userId, workoutId), { ...w, removedAt: w.removedAt ?? nowIso, updatedAt: nowIso });
+    return true;
+  }
+}
+
+/** Gym repo over the workout fake's entry map, so day/range reads see gym entries like DynamoDB does. */
+export class InMemoryGymRepo implements GymRepo {
+  readonly exercises = new Map<string, OwnExerciseItem>();
+  /** Counts `lastBefore` calls (save responses must not fan out, SC-006). */
+  lastQueries = 0;
+
+  constructor(private readonly workouts: InMemoryWorkoutRepo) {}
+
+  private key = (u: string, d: string, id: string) => `${u}|ENTRY#${d}#${id}`;
+
+  async getGymEntry(userId: string, date: string, exerciseId: string) {
+    return this.workouts.entries.get(this.key(userId, date, exerciseId)) ?? null;
+  }
+  async putGymEntry(userId: string, entry: GymEntryItem) {
+    this.workouts.entries.set(this.key(userId, entry.date, entry.workoutId), entry);
+  }
+  async deleteGymEntry(userId: string, date: string, exerciseId: string) {
+    this.workouts.entries.delete(this.key(userId, date, exerciseId));
+  }
+  async lastBefore(userId: string, exerciseId: string, date: string) {
+    this.lastQueries++;
+    const hits = [...this.workouts.entries.entries()]
+      .filter(([k, e]) => k.startsWith(`${userId}|`) && e.kind === "gym" && e.workoutId === exerciseId && e.date < date)
+      .map(([, e]) => e)
+      .sort((a, b) => (a.date < b.date ? 1 : -1));
+    return hits[0] ?? null;
+  }
+  async listOwnExercises(userId: string) {
+    return [...this.exercises.entries()].filter(([k, e]) => k.startsWith(`${userId}|`) && !e.removedAt).map(([, e]) => e);
+  }
+  async getOwnExercise(userId: string, exerciseId: string) {
+    return this.exercises.get(`${userId}|${exerciseId}`) ?? null;
+  }
+  async putOwnExercise(userId: string, item: OwnExerciseItem) {
+    this.exercises.set(`${userId}|${item.exerciseId}`, item);
+  }
+  async updateOwnExercise(userId: string, exerciseId: string, fields: { name: string; group: OwnExerciseItem["group"] }, nowIso: string) {
+    const e = this.exercises.get(`${userId}|${exerciseId}`);
+    if (!e || e.removedAt) return false;
+    this.exercises.set(`${userId}|${exerciseId}`, { ...e, ...fields, updatedAt: nowIso });
+    return true;
+  }
+  async markOwnRemoved(userId: string, exerciseId: string, nowIso: string) {
+    const e = this.exercises.get(`${userId}|${exerciseId}`);
+    if (!e) return false;
+    this.exercises.set(`${userId}|${exerciseId}`, { ...e, removedAt: e.removedAt ?? nowIso, updatedAt: nowIso });
     return true;
   }
 }
@@ -193,13 +266,32 @@ export class InMemoryFoodRepo implements FoodRepo {
 }
 
 export class InMemoryCoachRepo implements CoachRepo {
-  readonly notes = new Map<string, CoachNoteItem>();
+  /** Raw stored items, so legacy (feature 004) markdown notes can be seeded too. */
+  readonly notes = new Map<string, Record<string, unknown>>();
   async get(userId: string, date: string) {
-    return this.notes.get(`${userId}|${date}`) ?? null;
+    return toCoachNote(this.notes.get(`${userId}|${date}`));
   }
-  async put(userId: string, note: Pick<CoachNoteItem, "date" | "summaryMarkdown" | "recommendations">, nowIso: string) {
-    const existing = this.notes.get(`${userId}|${note.date}`);
-    this.notes.set(`${userId}|${note.date}`, { ...note, generatedBy: "AI", createdAt: existing?.createdAt ?? nowIso, updatedAt: nowIso });
+  async listInRange(userId: string, from: string, to: string) {
+    return [...this.notes.entries()]
+      .filter(([k]) => k.startsWith(`${userId}|`))
+      .map(([, v]) => toCoachNote(v))
+      .filter((n): n is CoachNoteItem => n !== null && n.date >= from && n.date <= to)
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }
+  async put(userId: string, note: OverallNoteInput, nowIso: string) {
+    this.notes.set(`${userId}|${note.date}`, structuredClone(newCoachItem(note, nowIso)));
+  }
+  async setActionDone(userId: string, date: string, index: number, done: boolean, expectedUpdatedAt: string): Promise<TickResult> {
+    const raw = this.notes.get(`${userId}|${date}`);
+    const note = toCoachNote(raw);
+    if (!note) return "missing";
+    if (note.updatedAt !== expectedUpdatedAt || index >= note.actions.length) return "conflict";
+    (raw!.actions as { done: boolean }[])[index]!.done = done;
+    return "ok";
+  }
+  /** A feature 004 markdown note, which v2 readers must ignore. */
+  seedLegacy(userId: string, date: string) {
+    this.notes.set(`${userId}|${date}`, { date, summaryMarkdown: "old", recommendations: ["a"], generatedBy: "AI", createdAt: "t", updatedAt: "t" });
   }
 }
 
@@ -278,14 +370,15 @@ export class FakeAvatarStore implements AvatarStore {
 export function makeDeps(now = "2026-11-11T10:00:00.000Z") {
   const profiles = new InMemoryProfileRepo();
   const workouts = new InMemoryWorkoutRepo();
+  const gym = new InMemoryGymRepo(workouts);
   const food = new InMemoryFoodRepo();
   const coach = new InMemoryCoachRepo();
   const credentials = new InMemoryCredentialRepo();
   const avatars = new FakeAvatarStore();
   const photos = new FakePhotoStore();
   let clock = new Date(now);
-  const deps: Deps = { profiles, workouts, food, coach, credentials, avatars, photos, now: () => clock };
-  return { deps, profiles, workouts, food, coach, credentials, avatars, photos, setNow: (iso: string) => (clock = new Date(iso)) };
+  const deps: Deps = { profiles, workouts, gym, food, coach, credentials, avatars, photos, now: () => clock };
+  return { deps, profiles, workouts, gym, food, coach, credentials, avatars, photos, setNow: (iso: string) => (clock = new Date(iso)) };
 }
 
 export function makeEvent(opts: {
@@ -335,4 +428,15 @@ export async function seedWorkoutEntry(workouts: InMemoryWorkoutRepo, userId: st
     date, workoutId, name: workoutId, rateMinutes: 30, rateCalories: calories, minutes: 30, calories,
     createdAt: "t", updatedAt: "t",
   });
+}
+
+/** Own activities standing in for the former built-ins (feature 007): Running 30/300, Yoga 30/90, Strength 45/220. */
+export async function seedActivities(workouts: InMemoryWorkoutRepo, userId = "user-1") {
+  for (const [workoutId, name, defaultMinutes, defaultCalories] of [
+    ["c-run", "Running", 30, 300],
+    ["c-yoga", "Yoga", 30, 90],
+    ["c-strength", "Strength training", 45, 220],
+  ] as const) {
+    await workouts.putCustomWorkout(userId, { workoutId, name, defaultMinutes, defaultCalories, createdAt: "t", updatedAt: "t" });
+  }
 }

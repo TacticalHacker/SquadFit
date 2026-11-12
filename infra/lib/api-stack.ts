@@ -119,6 +119,13 @@ export class ApiStack extends Stack {
     route("custom-post", HttpMethod.POST, "/workouts/custom", { write: true });
     route("custom-put", HttpMethod.PUT, "/workouts/custom/{workoutId}", { write: true });
     route("custom-delete", HttpMethod.DELETE, "/workouts/custom/{workoutId}", { write: true });
+    // Gym logger (feature 006): read-only list (queries gsi1 for "last time"), write-only for mutations.
+    route("gym-get", HttpMethod.GET, "/workouts/gym");
+    route("gym-entry-put", HttpMethod.PUT, "/workouts/gym/entries/{date}/{exerciseId}", { write: true });
+    route("gym-entry-delete", HttpMethod.DELETE, "/workouts/gym/entries/{date}/{exerciseId}", { write: true });
+    route("gym-exercise-post", HttpMethod.POST, "/workouts/gym/exercises", { write: true });
+    route("gym-exercise-put", HttpMethod.PUT, "/workouts/gym/exercises/{exerciseId}", { write: true });
+    route("gym-exercise-delete", HttpMethod.DELETE, "/workouts/gym/exercises/{exerciseId}", { write: true });
     // Nutrition (feature 003)
     route("food-get", HttpMethod.GET, "/food", { photos: "read" });
     route("food-recent-get", HttpMethod.GET, "/food/recent");
@@ -135,6 +142,7 @@ export class ApiStack extends Stack {
     // AI Coach (feature 004). /mcp has no Cognito authorizer: AI clients send an operator-issued bearer key,
     // verified in the handler. ANY so the handler can answer OPTIONS (CORS) and 405.
     route("coach-note-get", HttpMethod.GET, "/coach-note");
+    route("coach-action-put", HttpMethod.PUT, "/coach-note/{date}/actions/{index}", { write: true });
     route("mcp", HttpMethod.ANY, "/mcp", { auth: false, write: true, photos: "read", memorySize: 512, timeoutSeconds: 15 });
 
     new CfnOutput(this, "ApiUrl", { value: this.api.apiEndpoint });

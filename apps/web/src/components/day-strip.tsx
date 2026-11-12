@@ -1,7 +1,17 @@
 import Link from "next/link";
 import { goalProgress, type SummaryRangeResponse } from "@calci/shared";
 
-export function DayStrip({ days, current, today }: { days: SummaryRangeResponse["days"]; current: string; today: string }) {
+export function DayStrip({
+  days,
+  current,
+  today,
+  basePath = "/workouts",
+}: {
+  days: SummaryRangeResponse["days"];
+  current: string;
+  today: string;
+  basePath?: string;
+}) {
   const weekday = new Intl.DateTimeFormat("en", { weekday: "short", timeZone: "UTC" });
   const dayNum = new Intl.DateTimeFormat("en", { day: "numeric", timeZone: "UTC" });
   return (
@@ -14,7 +24,7 @@ export function DayStrip({ days, current, today }: { days: SummaryRangeResponse[
           return (
             <li key={d.date}>
               <Link
-                href={d.date === today ? "/workouts" : `/workouts?date=${d.date}`}
+                href={d.date === today ? basePath : `${basePath}?date=${d.date}`}
                 {...(isCurrent ? { "aria-current": "date" as const } : {})}
                 aria-label={`${weekday.format(new Date(`${d.date}T00:00:00Z`))} ${dayNum.format(new Date(`${d.date}T00:00:00Z`))}: ${d.totalMinutes} minutes${goal ? ", goal met" : ""}`}
                 className={`flex flex-col items-center gap-1 rounded-xl py-2 transition active:scale-95 motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-lime-400 ${

@@ -55,7 +55,7 @@ pnpm deploy:dev     # deploy Data + Api stacks to AWS (needs AWS creds)
 - Routes: `/workouts` (checklist, day nav, 7-day strip) and `/workouts/mine` (custom workouts); `/` redirects to `/workouts`. API: `GET /workouts`, `GET /workouts/summary`, `PUT|DELETE /workouts/entries/{date}/{workoutId}`, `POST|PUT|DELETE /workouts/custom[/{id}]`.
 - "Today" and the edit window (today + 2 previous days, `DAY_LOCKED`) are computed only on the server from the profile timezone (constitution V); the client never decides what is editable.
 - `buildDayView` / `applyChange` in `packages/shared/src/domain/day-view.ts` are used by the server and the optimistic client; keep them the single source of calorie and total math.
-- Standard workouts are code (`STANDARD_WORKOUTS`); entries snapshot name and rate so later edits never change past days.
+- Entries snapshot name and rate so later edits never change past days. Feature 007 removed the built-in activity list: activities are the member's own only, and old `std-*` entries show as removed rows that still count.
 
 ## Nutrition (feature 003)
 
@@ -67,10 +67,10 @@ pnpm deploy:dev     # deploy Data + Api stacks to AWS (needs AWS creds)
 ## AI Coach / MCP (feature 004)
 
 - `POST /mcp` (`services/api/src/handlers/mcp.ts`) is a stateless MCP server (Streamable HTTP, JSON responses) with **no Cognito authorizer**: the handler checks an operator-issued bearer key (`sfk_...`, only its SHA-256 is stored; helpers in `@calci/shared/ai-credential`, server/CLI only, never import in the web bundle). One key per member; `pnpm admin ai-key issue` rotates.
-- Tools (`services/api/src/lib/mcp/tools.ts`): `get_user_history`, `post_daily_coach_note`, `update_user_targets`. They act only as the key's member and never take a user id. No leaderboard tool until the scoring feature exists.
-- Items: `USER#<sub>/COACH#<date>` (one AI note per day, shown on `/food` via `GET /coach-note`), `MCPCRED` + `MCPTOKEN#<hash>` (keys), `MCPRATE#...` counters with a table `ttl` (60 requests/min per member).
+- Tools (`services/api/src/lib/mcp/tools.ts`, writes in `writes.ts`): see feature 007 for the current list. They act only as the key's member and never take a user id. No leaderboard tool until the scoring feature exists.
+- Items: `USER#<sub>/COACH#<date>` (one AI note per day; v2 format since feature 007), `MCPCRED` + `MCPTOKEN#<hash>` (keys), `MCPRATE#...` counters with a table `ttl` (60 requests/min per member).
 - Profile gained an optional `dailyProteinTarget`; the food ledger carries `proteinTarget`.
-- Notes are rendered with `react-markdown` (no raw HTML, no images); never use `dangerouslySetInnerHTML`.
+- Never use `dangerouslySetInnerHTML` for AI text; render it as plain text.
 - Never log the key, note text or entries.
 
 ## Photo food log (feature 005)
@@ -80,3 +80,24 @@ pnpm deploy:dev     # deploy Data + Api stacks to AWS (needs AWS creds)
 - Pictures are private objects `food-photos/<sub>/<entryId>.jpg|webp` in the same bucket as avatars; each function gets S3 access to that prefix only (`photos: "read"|"readwrite"` in `api-stack.ts`). Views carry 1-hour signed URLs; the MCP agent receives the bytes as an MCP image, never a URL.
 - MCP tools (feature 004 server): `list_pending_food_photos`, `get_food_photo` (image), `submit_food_estimate` (only while `pending`, only on editable days). Status changes use `FoodRepo.updateEntryIf` (conditional on `photoStatus`) so the member and the agent can never both win; a lost race is a 409 on the web.
 - Never log captions, photos or estimates.
+
+## Gym logger (feature 006)
+
+- Route `/workouts/gym` is the default Workouts tab ("Gym | Activities" in `WorkoutsTabs`; `/` and the Workouts nav link land there; `?date=` kept; `?open=<exerciseId>` opens a drawer). API: `GET /workouts/gym`, `PUT|DELETE /workouts/gym/entries/{date}/{exerciseId}`, `POST|PUT|DELETE /workouts/gym/exercises[/{id}]`.
+- A gym entry is a workout entry: `USER#<sub>/ENTRY#<date>#<exerciseId>` with `kind: "gym"`, so day totals, the strip, the food ledger's burned and AI history include it automatically. It also sets `gsi1pk = GYM#<sub>#<exerciseId>`, `gsi1sk = <date>` for "last time" lookups. Own exercises: `GYMEX#gc-<uuid>` (max 50, never Cardio).
+- Ids: built-in `gx-<slug>` (`GYM_EXERCISES`, 28 items), own `gc-<uuid>`. Feature 002's entry routes return 404 for these ids.
+- `gymTotals` / `cardioTotals` in `packages/shared/src/domain/gym.ts` are the only gym math (2.5 min/set, 15 kcal/set, every set counts); the server recomputes and rejects client totals. `drawerReducer` (`gym-drawer.ts`) drives the steppers.
+- Save/remove return `GymSaveResult` (no per-exercise "last" fan-out); the client keeps its `last` values.
+- Unsaved drawer values are drafts in `localStorage` (`sf:gymdraft:v1:<username>:<date>:<id>`, `lib/gym-draft.ts`), read via `useSyncExternalStore`, never sent to the server.
+- Never log sets, weights or exercise names.
+
+## AI Coach v2 (feature 007)
+
+- MCP tools: `get_full_context` (profile incl. body weight, all logs with `logId`, totals incl. gym volume, streak, `leaderboard: null`), `get_user_history`, `update_workout_calories`, `upsert_workout_log`, `upsert_food_log`, `post_overall_coach_note`, `update_user_targets`, plus the photo tools. `post_daily_coach_note` is retired (always errors). AI writes are limited to the member's edit window (today + 2 previous days).
+- `logId = "<date>#<id>"` (`formatLogId` / `parseLogId` in `@calci/shared`), id = workout `workoutId` or food `entryId`.
+- AI writes go through the same services as the HTTP handlers: `lib/gym-save.ts` (`saveGymEntry`) and `lib/food-write.ts` (`createFoodEntry`, `patchFoodEntry`). Don't duplicate validation in tools.
+- Workout entries may carry `aiNote` (≤ 120 chars): set by `update_workout_calories` through `WorkoutRepo.setAiAdjustment`, conditional on the `updatedAt` the agent read. Any member edit clears it (`updateEntryMinutes` removes it; gym saves are full puts). Totals are derived on read, so nothing else needs updating.
+- Coach note v2 at `COACH#<date>` with `format: 2`: headline (≤ 65), status `on_track|needs_attention|pr_alert`, ≤ 3 highlights, ≤ 3 actions `{text, done}`. Items without `format: 2` read as no note. Ticks: `PUT /coach-note/{date}/actions/{index}` with `noteUpdatedAt` (409 if the note was replaced). `GET /coach-note` returns `{ note, metrics }` (net kcal, protein, gym volume computed live).
+- Web: `PulseBar` under `DayStrip` on both Workouts tabs (inline card ≥ 640 px, `BottomSheet` on phones); `AiBadge` next to AI-adjusted calories. Food has no coach block.
+- Profile `bodyWeightKg` (20–400, 1 decimal; 75 default via `effectiveBodyWeight`), edited in Settings only; never in public views.
+- Never log notes, reasons, action items, body weight or entries.
