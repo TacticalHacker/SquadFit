@@ -3,7 +3,7 @@
 import { useActionState, useTransition } from "react";
 import { createCustomWorkout, removeCustomWorkout, updateCustomWorkout } from "@/server/actions/workouts";
 import type { ActionState } from "@/server/actions/state";
-import { Field, FormMessage, buttonClass, describedBy, inputClass, secondaryButtonClass } from "./form-bits";
+import { Field, FormMessage, buttonClass, cardClass, describedBy, inputClass, secondaryButtonClass } from "./form-bits";
 
 interface Initial {
   workoutId: string;
@@ -25,7 +25,7 @@ export function CustomWorkoutForm({ workout }: { workout?: Initial }) {
       action={action}
       // Reset the add form after a successful add by keying on the message.
       key={workout ? undefined : state.message ? "added" : "idle"}
-      className="flex flex-col gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"
+      className={`flex flex-col gap-4 p-4 sm:p-5 ${cardClass}`}
     >
       {workout ? <input type="hidden" name="workoutId" value={workout.workoutId} /> : null}
       <Field id={`${p}-name`} label="Name" error={f.name}>

@@ -9,7 +9,7 @@ import { requireProfile } from "@/server/session";
 function SignOut() {
   return (
     <form action={signOut}>
-      <button type="submit" className={`${secondaryButtonClass} px-3 py-1 text-sm`}>
+      <button type="submit" className={`${secondaryButtonClass} px-3 text-sm`}>
         Sign out
       </button>
     </form>
@@ -21,10 +21,10 @@ async function Shell({ children }: { children: ReactNode }) {
   const { profile } = await requireProfile();
   return (
     <>
-      <header className="border-b border-zinc-200 dark:border-zinc-800">
+      <header className="border-b border-line bg-paper">
         <nav aria-label="Main" className="mx-auto flex max-w-2xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-4">
           <div className="flex items-center justify-between gap-3">
-            <Link href="/workouts/gym" className="text-lg font-bold tracking-tight">
+            <Link href="/workouts/gym" className="text-lg font-semibold tracking-[-0.015em]">
               SquadFit
             </Link>
             <span className="flex items-center gap-3 sm:hidden">
@@ -46,7 +46,7 @@ async function Shell({ children }: { children: ReactNode }) {
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
-    <Suspense fallback={<p className="p-4 text-sm text-zinc-500">Loading…</p>}>
+    <Suspense fallback={<p className="p-4 text-sm text-muted">Loading…</p>}>
       <Shell>{children}</Shell>
     </Suspense>
   );

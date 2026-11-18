@@ -39,7 +39,7 @@ async function GymContent({ searchParams }: { searchParams: PageProps<"/workouts
   const streak = currentStreak(history.days, view.today);
 
   return (
-    <div className="flex flex-col gap-4 rounded-3xl bg-[#0F172A] p-4 text-slate-100 sm:p-6">
+    <div className="flex flex-col gap-5">
       <DayNav date={view.date} today={view.today} basePath="/workouts/gym" streak={streak} />
       <DayStrip days={strip.days} current={view.date} today={view.today} basePath="/workouts/gym" />
       {pulse?.note && pulse.metrics ? (
@@ -53,7 +53,7 @@ async function GymContent({ searchParams }: { searchParams: PageProps<"/workouts
 
 export default function GymPage(props: PageProps<"/workouts/gym">) {
   return (
-    <Suspense fallback={<p className="text-sm text-zinc-500">Loading…</p>}>
+    <Suspense fallback={<p className="text-sm text-muted">Loading…</p>}>
       <GymContent searchParams={props.searchParams} />
     </Suspense>
   );

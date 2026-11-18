@@ -16,13 +16,13 @@ export default function SignInPage(props: PageProps<"/sign-in">) {
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-6 px-4 py-16">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight">SquadFit</h1>
-        <p className="mt-2 text-zinc-600 dark:text-zinc-400">Sign in to log your workouts and meals.</p>
+        <h1 className="text-3xl font-semibold tracking-[-0.02em]">SquadFit</h1>
+        <p className="mt-2 text-muted">Sign in to log your workouts and meals.</p>
       </div>
-      <Suspense fallback={<p className="text-sm text-zinc-500">Loading…</p>}>
+      <Suspense fallback={<p className="text-sm text-muted">Loading…</p>}>
         <SignInContent searchParams={props.searchParams} />
       </Suspense>
-      <p className="text-sm text-zinc-500">Accounts are created by invitation. Ask the admin for yours.</p>
+      <p className="text-sm text-muted">Accounts are created by invitation. Ask the admin for yours.</p>
     </main>
   );
 }

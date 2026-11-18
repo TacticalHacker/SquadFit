@@ -9,6 +9,7 @@ import { CustomExerciseSheet } from "./custom-exercise-form";
 import { ExerciseList } from "./exercise-list";
 import { ExerciseSearch } from "./exercise-search";
 import { GymDrawer } from "./gym-drawer";
+import { noticeWarnClass } from "./form-bits";
 import { MusclePills } from "./muscle-pills";
 
 const CHECK_EVERY_MS = 60_000;
@@ -99,17 +100,17 @@ export function GymScreen({ initialView, username, openId: initialOpenId }: { in
 
   return (
     <div className="flex flex-col gap-3 overflow-x-clip">
-      <p className="text-sm text-slate-300 tabular-nums">
-        {date === today ? "Today" : "This day"}: <span className="font-semibold text-slate-100">{view.summary.totalMinutes} min</span> ·{" "}
-        <span className="font-semibold text-slate-100">{view.summary.totalCalories} kcal</span> burned
+      <p className="text-sm text-muted">
+        {date === today ? "Today" : "This day"}: <span className="font-semibold text-ink">{view.summary.totalMinutes} min</span> ·{" "}
+        <span className="font-semibold text-ink">{view.summary.totalCalories} kcal</span> burned
       </p>
       {!editable ? (
-        <p role="status" className="rounded-xl bg-amber-400/15 px-4 py-2 text-sm text-amber-200">
+        <p role="status" className={noticeWarnClass}>
           This day can no longer be edited
         </p>
       ) : null}
 
-      <div className="sticky top-0 z-10 -mx-4 flex flex-col gap-1 bg-[#0F172A]/95 px-4 pt-2 backdrop-blur">
+      <div className="sticky top-0 z-10 -mx-4 flex flex-col gap-1 border-b border-line bg-paper px-4 pt-2">
         <ExerciseSearch value={query} onChange={setQuery} />
         <MusclePills
           value={group}
