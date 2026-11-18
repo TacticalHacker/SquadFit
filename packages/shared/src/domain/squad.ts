@@ -383,7 +383,7 @@ export function buildBoards(input: { members: readonly BoardMember[]; viewerId: 
     const f = streakFigures(m.stats?.weeks ?? {}, m.today, m.weeklyTarget);
     return { member: publicMember(m, viewerId), current: f.current, best: f.best, week: { days: f.weekDays, target: f.target } };
   };
-  const streaks = withViewer(rankRows(ranked.map(streakRow), (r) => [r.current, r.best], (r) => r.member.displayName), viewer && viewerHidden ? streakRow(viewer) : null);
+  const streaks = withViewer(rankRows(ranked.map(streakRow), (r) => [r.current, r.best, r.week.days], (r) => r.member.displayName), viewer && viewerHidden ? streakRow(viewer) : null);
 
   const prRow = (m: BoardMember) => {
     const from = periodStart(period, m.today);

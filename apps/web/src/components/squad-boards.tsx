@@ -74,7 +74,7 @@ function Streaks({ data }: { data: SquadLeaderboard }) {
   if (data.streaks.length === 0) return <EmptyBoard>No workouts logged yet. The first session starts the streak.</EmptyBoard>;
   return (
     <div className="flex flex-col gap-2">
-      <Note>Weekly streaks: weeks that reached the weekly target. Not affected by the period.</Note>
+      <Note>Big number: workout days this week against the weekly target. A streak is how many weeks in a row someone hit that target; “best” is their longest run ever. Ranked by streak, then best, then days this week. Not affected by the period.</Note>
       <BoardList label="Streaks">
         {data.streaks.map((r) => {
           const pct = Math.min(100, Math.round((r.week.days / Math.max(1, r.week.target)) * 100));
@@ -83,9 +83,9 @@ function Streaks({ data }: { data: SquadLeaderboard }) {
               key={r.member.userId}
               rank={r.rank}
               member={r.member}
-              main={r.current}
-              unit={r.current === 1 ? "wk" : "wks"}
-              secondary={`best ${r.best} · this week ${r.week.days}/${r.week.target}`}
+              main={r.week.days}
+              unit={`/ ${r.week.target} days`}
+              secondary={`${r.current}-week streak · best ${r.best}`}
               below={
                 <div
                   role="img"
@@ -106,6 +106,8 @@ function Streaks({ data }: { data: SquadLeaderboard }) {
 function Prs({ data, query }: { data: SquadLeaderboard; query: BoardQuery }) {
   if (data.prs.length === 0) return <EmptyBoard>No PRs {PERIOD_WORDS[query.period]}. Go lift something heavy.</EmptyBoard>;
   return (
+    <div className="flex flex-col gap-2">
+      <Note>A PR (personal record) is a lift that beats your own previous best on that exercise. Tap a row to see them.</Note>
     <BoardList label="Personal records">
       {data.prs.map((r) => (
         <BoardRow
@@ -131,6 +133,7 @@ function Prs({ data, query }: { data: SquadLeaderboard; query: BoardQuery }) {
         />
       ))}
     </BoardList>
+    </div>
   );
 }
 
@@ -140,7 +143,7 @@ function Consistency({ data }: { data: SquadLeaderboard }) {
   }
   return (
     <div className="flex flex-col gap-2">
-      <Note>Share of the last 4 full weeks that reached the weekly target. Not affected by the period.</Note>
+      <Note>Share of the last 4 full weeks that reached the weekly workout target. “kg lifted” is weight × reps added up for this week. Not affected by the period.</Note>
       <BoardList label="Consistency">
         {data.consistency.map((r) => (
           <BoardRow
@@ -191,7 +194,17 @@ function Lifts({ data, query }: { data: SquadLeaderboard; query: BoardQuery }) {
           Relative
         </Link>
       </nav>
-      {query.relative ? <Note>Estimated 1-rep max ÷ body weight. Only members who share their body weight are ranked.</Note> : <Note>Estimated 1-rep max (Epley, sets of 1–10 reps).</Note>}
+      {query.relative ? (
+        <Note>
+          Estimated 1-rep max (e1RM) ÷ body weight. 1.0× means lifting your own body weight once; higher is stronger for your size. Only members who share
+          their body weight are ranked.
+        </Note>
+      ) : (
+        <Note>
+          e1RM = estimated 1-rep max: the heaviest weight you could lift once, worked out from a set of 1–10 reps. It lets 60 kg × 8 be compared fairly with
+          80 kg × 3.
+        </Note>
+      )}
 
       {rows.length === 0 ? (
         <EmptyBoard>
