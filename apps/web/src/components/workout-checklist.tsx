@@ -123,7 +123,7 @@ export function WorkoutChecklist({ initialView }: { initialView: DayView }) {
               <li key={g.exerciseId}>
                 <Link
                   href={gymHref(g.exerciseId)}
-                  className="flex min-h-14 items-center gap-3 px-4 py-3 transition-colors duration-150 hover:bg-surface-2"
+                  className="flex min-h-14 items-center gap-3 px-4 py-3 transition-colors duration-150 hover:bg-surface-2 active:bg-surface-2 active:duration-0"
                 >
                   <RowIcon icon={Dumbbell} />
                   <span className="min-w-0 flex-1">
@@ -236,7 +236,7 @@ function LoggedCard({
         onClick={onToggle}
         aria-expanded={open}
         aria-controls={panelId}
-        className="flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-150 hover:bg-surface-2"
+        className="flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-150 hover:bg-surface-2 active:bg-surface-2 active:duration-0"
       >
         <RowIcon icon={Activity} />
         <span className="min-w-0 flex-1">

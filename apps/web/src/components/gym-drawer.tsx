@@ -19,10 +19,10 @@ import {
 } from "@calci/shared";
 import { browserStorage, clearDraft, loadDraft, saveDraft } from "@/lib/gym-draft";
 import { removeGymEntry, saveGymEntry } from "@/server/actions/gym";
-import { Check, X } from "lucide-react";
-import { BottomSheet } from "./bottom-sheet";
+import { Check } from "lucide-react";
+import { BottomSheet, SheetClose } from "./bottom-sheet";
 import { buttonClass, dangerLinkClass, noticeErrorClass, noticeWarnClass } from "./form-bits";
-import { NumberField, Stepper, stepButtonClass } from "./stepper";
+import { NumberField, Stepper } from "./stepper";
 
 const DRAFT_DEBOUNCE_MS = 300;
 const nf = new Intl.NumberFormat("en");
@@ -138,9 +138,7 @@ export function GymDrawer({
           ) : null}
         </p>
       </div>
-      <button type="button" onClick={close} aria-label="Close" className={stepButtonClass}>
-        <X aria-hidden size={18} strokeWidth={1.75} />
-      </button>
+      <SheetClose />
     </div>
   );
 

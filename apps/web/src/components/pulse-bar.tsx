@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { CoachStatus, OverallNote, PulseMetrics } from "@calci/shared";
 import { setCoachAction } from "@/server/actions/coach";
 import { ChevronDown, NotebookPen } from "lucide-react";
-import { BottomSheet } from "./bottom-sheet";
+import { BottomSheet, SheetClose } from "./bottom-sheet";
 import { cardClass } from "./form-bits";
 
 /** Accent per status; the `label` is also read out, so colour is never the only signal (research R10). */
@@ -84,13 +84,7 @@ export function PulseBar({
               <NotebookPen aria-hidden="true" size={18} strokeWidth={1.75} className="text-accent" />
               AI coach
             </h2>
-            <button
-              type="button"
-              onClick={() => setOpen(null)}
-              className="min-h-11 min-w-11 rounded-md px-2 text-sm text-muted transition-colors duration-150 hover:text-ink"
-            >
-              Close
-            </button>
+            <SheetClose />
           </div>
         }
       >
@@ -142,7 +136,7 @@ function PulseCard({ note, metrics, proteinTarget }: { note: OverallNote; metric
 function Metric({ label, value, unit }: { label: string; value: string; unit: string }) {
   return (
     <div className="min-w-0 px-2 py-2.5">
-      <dt className="truncate text-[11px] text-muted">{label}</dt>
+      <dt className="truncate text-[0.6875rem] text-muted">{label}</dt>
       <dd className="mt-0.5 truncate font-mono text-base font-medium">
         {value} <span className="font-sans text-xs font-normal text-muted">{unit}</span>
       </dd>
@@ -178,7 +172,7 @@ function ActionList({ note }: { note: OverallNote }) {
       <ul className="mt-1 flex flex-col divide-y divide-line">
         {actions.map((a, i) => (
           <li key={i}>
-            <label className="flex min-h-11 cursor-pointer items-center gap-3 px-1 text-sm transition-colors duration-150 hover:bg-surface-2">
+            <label className="flex min-h-11 cursor-pointer items-center gap-3 px-1 text-sm transition-colors duration-150 hover:bg-surface-2 active:bg-surface-2 active:duration-0">
               <input
                 type="checkbox"
                 checked={a.done}

@@ -4,7 +4,7 @@ import { addDays } from "@calci/shared";
 import { linkClass } from "./form-bits";
 
 const arrow =
-  "grid min-h-11 min-w-11 place-items-center rounded-md border border-line bg-surface text-ink transition-colors duration-150 hover:bg-surface-2";
+  "grid min-h-11 min-w-11 place-items-center rounded-md border border-line bg-surface text-ink transition-colors duration-150 hover:bg-surface-2 active:bg-surface-2 active:duration-0";
 
 export function DayNav({ date, today, basePath, streak }: { date: string; today: string; basePath: string; streak?: number }) {
   const isToday = date === today;

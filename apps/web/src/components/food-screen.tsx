@@ -315,7 +315,7 @@ function EntryRow({
         disabled={!editable}
         aria-expanded={open}
         aria-controls={panelId}
-        className="flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-150 enabled:hover:bg-surface-2"
+        className="flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-150 enabled:hover:bg-surface-2 enabled:active:bg-surface-2 enabled:active:duration-0"
       >
         <span className="min-w-0 flex-1">
           <span className="block truncate font-medium">{entry.name}</span>

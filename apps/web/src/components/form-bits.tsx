@@ -10,9 +10,9 @@ const motion = "transition-colors duration-150";
 export const inputClass = `w-full min-h-11 rounded-md border border-line-strong bg-surface px-3 py-2 text-base text-ink placeholder:text-faint ${motion} focus:border-accent aria-[invalid=true]:border-danger disabled:text-faint`;
 
 /** Filled green: at most one per screen section. */
-export const buttonClass = `inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-accent px-4 py-2 font-medium text-on-accent ${motion} hover:bg-accent-hover disabled:opacity-50`;
+export const buttonClass = `inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-accent px-4 py-2 font-medium text-on-accent ${motion} hover:bg-accent-hover active:bg-accent-hover active:duration-0 disabled:opacity-50`;
 
-export const secondaryButtonClass = `inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-line-strong bg-surface px-4 py-2 font-medium text-ink ${motion} hover:bg-surface-2 disabled:opacity-50`;
+export const secondaryButtonClass = `inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-line-strong bg-surface px-4 py-2 font-medium text-ink ${motion} hover:bg-surface-2 active:bg-line active:duration-0 disabled:opacity-50`;
 
 /** Text-only action, e.g. "Remove" under a form. */
 export const dangerLinkClass = `inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-sm text-danger underline-offset-4 hover:underline disabled:opacity-50`;
@@ -20,12 +20,12 @@ export const dangerLinkClass = `inline-flex min-h-11 items-center justify-center
 export const cardClass = "rounded-lg border border-line bg-surface shadow-card";
 
 /** Square stepper / icon button: surface-2 fill, ink icon, 44 px. */
-export const iconButtonClass = `grid min-h-11 min-w-11 shrink-0 touch-manipulation select-none place-items-center rounded-md bg-surface-2 text-ink ${motion} hover:bg-line active:bg-line disabled:text-faint disabled:hover:bg-surface-2`;
+export const iconButtonClass = `grid min-h-11 min-w-11 shrink-0 touch-manipulation select-none place-items-center rounded-md bg-surface-2 text-ink ${motion} hover:bg-line active:bg-line-strong active:duration-0 disabled:text-faint disabled:hover:bg-surface-2`;
 
 /** Chip / toggle. Selected uses accent-soft + accent border/text. */
 export const chipClass = (selected: boolean) =>
   `inline-flex min-h-11 shrink-0 touch-manipulation items-center justify-center rounded-full border px-4 text-sm font-medium ${motion} ${
-    selected ? "border-accent bg-accent-soft text-accent" : "border-line-strong bg-surface text-ink hover:bg-surface-2"
+    selected ? "border-accent bg-accent-soft text-accent" : "border-line-strong bg-surface text-ink hover:bg-surface-2 active:bg-line active:duration-0"
   }`;
 
 /** Two-option segmented control (e.g. Gym | Activities). */

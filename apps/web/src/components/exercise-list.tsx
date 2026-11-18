@@ -44,7 +44,7 @@ export function ExerciseList({
               <button
                 type="button"
                 onClick={() => onOpen(e.exerciseId)}
-                className="flex min-h-14 min-w-0 flex-1 touch-manipulation items-center gap-3 px-4 py-2 text-left transition-colors duration-150 hover:bg-surface-2"
+                className="flex min-h-14 min-w-0 flex-1 touch-manipulation items-center gap-3 px-4 py-2 text-left transition-colors duration-150 hover:bg-surface-2 active:bg-surface-2 active:duration-0"
               >
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{e.name}</span>
@@ -82,7 +82,7 @@ export function ExerciseList({
           <button
             type="button"
             onClick={onAddCustom}
-            className="flex min-h-14 w-full touch-manipulation items-center gap-2 px-4 text-left font-medium text-accent transition-colors duration-150 hover:bg-surface-2"
+            className="flex min-h-14 w-full touch-manipulation items-center gap-2 px-4 text-left font-medium text-accent transition-colors duration-150 hover:bg-surface-2 active:bg-surface-2 active:duration-0"
           >
             <Plus aria-hidden size={18} strokeWidth={1.75} />
             Custom Exercise

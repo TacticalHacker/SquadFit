@@ -3,10 +3,8 @@
 import { useState, useTransition } from "react";
 import { MUSCLE_GROUPS, MUSCLE_GROUP_LABELS, type GymExerciseView, type MuscleGroup } from "@calci/shared";
 import { createGymExercise, removeGymExercise, updateGymExercise } from "@/server/actions/gym";
-import { X } from "lucide-react";
-import { BottomSheet } from "./bottom-sheet";
+import { BottomSheet, SheetClose } from "./bottom-sheet";
 import { buttonClass, chipClass, dangerLinkClass, inputClass, noticeErrorClass } from "./form-bits";
-import { stepButtonClass } from "./stepper";
 
 const OWN_GROUPS = MUSCLE_GROUPS.filter((g) => g !== "cardio");
 
@@ -65,9 +63,7 @@ export function CustomExerciseSheet({
   const header = (
     <div className="flex items-center gap-3">
       <h2 className="flex-1 text-lg font-semibold">{editing ? "Edit exercise" : "Custom exercise"}</h2>
-      <button type="button" onClick={onClose} aria-label="Close" className={stepButtonClass}>
-        <X aria-hidden size={18} strokeWidth={1.75} />
-      </button>
+      <SheetClose />
     </div>
   );
 

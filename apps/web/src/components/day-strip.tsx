@@ -31,7 +31,7 @@ export function DayStrip({
                   isCurrent ? "border-accent bg-accent-soft text-accent" : "border-line bg-surface text-ink hover:bg-surface-2"
                 }`}
               >
-                <span className={`text-[11px] uppercase tracking-[0.06em] ${isCurrent ? "" : "text-muted"}`}>
+                <span className={`text-[0.6875rem] uppercase tracking-[0.06em] ${isCurrent ? "" : "text-muted"}`}>
                   {weekday.format(new Date(`${d.date}T00:00:00Z`))}
                 </span>
                 <span className="text-base font-semibold leading-none">{dayNum.format(new Date(`${d.date}T00:00:00Z`))}</span>

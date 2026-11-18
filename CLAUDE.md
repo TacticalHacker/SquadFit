@@ -55,6 +55,7 @@ pnpm deploy:dev     # deploy Data + Api stacks to AWS (needs AWS creds)
 - Colours exist only as CSS variables in `apps/web/src/app/globals.css` (light + OS dark mode). Tailwind's default palette is removed (`--color-*: initial`), so use the token utilities: `bg-paper|surface|surface-2`, `text-ink|muted|faint`, `border-line|line-strong`, `accent`, `accent-soft`, `success|warning|danger` (with `/10`-style opacity for tints).
 - Reuse the class strings in `components/form-bits.tsx` (`buttonClass` = the one primary per section, `secondaryButtonClass`, `inputClass`, `cardClass`, `chipClass`, `segmentClass`, `notice*Class`, `iconButtonClass`). Focus rings are global (`:focus-visible`); don't add per-element outlines.
 - Icons are `lucide-react` (size 16–20, `strokeWidth={1.75}`); no emoji as icons, no gradients, glows, blur or scale animations. Radius is 6–8 px (`rounded-md`/`rounded-lg`); `rounded-full` only for tiny badges/chips and avatars.
+- Press feedback is colour on `:active` (touch has no hover). `BottomSheet` motion runs through the spring in `lib/spring.ts` (interruptible, velocity hand-off, momentum projection); close buttons in a sheet header must be `<SheetClose />` so the sheet slides out before `onClose`.
 
 ## Workouts (feature 002)
 
