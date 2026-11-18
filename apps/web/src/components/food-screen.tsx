@@ -24,7 +24,9 @@ import { hasDayChanged } from "@/lib/rollover";
 import type { ReducedPhoto } from "@/lib/photo-reduce";
 import { addEntry, addPhotoEntry, removeEntry, updateEntry, type FoodResult } from "@/server/actions/food";
 import { FoodAddPanel, MEAL_LABEL } from "./food-add-panel";
+import { Camera, Minus, Plus } from "lucide-react";
 import { FoodLedgerCard } from "./food-ledger";
+import { buttonClass, cardClass, dangerLinkClass, iconButtonClass, inputClass, noticeErrorClass, noticeWarnClass, secondaryButtonClass } from "./form-bits";
 import { PhotoAddPanel } from "./photo-add-panel";
 import { PhotoEntryRow } from "./photo-entry";
 
@@ -152,7 +154,7 @@ export function FoodScreen({
   return (
     <div className="flex flex-col gap-5">
       {readOnly ? (
-        <p role="status" className="rounded-xl bg-amber-400/15 px-4 py-2 text-sm text-amber-200">
+        <p role="status" className={noticeWarnClass}>
           This day can no longer be edited
         </p>
       ) : null}
@@ -160,7 +162,7 @@ export function FoodScreen({
       <FoodLedgerCard ledger={optimistic.ledger} />
 
       <div role="alert">
-        {error ? <p className="rounded-xl bg-red-500/15 px-4 py-2 text-sm text-red-200">{error}</p> : null}
+        {error ? <p className={noticeErrorClass}>{error}</p> : null}
       </div>
 
       {!readOnly ? (
@@ -181,16 +183,18 @@ export function FoodScreen({
             <button
               type="button"
               onClick={() => openPanel(null)}
-              className="rounded-2xl bg-lime-400 py-3 text-base font-semibold text-slate-900 transition hover:bg-lime-300 active:scale-[0.98] motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-white"
+              className={`min-h-12 text-base ${buttonClass}`}
             >
-              + Add food
+              <Plus aria-hidden size={18} strokeWidth={1.75} />
+              Add food
             </button>
             <button
               type="button"
               onClick={() => openPanel(null, "photo")}
-              className="rounded-2xl bg-white/10 px-5 py-3 text-base font-semibold text-lime-300 transition hover:bg-white/20 active:scale-[0.98] motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-lime-400"
+              className={`min-h-12 px-5 text-base ${secondaryButtonClass}`}
             >
-              📷 Add photo
+              <Camera aria-hidden size={18} strokeWidth={1.75} className="text-muted" />
+              Add photo
             </button>
           </div>
         )
@@ -198,28 +202,30 @@ export function FoodScreen({
 
       {optimistic.meals.map((group) => (
         <section key={group.meal} aria-labelledby={`meal-${group.meal}`}>
-          <div className="mb-2 flex items-baseline justify-between">
-            <h2 id={`meal-${group.meal}`} className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+          <div className="mb-1 flex items-center justify-between">
+            <h2 id={`meal-${group.meal}`} className="eyebrow">
               {MEAL_LABEL[group.meal]}
             </h2>
-            <span className="flex items-center gap-3 text-sm tabular-nums text-slate-400">
+            <span className="flex items-center gap-1 text-sm text-muted">
               {group.subtotal} kcal
               {!readOnly ? (
                 <button
                   type="button"
                   onClick={() => openPanel(group.meal)}
                   aria-label={`Add to ${MEAL_LABEL[group.meal]}`}
-                  className="grid size-7 place-items-center rounded-full bg-white/10 text-base text-lime-300 transition hover:bg-white/20 active:scale-90 focus-visible:outline-2 focus-visible:outline-lime-400"
+                  className="group grid size-11 place-items-center rounded-md"
                 >
-                  +
+                  <span className="grid size-8 place-items-center rounded-md border border-line-strong bg-surface text-accent transition-colors duration-150 group-hover:bg-surface-2">
+                    <Plus aria-hidden size={16} strokeWidth={1.75} />
+                  </span>
                 </button>
               ) : null}
             </span>
           </div>
           {group.entries.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-slate-700 px-4 py-4 text-center text-sm text-slate-500">Nothing logged</p>
+            <p className="rounded-lg border border-dashed border-line-strong px-4 py-4 text-center text-sm text-muted">Nothing logged</p>
           ) : (
-            <ul className="flex flex-col gap-2">
+            <ul className={`divide-y divide-line overflow-hidden ${cardClass}`}>
               {group.entries.map((entry) =>
                 entry.photo ? (
                   <PhotoEntryRow
@@ -302,51 +308,51 @@ function EntryRow({
   const panelId = `entry-${entry.entryId}`;
   const m = entry.macros;
   return (
-    <li className="overflow-hidden rounded-2xl bg-[#1E293B]">
+    <li>
       <button
         type="button"
         onClick={onToggle}
         disabled={!editable}
         aria-expanded={open}
         aria-controls={panelId}
-        className="flex w-full items-center gap-3 p-3 text-left focus-visible:outline-2 focus-visible:outline-lime-400"
+        className="flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-150 enabled:hover:bg-surface-2"
       >
         <span className="min-w-0 flex-1">
           <span className="block truncate font-medium">{entry.name}</span>
-          <span className="block text-xs text-slate-400">
+          <span className="block text-xs text-muted">
             {isList ? `${servings} × ${entry.serving ?? "serving"}` : "Typed"}
             {m ? ` · P ${m.protein} / C ${m.carbs} / F ${m.fat} g` : ""}
           </span>
         </span>
-        <span className="text-lg font-bold tabular-nums text-orange-300">{calories} kcal</span>
+        <span className="shrink-0 font-mono text-base font-medium">{calories} kcal</span>
       </button>
-      <div id={panelId} className={`grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+      <div id={panelId} className={`grid transition-[grid-template-rows] duration-150 ease-out motion-reduce:transition-none ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
         <div className="overflow-hidden">
           {editable ? (
-            <div className="flex flex-col gap-3 border-t border-white/5 p-3">
+            <div className="flex flex-col gap-3 border-t border-line bg-paper p-4">
               {isList ? (
                 <div className="flex items-center justify-center gap-3">
-                  <button type="button" tabIndex={open ? 0 : -1} disabled={servings <= 0.5} onClick={() => changeServings(servings - 0.5)} aria-label={`Fewer servings of ${entry.name}`} className="grid size-11 place-items-center rounded-full bg-white/10 text-xl transition active:scale-90 disabled:opacity-30 focus-visible:outline-2 focus-visible:outline-lime-400">
-                    −
+                  <button type="button" tabIndex={open ? 0 : -1} disabled={servings <= 0.5} onClick={() => changeServings(servings - 0.5)} aria-label={`Fewer servings of ${entry.name}`} className={iconButtonClass}>
+                    <Minus aria-hidden size={18} strokeWidth={1.75} />
                   </button>
                   <p className="w-32 text-center" aria-live="polite">
-                    <span className="text-3xl font-bold tabular-nums">{servings}</span>
-                    <span className="ml-1 text-sm text-slate-400">{servings === 1 ? "serving" : "servings"}</span>
+                    <span className="font-mono text-3xl font-medium">{servings}</span>
+                    <span className="ml-1 text-sm text-muted">{servings === 1 ? "serving" : "servings"}</span>
                   </p>
-                  <button type="button" tabIndex={open ? 0 : -1} disabled={servings >= 20} onClick={() => changeServings(servings + 0.5)} aria-label={`More servings of ${entry.name}`} className="grid size-11 place-items-center rounded-full bg-white/10 text-xl transition active:scale-90 disabled:opacity-30 focus-visible:outline-2 focus-visible:outline-lime-400">
-                    +
+                  <button type="button" tabIndex={open ? 0 : -1} disabled={servings >= 20} onClick={() => changeServings(servings + 0.5)} aria-label={`More servings of ${entry.name}`} className={iconButtonClass}>
+                    <Plus aria-hidden size={18} strokeWidth={1.75} />
                   </button>
                 </div>
               ) : (
                 <TypedEditor entry={entry} open={open} onSave={onPatch} onInvalid={onInvalid} />
               )}
-              <label className="flex items-center justify-center gap-2 text-sm text-slate-300">
+              <label className="flex items-center justify-center gap-2 text-sm text-muted">
                 Meal
                 <select
                   tabIndex={open ? 0 : -1}
                   value={entry.meal}
                   onChange={(e) => onPatch({ meal: e.target.value as Meal })}
-                  className="rounded-lg border border-slate-600 bg-[#0F172A] px-2 py-1 text-slate-100 focus-visible:outline-2 focus-visible:outline-lime-400"
+                  className={`w-auto ${inputClass}`}
                 >
                   {MEALS.map((meal) => (
                     <option key={meal} value={meal}>
@@ -355,7 +361,7 @@ function EntryRow({
                   ))}
                 </select>
               </label>
-              <button type="button" tabIndex={open ? 0 : -1} onClick={onRemove} className="self-center text-sm text-red-300 underline focus-visible:outline-2 focus-visible:outline-lime-400">
+              <button type="button" tabIndex={open ? 0 : -1} onClick={onRemove} className={`self-center ${dangerLinkClass}`}>
                 Remove
               </button>
             </div>
@@ -382,7 +388,7 @@ function TypedEditor({
   const [p, setP] = useState(entry.macros ? String(entry.macros.protein) : "");
   const [c, setC] = useState(entry.macros ? String(entry.macros.carbs) : "");
   const [f, setF] = useState(entry.macros ? String(entry.macros.fat) : "");
-  const input = "w-full rounded-lg border border-slate-600 bg-[#0F172A] px-2 py-1.5 text-slate-100 focus-visible:outline-2 focus-visible:outline-lime-400";
+  const input = `mt-1 ${inputClass}`;
   const tab = open ? 0 : -1;
 
   function save() {
@@ -399,29 +405,29 @@ function TypedEditor({
 
   return (
     <div className="flex flex-col gap-2">
-      <label className="text-sm text-slate-300">
+      <label className="text-sm text-muted">
         Name
         <input tabIndex={tab} className={input} value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
       </label>
-      <label className="text-sm text-slate-300">
+      <label className="text-sm text-muted">
         Calories
         <input tabIndex={tab} className={input} inputMode="numeric" value={cal} onChange={(e) => setCal(e.target.value)} />
       </label>
       <div className="grid grid-cols-3 gap-2">
-        <label className="text-sm text-slate-300">
+        <label className="text-sm text-muted">
           Protein g
           <input tabIndex={tab} className={input} inputMode="decimal" value={p} onChange={(e) => setP(e.target.value)} />
         </label>
-        <label className="text-sm text-slate-300">
+        <label className="text-sm text-muted">
           Carbs g
           <input tabIndex={tab} className={input} inputMode="decimal" value={c} onChange={(e) => setC(e.target.value)} />
         </label>
-        <label className="text-sm text-slate-300">
+        <label className="text-sm text-muted">
           Fat g
           <input tabIndex={tab} className={input} inputMode="decimal" value={f} onChange={(e) => setF(e.target.value)} />
         </label>
       </div>
-      <button type="button" tabIndex={tab} onClick={save} className="rounded-xl bg-lime-400 py-2 font-semibold text-slate-900 transition active:scale-95 focus-visible:outline-2 focus-visible:outline-white">
+      <button type="button" tabIndex={tab} onClick={save} className={buttonClass}>
         Save changes
       </button>
     </div>

@@ -3,7 +3,7 @@
 import { useActionState, useTransition } from "react";
 import { createOwnFood, removeOwnFood, updateOwnFood } from "@/server/actions/food";
 import type { ActionState } from "@/server/actions/state";
-import { Field, FormMessage, buttonClass, describedBy, inputClass, secondaryButtonClass } from "./form-bits";
+import { Field, FormMessage, buttonClass, cardClass, describedBy, inputClass, secondaryButtonClass } from "./form-bits";
 
 interface Initial {
   foodId: string;
@@ -40,7 +40,7 @@ export function OwnFoodForm({ food }: { food?: Initial }) {
     <form
       action={action}
       key={food ? undefined : state.message ? "added" : "idle"}
-      className="flex flex-col gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"
+      className={`flex flex-col gap-4 p-4 sm:p-5 ${cardClass}`}
     >
       {food ? <input type="hidden" name="foodId" value={food.foodId} /> : null}
       <Field id={`${p}-name`} label="Name" error={f.name}>

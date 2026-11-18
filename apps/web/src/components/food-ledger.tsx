@@ -1,4 +1,5 @@
 import type { FoodLedger } from "@calci/shared";
+import { cardClass, noticeWarnClass } from "./form-bits";
 
 const fmt = (n: number) => n.toLocaleString("en");
 
@@ -8,47 +9,44 @@ export function FoodLedgerCard({ ledger }: { ledger: FoodLedger }) {
   const used = ledger.target > 0 ? Math.min(1, Math.max(0, ledger.net / ledger.target)) : 0;
   const m = ledger.macros;
   return (
-    <section aria-label="Day summary" aria-live="polite" className="flex flex-col gap-4 rounded-2xl bg-[#1E293B] p-5">
+    <section aria-label="Day summary" aria-live="polite" className={`flex flex-col gap-5 p-5 ${cardClass}`}>
       <div>
-        <p className="text-sm text-slate-400">{over ? "Over your target by" : "Remaining today"}</p>
-        <p className={`text-4xl font-bold tabular-nums ${over ? "text-amber-300" : "text-lime-300"}`}>
+        <p className="eyebrow">{over ? "Over your target by" : "Remaining today"}</p>
+        <p className={`mt-1 font-mono text-4xl font-medium ${over ? "text-warning" : "text-accent"}`}>
           {fmt(Math.abs(ledger.remaining))}
-          <span className="ml-1 text-base font-medium text-slate-400">kcal</span>
+          <span className="ml-1 font-sans text-base font-normal text-muted">kcal</span>
         </p>
         <div
           role="img"
           aria-label={`${fmt(Math.max(0, ledger.net))} of ${fmt(ledger.target)} calories used`}
-          className="mt-3 h-2.5 overflow-hidden rounded-full bg-slate-700/70"
+          className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-2"
         >
-          <div
-            className={`h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none ${over ? "bg-amber-400" : "bg-lime-400"}`}
-            style={{ width: `${over ? 100 : used * 100}%` }}
-          />
+          <div className={`h-full rounded-full ${over ? "bg-warning" : "bg-accent"}`} style={{ width: `${over ? 100 : used * 100}%` }} />
         </div>
-        <p className="mt-1 text-xs text-slate-400">Target {fmt(ledger.target)} kcal, counted as eaten minus burned</p>
+        <p className="mt-2 text-xs text-muted">Target {fmt(ledger.target)} kcal, counted as eaten minus burned</p>
       </div>
 
       {ledger.pending > 0 ? (
-        <p className="rounded-xl bg-amber-400/15 px-3 py-2 text-sm text-amber-200">
+        <p className={noticeWarnClass}>
           {ledger.pending === 1 ? "1 meal" : `${ledger.pending} meals`} pending analysis, not counted yet
         </p>
       ) : null}
 
-      <dl className="grid grid-cols-3 gap-2 text-center">
-        <Stat label="Eaten" value={ledger.eaten} tone="text-orange-300" />
-        <Stat label="Burned" value={ledger.burned} tone="text-cyan-300" />
-        <Stat label="Net" value={ledger.net} tone="text-slate-100" />
+      <dl className="grid grid-cols-3 divide-x divide-line border-y border-line text-center">
+        <Stat label="Eaten" value={ledger.eaten} />
+        <Stat label="Burned" value={ledger.burned} />
+        <Stat label="Net" value={ledger.net} />
       </dl>
 
       <div>
         <dl className="grid grid-cols-3 gap-2 text-center text-sm">
-          <Macro label="Protein" grams={m.protein} tone="bg-purple-400" />
-          <Macro label="Carbs" grams={m.carbs} tone="bg-cyan-400" />
-          <Macro label="Fat" grams={m.fat} tone="bg-amber-400" />
+          <Macro label="Protein" grams={m.protein} />
+          <Macro label="Carbs" grams={m.carbs} />
+          <Macro label="Fat" grams={m.fat} />
         </dl>
         {ledger.proteinTarget ? <ProteinProgress grams={m.protein} target={ledger.proteinTarget} /> : null}
         {m.entriesWithoutMacros > 0 ? (
-          <p className="mt-2 text-xs text-slate-400">
+          <p className="mt-2 text-xs text-muted">
             {m.entriesWithoutMacros === 1 ? "1 item has" : `${m.entriesWithoutMacros} items have`} no macros, so these totals are partial.
           </p>
         ) : null}
@@ -57,23 +55,20 @@ export function FoodLedgerCard({ ledger }: { ledger: FoodLedger }) {
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: number; tone: string }) {
+function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl bg-white/5 py-2">
-      <dt className="text-xs text-slate-400">{label}</dt>
-      <dd className={`text-xl font-bold tabular-nums ${tone}`}>{fmt(value)}</dd>
+    <div className="py-2.5">
+      <dt className="text-xs text-muted">{label}</dt>
+      <dd className="font-mono text-xl font-medium">{fmt(value)}</dd>
     </div>
   );
 }
 
-function Macro({ label, grams, tone }: { label: string; grams: number; tone: string }) {
+function Macro({ label, grams }: { label: string; grams: number }) {
   return (
-    <div className="flex flex-col items-center gap-1">
-      <dt className="flex items-center gap-1.5 text-slate-400">
-        <span aria-hidden="true" className={`size-2 rounded-full ${tone}`} />
-        {label}
-      </dt>
-      <dd className="font-semibold tabular-nums">{grams} g</dd>
+    <div className="flex flex-col items-center gap-0.5">
+      <dt className="text-muted">{label}</dt>
+      <dd className="font-medium">{grams} g</dd>
     </div>
   );
 }
@@ -81,16 +76,12 @@ function Macro({ label, grams, tone }: { label: string; grams: number; tone: str
 function ProteinProgress({ grams, target }: { grams: number; target: number }) {
   const pct = Math.min(100, Math.max(0, (grams / target) * 100));
   return (
-    <div className="mt-3">
-      <p className="text-xs text-slate-400">
-        Protein <span className="font-semibold tabular-nums text-slate-100">{grams}</span> / {target} g
+    <div className="mt-4">
+      <p className="text-xs text-muted">
+        Protein <span className="font-semibold text-ink">{grams}</span> / {target} g
       </p>
-      <div
-        role="img"
-        aria-label={`${grams} of ${target} grams of protein`}
-        className="mt-1 h-2 overflow-hidden rounded-full bg-slate-700/70"
-      >
-        <div className="h-full rounded-full bg-purple-400 transition-[width] duration-500 ease-out motion-reduce:transition-none" style={{ width: `${pct}%` }} />
+      <div role="img" aria-label={`${grams} of ${target} grams of protein`} className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
+        <div className="h-full rounded-full bg-muted" style={{ width: `${pct}%` }} />
       </div>
     </div>
   );

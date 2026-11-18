@@ -71,7 +71,7 @@ export function AvatarPicker({ displayName, currentUrl }: { displayName: string;
         </div>
       </div>
       {error ? (
-        <p id={`${inputId}-error`} role="alert" className="text-sm text-red-700 dark:text-red-400">
+        <p id={`${inputId}-error`} role="alert" className="text-sm text-danger">
           {error}
         </p>
       ) : null}

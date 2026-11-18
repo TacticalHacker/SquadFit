@@ -4,13 +4,15 @@ import { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { CoachStatus, OverallNote, PulseMetrics } from "@calci/shared";
 import { setCoachAction } from "@/server/actions/coach";
+import { ChevronDown, NotebookPen } from "lucide-react";
 import { BottomSheet } from "./bottom-sheet";
+import { cardClass } from "./form-bits";
 
 /** Accent per status; the `label` is also read out, so colour is never the only signal (research R10). */
-const STATUS: Record<CoachStatus, { label: string; border: string; dot: string }> = {
-  on_track: { label: "On track", border: "border-emerald-400/50", dot: "bg-emerald-400" },
-  needs_attention: { label: "Needs attention", border: "border-amber-400/60", dot: "bg-amber-400" },
-  pr_alert: { label: "PR alert", border: "border-fuchsia-400/60", dot: "bg-fuchsia-400" },
+const STATUS: Record<CoachStatus, { label: string; dot: string }> = {
+  on_track: { label: "On track", dot: "bg-success" },
+  needs_attention: { label: "Needs attention", dot: "bg-warning" },
+  pr_alert: { label: "PR alert", dot: "bg-accent" },
 };
 
 const WIDE = "(min-width: 640px)";
@@ -48,34 +50,27 @@ export function PulseBar({
         onClick={toggle}
         aria-expanded={open !== null}
         aria-controls={panelId}
-        className={`flex h-14 w-full min-w-0 items-center gap-3 rounded-xl border bg-slate-900/60 px-4 text-left backdrop-blur-md transition-colors hover:bg-slate-900/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-300 ${s.border}`}
+        className={`flex h-14 w-full min-w-0 items-center gap-3 px-4 text-left transition-colors duration-150 hover:bg-surface-2 ${cardClass}`}
       >
-        <span aria-hidden="true" className="text-lg">
-          ✨
-        </span>
+        <NotebookPen aria-hidden="true" size={18} strokeWidth={1.75} className="shrink-0 text-accent" />
         <span className="sr-only">AI coach, {s.label}:</span>
-        <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-100">{note.headline}</span>
-        <span className="flex shrink-0 items-center gap-1 text-xs text-slate-400">
+        <span className="min-w-0 flex-1 truncate text-sm font-medium">{note.headline}</span>
+        <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted">
           <span aria-hidden="true" className={`size-2 rounded-full ${s.dot}`} />
           View
-          <span
-            aria-hidden="true"
-            className={`inline-block transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
-          >
-            ▾
-          </span>
+          <ChevronDown aria-hidden="true" size={16} strokeWidth={1.75} className={open ? "rotate-180" : ""} />
         </span>
       </button>
 
       {/* Wide screens: the card slides open below the bar (grid-rows 0fr → 1fr). */}
       <div
         id={open === "sheet" ? undefined : panelId}
-        className={`grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none ${open === "inline" ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+        className={`grid transition-[grid-template-rows] duration-150 ease-out motion-reduce:transition-none ${open === "inline" ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
         inert={open !== "inline"}
         aria-hidden={open !== "inline"}
       >
         <div className="min-h-0 overflow-hidden">
-          <div className="mt-2 rounded-xl border border-white/10 bg-slate-900/60 p-4 backdrop-blur-md">{body}</div>
+          <div className={`mt-2 p-4 ${cardClass}`}>{body}</div>
         </div>
       </div>
 
@@ -85,11 +80,14 @@ export function PulseBar({
         label="AI coach"
         header={
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold">✨ AI coach</h2>
+            <h2 className="flex items-center gap-2 text-base font-semibold">
+              <NotebookPen aria-hidden="true" size={18} strokeWidth={1.75} className="text-accent" />
+              AI coach
+            </h2>
             <button
               type="button"
               onClick={() => setOpen(null)}
-              className="min-h-11 min-w-11 rounded-lg text-sm text-slate-400 hover:text-slate-100"
+              className="min-h-11 min-w-11 rounded-md px-2 text-sm text-muted transition-colors duration-150 hover:text-ink"
             >
               Close
             </button>
@@ -110,14 +108,14 @@ function PulseCard({ note, metrics, proteinTarget }: { note: OverallNote; metric
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+        <p className="eyebrow">
           <span aria-hidden="true" className={`mr-1.5 inline-block size-2 rounded-full ${s.dot}`} />
           {s.label}
         </p>
-        <p className="mt-1 text-base font-semibold text-slate-100">{note.headline}</p>
+        <p className="mt-1 text-base font-semibold">{note.headline}</p>
       </div>
 
-      <dl className="grid grid-cols-3 gap-2 text-center">
+      <dl className="grid grid-cols-3 divide-x divide-line border-y border-line text-center">
         <Metric label="Net calories" value={`${net > 0 ? "+" : ""}${net.toLocaleString("en")}`} unit="kcal" />
         <Metric
           label="Protein"
@@ -128,8 +126,8 @@ function PulseCard({ note, metrics, proteinTarget }: { note: OverallNote; metric
       </dl>
 
       <section aria-label="The verdict">
-        <h3 className="text-xs font-medium uppercase tracking-wide text-slate-400">The verdict</h3>
-        <ul className="mt-2 flex list-disc flex-col gap-1 pl-5 text-sm text-slate-200">
+        <h3 className="eyebrow">The verdict</h3>
+        <ul className="mt-2 flex list-disc flex-col gap-1 pl-5 text-sm marker:text-faint">
           {note.highlights.map((h, i) => (
             <li key={i}>{h}</li>
           ))}
@@ -143,10 +141,10 @@ function PulseCard({ note, metrics, proteinTarget }: { note: OverallNote; metric
 
 function Metric({ label, value, unit }: { label: string; value: string; unit: string }) {
   return (
-    <div className="min-w-0 rounded-lg bg-white/5 px-2 py-2">
-      <dt className="truncate text-[11px] text-slate-400">{label}</dt>
-      <dd className="mt-0.5 truncate text-base font-semibold tabular-nums text-slate-100">
-        {value} <span className="text-xs font-normal text-slate-400">{unit}</span>
+    <div className="min-w-0 px-2 py-2.5">
+      <dt className="truncate text-[11px] text-muted">{label}</dt>
+      <dd className="mt-0.5 truncate font-mono text-base font-medium">
+        {value} <span className="font-sans text-xs font-normal text-muted">{unit}</span>
       </dd>
     </div>
   );
@@ -176,24 +174,24 @@ function ActionList({ note }: { note: OverallNote }) {
 
   return (
     <section aria-label="Action items">
-      <h3 className="text-xs font-medium uppercase tracking-wide text-slate-400">Today&apos;s actions</h3>
-      <ul className="mt-1 flex flex-col">
+      <h3 className="eyebrow">Today&apos;s actions</h3>
+      <ul className="mt-1 flex flex-col divide-y divide-line">
         {actions.map((a, i) => (
           <li key={i}>
-            <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-1 text-sm hover:bg-white/5">
+            <label className="flex min-h-11 cursor-pointer items-center gap-3 px-1 text-sm transition-colors duration-150 hover:bg-surface-2">
               <input
                 type="checkbox"
                 checked={a.done}
                 onChange={(e) => toggle(i, e.target.checked)}
-                className="size-5 shrink-0 accent-lime-400"
+                className="size-5 shrink-0 accent-accent"
               />
-              <span className={a.done ? "text-slate-500 line-through" : "text-slate-200"}>{a.text}</span>
+              <span className={a.done ? "text-muted line-through" : "text-ink"}>{a.text}</span>
             </label>
           </li>
         ))}
       </ul>
       {message ? (
-        <p role="alert" className="mt-1 text-xs text-amber-300">
+        <p role="alert" className="mt-1 text-xs text-danger">
           {message}
         </p>
       ) : null}

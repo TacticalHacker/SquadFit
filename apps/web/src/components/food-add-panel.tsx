@@ -13,12 +13,12 @@ import {
 } from "@calci/shared";
 import { parseCaloriesInput, parseGramsInput } from "@/lib/food-input";
 import { searchFoods, type FoodResult } from "@/lib/food-search";
+import { Minus, Plus } from "lucide-react";
+import { buttonClass, cardClass, chipClass, iconButtonClass, inputClass, secondaryButtonClass, segmentClass, segmentGroupClass } from "./form-bits";
 
 export const MEAL_LABEL: Record<Meal, string> = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snacks: "Snacks" };
 
-const field =
-  "w-full rounded-xl border border-slate-600 bg-[#0F172A] px-3 py-2 text-base text-slate-100 placeholder:text-slate-500 focus-visible:outline-2 focus-visible:outline-lime-400 aria-[invalid=true]:border-red-400";
-const chip = "rounded-full px-4 py-1.5 text-sm font-medium transition active:scale-95 motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-lime-400";
+const field = inputClass;
 
 export interface AddPanelProps {
   initialMeal: Meal | null;
@@ -34,10 +34,10 @@ export function FoodAddPanel({ initialMeal, own, recent, onClose, onAddTyped, on
   const [tab, setTab] = useState<"find" | "quick">("find");
 
   return (
-    <section aria-label="Add food" className="flex flex-col gap-3 rounded-2xl bg-[#1E293B] p-4 ring-1 ring-lime-400/30">
+    <section aria-label="Add food" className={`flex flex-col gap-4 p-4 sm:p-5 ${cardClass}`}>
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-lg font-semibold">Add food</h2>
-        <button type="button" onClick={onClose} className="rounded-lg px-2 py-1 text-sm text-slate-300 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-lime-400">
+        <button type="button" onClick={onClose} className="min-h-11 rounded-md px-2 text-sm text-muted transition-colors duration-150 hover:text-ink">
           Close
         </button>
       </div>
@@ -49,22 +49,22 @@ export function FoodAddPanel({ initialMeal, own, recent, onClose, onAddTyped, on
             type="button"
             aria-pressed={meal === m}
             onClick={() => setMeal(m)}
-            className={`${chip} ${meal === m ? "bg-lime-400 text-slate-900" : "bg-white/10 text-slate-200 hover:bg-white/20"}`}
+            className={chipClass(meal === m)}
           >
             {MEAL_LABEL[m]}
           </button>
         ))}
       </div>
-      {meal === null ? <p className="text-sm text-slate-400">Choose a meal to add to.</p> : null}
+      {meal === null ? <p className="text-sm text-muted">Choose a meal to add to.</p> : null}
 
-      <div role="group" aria-label="How to add" className="flex gap-2">
+      <div role="group" aria-label="How to add" className={`grid-cols-2 ${segmentGroupClass}`}>
         {(["find", "quick"] as const).map((t) => (
           <button
             key={t}
             type="button"
             aria-pressed={tab === t}
             onClick={() => setTab(t)}
-            className={`${chip} ${tab === t ? "bg-white text-slate-900" : "bg-white/10 text-slate-200 hover:bg-white/20"}`}
+            className={`min-h-11 ${segmentClass(tab === t)}`}
           >
             {t === "find" ? "Find" : "Quick entry"}
           </button>
@@ -98,34 +98,34 @@ function FindTab({
     return (
       <div className="flex flex-col gap-3">
         <p className="font-medium">
-          {picked.name} <span className="text-sm font-normal text-slate-400">{picked.serving}</span>
+          {picked.name} <span className="text-sm font-normal text-muted">{picked.serving}</span>
         </p>
         <div className="flex items-center justify-center gap-3">
-          <button type="button" disabled={servings <= 0.5} onClick={() => setServings((s) => s - 0.5)} aria-label="Fewer servings" className="grid size-11 place-items-center rounded-full bg-white/10 text-xl transition active:scale-90 disabled:opacity-30 focus-visible:outline-2 focus-visible:outline-lime-400">
-            −
+          <button type="button" disabled={servings <= 0.5} onClick={() => setServings((s) => s - 0.5)} aria-label="Fewer servings" className={iconButtonClass}>
+            <Minus aria-hidden size={18} strokeWidth={1.75} />
           </button>
           <p className="w-32 text-center" aria-live="polite">
-            <span className="text-3xl font-bold tabular-nums">{servings}</span>
-            <span className="ml-1 text-sm text-slate-400">{servings === 1 ? "serving" : "servings"}</span>
+            <span className="font-mono text-3xl font-medium">{servings}</span>
+            <span className="ml-1 text-sm text-muted">{servings === 1 ? "serving" : "servings"}</span>
           </p>
-          <button type="button" disabled={servings >= 20} onClick={() => setServings((s) => s + 0.5)} aria-label="More servings" className="grid size-11 place-items-center rounded-full bg-white/10 text-xl transition active:scale-90 disabled:opacity-30 focus-visible:outline-2 focus-visible:outline-lime-400">
-            +
+          <button type="button" disabled={servings >= 20} onClick={() => setServings((s) => s + 0.5)} aria-label="More servings" className={iconButtonClass}>
+            <Plus aria-hidden size={18} strokeWidth={1.75} />
           </button>
         </div>
-        <p className="text-center text-sm text-orange-300" aria-live="polite">
+        <p className="text-center text-sm text-muted" aria-live="polite">
           ≈ {e.calories} kcal
           {e.macros ? ` · P ${e.macros.protein} / C ${e.macros.carbs} / F ${e.macros.fat} g` : ""}
         </p>
-        {tooMany ? <p role="alert" className="text-center text-sm text-red-300">That comes to more than 5,000 calories. Use fewer servings.</p> : null}
+        {tooMany ? <p role="alert" className="text-center text-sm text-danger">That comes to more than 5,000 calories. Use fewer servings.</p> : null}
         <div className="flex gap-2">
-          <button type="button" onClick={() => { setPicked(null); setServings(1); }} className="flex-1 rounded-xl bg-white/10 py-2 font-medium hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-lime-400">
+          <button type="button" onClick={() => { setPicked(null); setServings(1); }} className={`flex-1 ${secondaryButtonClass}`}>
             Back
           </button>
           <button
             type="button"
             disabled={meal === null || tooMany}
             onClick={() => meal && onAddList({ meal, result: picked, servings })}
-            className="flex-1 rounded-xl bg-lime-400 py-2 font-semibold text-slate-900 transition active:scale-95 disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-white"
+            className={`flex-1 ${buttonClass}`}
           >
             Add
           </button>
@@ -140,8 +140,8 @@ function FindTab({
         Search foods
       </label>
       <input id="food-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search foods, e.g. dal" className={field} autoComplete="off" />
-      <ul className="max-h-72 overflow-y-auto">
-        {results.length === 0 ? <li className="px-1 py-3 text-sm text-slate-400">No matches. Try Quick entry.</li> : null}
+      <ul className="max-h-72 divide-y divide-line overflow-y-auto border-y border-line">
+        {results.length === 0 ? <li className="px-1 py-3 text-sm text-muted">No matches. Try Quick entry.</li> : null}
         {results.map((r) => (
           <li key={r.key}>
             <button
@@ -154,16 +154,16 @@ function FindTab({
                   setServings(1);
                 }
               }}
-              className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition hover:bg-white/10 active:scale-[0.99] disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-lime-400"
+              className="flex min-h-12 w-full items-center gap-3 px-2 py-2 text-left transition-colors duration-150 enabled:hover:bg-surface-2 disabled:opacity-50"
             >
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">{r.name}</span>
-                <span className="block text-xs text-slate-400">
+                <span className="block text-xs text-muted">
                   {r.serving ? `${r.serving} · ` : ""}
                   {r.calories} kcal
                 </span>
               </span>
-              <span className={`rounded-full px-2 py-0.5 text-xs ${r.label === "Mine" ? "bg-purple-400/20 text-purple-200" : r.label === "Recent" ? "bg-cyan-400/20 text-cyan-200" : "bg-white/10 text-slate-300"}`}>
+              <span className={`shrink-0 rounded-full border px-2 py-0.5 text-xs ${r.label === "Mine" ? "border-accent/30 bg-accent-soft text-accent" : "border-line text-muted"}`}>
                 {r.label}
               </span>
             </button>
@@ -195,12 +195,12 @@ function QuickTab({ meal, onAddTyped }: { meal: Meal | null; onAddTyped: AddPane
 
   const f = (id: string, label: string, props: React.InputHTMLAttributes<HTMLInputElement>) => (
     <div className="flex flex-col gap-1">
-      <label htmlFor={`q-${id}`} className="text-sm text-slate-300">
+      <label htmlFor={`q-${id}`} className="text-sm text-muted">
         {label}
       </label>
       <input id={`q-${id}`} name={id} className={field} aria-invalid={errors[id] ? true : undefined} aria-describedby={errors[id] ? `q-${id}-e` : undefined} {...props} />
       {errors[id] ? (
-        <p id={`q-${id}-e`} role="alert" className="text-xs text-red-300">
+        <p id={`q-${id}-e`} role="alert" className="text-xs text-danger">
           {errors[id]}
         </p>
       ) : null}
@@ -216,7 +216,7 @@ function QuickTab({ meal, onAddTyped }: { meal: Meal | null; onAddTyped: AddPane
         {f("carbs", "Carbs g", { type: "text", inputMode: "decimal", placeholder: "optional" })}
         {f("fat", "Fat g", { type: "text", inputMode: "decimal", placeholder: "optional" })}
       </div>
-      <button type="submit" disabled={meal === null} className="rounded-xl bg-lime-400 py-2 font-semibold text-slate-900 transition active:scale-95 disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-white">
+      <button type="submit" disabled={meal === null} className={buttonClass}>
         Add
       </button>
     </form>

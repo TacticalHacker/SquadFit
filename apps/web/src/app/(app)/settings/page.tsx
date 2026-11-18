@@ -14,8 +14,8 @@ async function ProfileSection() {
       <h2 id="profile-heading" className="text-xl font-semibold">
         Profile
       </h2>
-      <p className="text-sm text-zinc-500">
-        Username: <span className="font-medium text-zinc-900 dark:text-zinc-100">{username}</span> (can&apos;t be changed)
+      <p className="text-sm text-muted">
+        Username: <span className="font-medium text-ink">{username}</span> (can&apos;t be changed)
       </p>
       <ProfileForm
         mode="edit"
@@ -43,8 +43,8 @@ async function ProfileSection() {
 export default function SettingsPage() {
   return (
     <div className="flex flex-col gap-10">
-      <h1 className="text-3xl font-semibold tracking-tight">Settings</h1>
-      <Suspense fallback={<p className="text-sm text-zinc-500">Loading…</p>}>
+      <h1 className="text-3xl font-semibold tracking-[-0.02em]">Settings</h1>
+      <Suspense fallback={<p className="text-sm text-muted">Loading…</p>}>
         <ProfileSection />
       </Suspense>
       <section aria-labelledby="password-heading" className="flex flex-col gap-4">

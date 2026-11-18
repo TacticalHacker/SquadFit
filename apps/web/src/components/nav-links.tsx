@@ -23,10 +23,8 @@ export function NavLinks() {
             <Link
               href={l.href}
               {...(active ? { "aria-current": "page" as const } : {})}
-              className={`block rounded-full px-4 py-1.5 text-sm font-medium focus-visible:outline-2 focus-visible:outline-emerald-600 ${
-                active
-                  ? "bg-emerald-600 text-white"
-                  : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              className={`flex min-h-11 items-center border-b-2 px-3 text-sm font-medium transition-colors duration-150 ${
+                active ? "border-accent text-accent" : "border-transparent text-muted hover:text-ink"
               }`}
             >
               {l.label}

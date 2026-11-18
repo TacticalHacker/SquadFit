@@ -24,19 +24,19 @@ export async function PulseStrip() {
   const workouts = pulse.workoutsLast7Days;
   return (
     <section aria-label="Squad pulse" className="mx-auto w-full max-w-5xl px-4">
-      <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-2xl border border-white/10 bg-[#161920] px-4 py-3 text-center text-sm text-zinc-300">
+      <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-y border-line px-4 py-4 text-center text-sm text-muted">
         <span className="flex items-center gap-2">
-          <span aria-hidden className="size-2 animate-pulse rounded-full bg-emerald-400" />
+          <span aria-hidden className="size-2 rounded-full bg-success" />
           <span>
-            Active squad: <strong className="text-white">{fmt.format(pulse.lifters)}</strong>{" "}
+            Active squad: <strong className="font-semibold text-ink">{fmt.format(pulse.lifters)}</strong>{" "}
             {pulse.lifters === 1 ? "lifter" : "lifters"}
           </span>
         </span>
-        <span aria-hidden className="text-zinc-600">
-          •
+        <span aria-hidden className="text-faint">
+          ·
         </span>
         <span>
-          <strong className="text-white">{fmt.format(workouts)}</strong> {workouts === 1 ? "workout" : "workouts"} logged
+          <strong className="font-semibold text-ink">{fmt.format(workouts)}</strong> {workouts === 1 ? "workout" : "workouts"} logged
           this week
         </span>
       </p>

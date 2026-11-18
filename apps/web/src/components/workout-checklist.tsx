@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import { MAX_MINUTES, MIN_MINUTES, applyChange, type DayChange, type DayRow, type DayView } from "@calci/shared";
 import { hasDayChanged } from "@/lib/rollover";
-import { ACTIVITY_STYLE, MINUTE_CHIPS, TONES } from "@/lib/workout-style";
+import { Activity, ChevronRight, Dumbbell, Flame, Minus, Plus } from "lucide-react";
+import { MINUTE_CHIPS } from "@/lib/workout-style";
 import { setEntryMinutes, tickWorkout, untickWorkout, type ChecklistResult } from "@/server/actions/workouts";
 import { AiBadge } from "./ai-badge";
+import { cardClass, chipClass, dangerLinkClass, iconButtonClass, linkClass, noticeErrorClass, noticeWarnClass } from "./form-bits";
 import { gymEntrySummary } from "./exercise-list";
 import { ProgressRing } from "./progress-ring";
 
@@ -78,7 +80,7 @@ export function WorkoutChecklist({ initialView }: { initialView: DayView }) {
   return (
     <div className="flex flex-col gap-5">
       {readOnly ? (
-        <p role="status" className="rounded-xl bg-amber-400/15 px-4 py-2 text-sm text-amber-200">
+        <p role="status" className={noticeWarnClass}>
           This day can no longer be edited
         </p>
       ) : null}
@@ -86,19 +88,19 @@ export function WorkoutChecklist({ initialView }: { initialView: DayView }) {
       <ProgressRing summary={optimistic.summary} />
 
       <div role="alert">
-        {error ? <p className="rounded-xl bg-red-500/15 px-4 py-2 text-sm text-red-200">{error}</p> : null}
+        {error ? <p className={noticeErrorClass}>{error}</p> : null}
       </div>
 
       <section aria-labelledby="logged-h">
-        <h2 id="logged-h" className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
+        <h2 id="logged-h" className="eyebrow mb-2">
           Logged {optimistic.date === optimistic.today ? "today" : "this day"}
         </h2>
         {logged.length === 0 && gym.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-slate-700 px-4 py-6 text-center text-sm text-slate-400">
-            Nothing yet. Add an activity below. 💪
+          <p className="rounded-lg border border-dashed border-line-strong px-4 py-6 text-center text-sm text-muted">
+            Nothing yet. Add an activity below.
           </p>
         ) : (
-          <ul className="flex flex-col gap-2">
+          <ul className={`divide-y divide-line overflow-hidden ${cardClass}`}>
             {logged.map((row) => (
               <LoggedCard
                 key={row.workoutId}
@@ -121,19 +123,18 @@ export function WorkoutChecklist({ initialView }: { initialView: DayView }) {
               <li key={g.exerciseId}>
                 <Link
                   href={gymHref(g.exerciseId)}
-                  className="flex min-h-14 items-center gap-3 rounded-2xl bg-[#1E293B] p-3 focus-visible:outline-2 focus-visible:outline-lime-400"
+                  className="flex min-h-14 items-center gap-3 px-4 py-3 transition-colors duration-150 hover:bg-surface-2"
                 >
-                  <span aria-hidden="true" className={`grid size-11 place-items-center rounded-xl text-xl ${TONES.purple.badge}`}>
-                    🏋️
-                  </span>
+                  <RowIcon icon={Dumbbell} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{g.name}</span>
-                    <span className="block text-xs text-slate-400">Gym · {gymEntrySummary(g)}</span>
+                    <span className="block text-xs text-muted">Gym · {gymEntrySummary(g)}</span>
                   </span>
                   <span className="text-right">
-                    <span className={`block text-lg font-bold tabular-nums ${TONES.purple.text}`}>{g.minutes} min</span>
-                    <span className="block text-xs tabular-nums text-slate-400">{g.calories} kcal</span>
+                    <span className="block font-mono text-base font-medium">{g.minutes} min</span>
+                    <span className={`block text-xs ${g.aiNote ? "font-medium text-warning" : "text-muted"}`}>{g.calories} kcal</span>
                   </span>
+                  <ChevronRight aria-hidden size={18} strokeWidth={1.75} className="shrink-0 text-muted" />
                 </Link>
                 {g.aiNote ? <AiBadge reason={g.aiNote} subject={g.name} /> : null}
               </li>
@@ -144,40 +145,35 @@ export function WorkoutChecklist({ initialView }: { initialView: DayView }) {
 
       {!readOnly ? (
         <section aria-labelledby="add-h">
-          <h2 id="add-h" className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
+          <h2 id="add-h" className="eyebrow mb-2">
             Add activity
           </h2>
           {available.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-slate-700 px-4 py-6 text-center text-sm text-slate-400">
+            <p className="rounded-lg border border-dashed border-line-strong px-4 py-6 text-center text-sm text-muted">
               No activities yet. Add the ones you do, like padel or a morning run.{" "}
-              <Link href="/workouts/mine" className="font-semibold text-lime-300 underline">
+              <Link href="/workouts/mine" className={`font-medium ${linkClass}`}>
                 Add an activity
               </Link>
             </p>
           ) : null}
           <ul className="grid gap-2 sm:grid-cols-2">
             {available.map((row) => {
-              const s = ACTIVITY_STYLE;
               return (
                 <li key={row.workoutId}>
                   <button
                     type="button"
                     onClick={() => add(row)}
                     aria-label={`Add ${row.name}, ${row.defaultMinutes} minutes, ${row.defaultCalories} calories`}
-                    className="group flex w-full items-center gap-3 rounded-2xl bg-[#1E293B] p-3 text-left transition hover:bg-slate-700 active:scale-[0.98] motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-lime-400"
+                    className={`flex min-h-14 w-full items-center gap-3 p-3 text-left transition-colors duration-150 hover:bg-surface-2 ${cardClass}`}
                   >
-                    <span aria-hidden="true" className={`grid size-11 place-items-center rounded-xl text-xl ${TONES[s.tone].badge}`}>
-                      {s.emoji}
-                    </span>
+                    <RowIcon icon={Activity} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-medium">{row.name}</span>
-                      <span className="block text-xs text-slate-400">
+                      <span className="block text-xs text-muted">
                         {row.defaultMinutes} min · {row.defaultCalories} kcal
                       </span>
                     </span>
-                    <span aria-hidden="true" className={`grid size-8 place-items-center rounded-full bg-white/5 text-lg ${TONES[s.tone].text} group-hover:bg-white/10`}>
-                      +
-                    </span>
+                    <Plus aria-hidden="true" size={20} strokeWidth={1.75} className="shrink-0 text-accent" />
                   </button>
                 </li>
               );
@@ -186,6 +182,14 @@ export function WorkoutChecklist({ initialView }: { initialView: DayView }) {
         </section>
       ) : null}
     </div>
+  );
+}
+
+function RowIcon({ icon: Icon }: { icon: typeof Activity }) {
+  return (
+    <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-md bg-surface-2 text-muted">
+      <Icon size={20} strokeWidth={1.75} />
+    </span>
   );
 }
 
@@ -205,8 +209,6 @@ function LoggedCard({
   onRemove: () => void;
 }) {
   const entry = row.entry!;
-  const s = ACTIVITY_STYLE;
-  const tone = TONES[s.tone];
   // Local draft so rapid taps feel instant and only the last value is sent.
   const [draft, setDraft] = useState<number | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -228,37 +230,35 @@ function LoggedCard({
 
   const panelId = `panel-${row.workoutId}`;
   return (
-    <li className="overflow-hidden rounded-2xl bg-[#1E293B]">
+    <li>
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={open}
         aria-controls={panelId}
-        className="flex w-full items-center gap-3 p-3 text-left focus-visible:outline-2 focus-visible:outline-lime-400"
+        className="flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-150 hover:bg-surface-2"
       >
-        <span aria-hidden="true" className={`grid size-11 place-items-center rounded-xl text-xl ${tone.badge}`}>
-          {s.emoji}
-        </span>
+        <RowIcon icon={Activity} />
         <span className="min-w-0 flex-1">
           <span className="block truncate font-medium">
             {row.name}
-            {row.removed ? <span className="ml-2 rounded-full bg-white/10 px-2 py-0.5 text-xs font-normal">removed</span> : null}
+            {row.removed ? <span className="ml-2 rounded-full border border-line px-2 py-0.5 text-xs font-normal text-muted">removed</span> : null}
           </span>
-          <span className="block text-xs text-slate-400">Tap to adjust</span>
+          <span className="block text-xs text-muted">Tap to adjust</span>
         </span>
         <span className="text-right">
-          <span className={`block text-lg font-bold tabular-nums ${tone.text}`}>{minutes} min</span>
-          <span className="block text-xs tabular-nums text-slate-400">{calories} kcal</span>
+          <span className="block font-mono text-base font-medium">{minutes} min</span>
+          <span className={`block text-xs ${entry.aiNote && draft === null ? "font-medium text-warning" : "text-muted"}`}>{calories} kcal</span>
         </span>
       </button>
       {entry.aiNote && draft === null ? <AiBadge reason={entry.aiNote} subject={row.name} /> : null}
 
       <div
         id={panelId}
-        className={`grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+        className={`grid transition-[grid-template-rows] duration-150 ease-out motion-reduce:transition-none ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
       >
         <div className="overflow-hidden">
-          <div className="flex flex-col gap-3 border-t border-white/5 p-3">
+          <div className="flex flex-col gap-3 border-t border-line bg-paper p-4">
             <div className="flex items-center justify-center gap-3">
               <button
                 type="button"
@@ -266,13 +266,13 @@ function LoggedCard({
                 onClick={() => change(minutes - STEP)}
                 aria-label={`Decrease minutes for ${row.name} by ${STEP}`}
                 tabIndex={open ? 0 : -1}
-                className="grid size-11 place-items-center rounded-full bg-white/10 text-xl transition active:scale-90 disabled:opacity-30 motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-lime-400"
+                className={iconButtonClass}
               >
-                −
+                <Minus aria-hidden size={18} strokeWidth={1.75} />
               </button>
               <p className="w-28 text-center" aria-live="polite">
-                <span className="text-3xl font-bold tabular-nums">{minutes}</span>
-                <span className="ml-1 text-sm text-slate-400">min</span>
+                <span className="font-mono text-3xl font-medium">{minutes}</span>
+                <span className="ml-1 text-sm text-muted">min</span>
               </p>
               <button
                 type="button"
@@ -280,12 +280,14 @@ function LoggedCard({
                 onClick={() => change(minutes + STEP)}
                 aria-label={`Increase minutes for ${row.name} by ${STEP}`}
                 tabIndex={open ? 0 : -1}
-                className="grid size-11 place-items-center rounded-full bg-white/10 text-xl transition active:scale-90 disabled:opacity-30 motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-lime-400"
+                className={iconButtonClass}
               >
-                +
+                <Plus aria-hidden size={18} strokeWidth={1.75} />
               </button>
             </div>
-            <p className={`text-center text-sm font-medium ${tone.text}`}>🔥 ≈ {calories} kcal burned</p>
+            <p className="flex items-center justify-center gap-1.5 text-sm text-muted">
+              <Flame aria-hidden size={16} strokeWidth={1.75} />≈ {calories} kcal burned
+            </p>
             <div className="flex flex-wrap justify-center gap-2">
               {MINUTE_CHIPS.map((m) => (
                 <button
@@ -295,7 +297,7 @@ function LoggedCard({
                   onClick={() => change(minutes + m)}
                   aria-label={`Add ${m} minutes to ${row.name}`}
                   tabIndex={open ? 0 : -1}
-                  className="rounded-full bg-white/10 px-4 py-1.5 text-sm font-semibold transition hover:bg-white/20 active:scale-90 disabled:opacity-30 motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-lime-400"
+                  className={`${chipClass(false)} disabled:text-faint`}
                 >
                   +{m}m
                 </button>
@@ -306,7 +308,7 @@ function LoggedCard({
                 type="button"
                 onClick={onRemove}
                 tabIndex={open ? 0 : -1}
-                className="self-center text-sm text-red-300 underline focus-visible:outline-2 focus-visible:outline-lime-400"
+                className={`self-center ${dangerLinkClass}`}
               >
                 Remove from {row.removed ? "this day" : "today's log"}
               </button>

@@ -1,28 +1,147 @@
 @import "tailwindcss";
 
+/*
+ * "Training Log" theme: warm paper, ink text, one deep green accent.
+ * These variables are the ONLY place colours are defined. Components use them through the Tailwind
+ * colours mapped below (bg-paper, bg-surface, text-ink, text-muted, border-line, bg-accent, ...).
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* paper & ink */
+  --bg: #f6f4ef; /* page background: warm paper */
+  --surface: #ffffff; /* cards, inputs */
+  --surface-2: #efece5; /* subtle fills: table header, stepper buttons, hover rows */
+  --border: #e2ded5; /* 1px hairlines */
+  --border-strong: #cfcac0; /* input borders, dividers that need more weight */
+  --text: #1c1b19; /* main ink */
+  --muted: #6b6860; /* labels, helper text, "Last" values */
+  --faint: #9a968c; /* placeholders, disabled text only (fails AA for body text) */
+
+  /* accent: deep green ink */
+  --accent: #1f5e46;
+  --accent-hover: #174a37;
+  --accent-soft: #e3eee8; /* selected chip / badge background */
+  --on-accent: #ffffff;
+
+  /* status */
+  --success: #2f7a4f; /* saved, PR */
+  --warning: #a86a12; /* "adjusted" calorie values */
+  --danger: #b23a2e; /* errors, delete */
+
+  --scrim: rgba(28, 27, 25, 0.4); /* dialog backdrop */
+  --focus-ring: 0 0 0 3px rgba(31, 94, 70, 0.25);
+  --shadow-card: 0 1px 2px rgba(28, 27, 25, 0.04);
+  --radius: 8px;
+  --radius-sm: 6px;
+
+  color-scheme: light;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
+/* Dark mode follows the OS, as before; the same paper/ink idea in warm charcoal. */
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --bg: #1a1917;
+    --surface: #23221f;
+    --surface-2: #2c2b27;
+    --border: #35332e;
+    --border-strong: #4a4740;
+    --text: #ece9e2;
+    --muted: #a8a49a;
+    --faint: #77736b;
+
+    --accent: #79c09c;
+    --accent-hover: #93cfb0;
+    --accent-soft: #233a2f;
+    --on-accent: #10201a;
+
+    --success: #74c391;
+    --warning: #dba653;
+    --danger: #e8877b;
+
+    --scrim: rgba(0, 0, 0, 0.55);
+    --focus-ring: 0 0 0 3px rgba(121, 192, 156, 0.35);
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.2);
+
+    color-scheme: dark;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@theme inline {
+  /* Drop Tailwind's default palette so only the tokens exist as colour utilities. */
+  --color-*: initial;
+
+  --color-paper: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-ink: var(--text);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-sm);
+  --radius-lg: var(--radius);
+
+  --shadow-card: var(--shadow-card);
+
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+}
+
+@layer base {
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-variant-numeric: tabular-nums;
+  }
+
+  h1,
+  h2,
+  h3 {
+    color: var(--text);
+    letter-spacing: -0.015em;
+  }
+
+  ::placeholder {
+    color: var(--faint);
+  }
+}
+
+/* Small uppercase labels, e.g. "CHEST · TODAY". */
+@utility eyebrow {
+  font-size: 11px;
+  line-height: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Unlayered so it wins over any utility: one visible focus style for every interactive element. */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+dialog::backdrop {
+  background: var(--scrim, rgba(28, 27, 25, 0.4));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+  }
 }
 
 /* Horizontal scrollers (gym muscle pills) without a visible scrollbar (feature 006). */

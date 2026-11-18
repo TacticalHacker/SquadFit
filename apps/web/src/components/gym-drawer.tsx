@@ -19,7 +19,9 @@ import {
 } from "@calci/shared";
 import { browserStorage, clearDraft, loadDraft, saveDraft } from "@/lib/gym-draft";
 import { removeGymEntry, saveGymEntry } from "@/server/actions/gym";
+import { Check, X } from "lucide-react";
 import { BottomSheet } from "./bottom-sheet";
+import { buttonClass, dangerLinkClass, noticeErrorClass, noticeWarnClass } from "./form-bits";
 import { NumberField, Stepper, stepButtonClass } from "./stepper";
 
 const DRAFT_DEBOUNCE_MS = 300;
@@ -127,40 +129,40 @@ export function GymDrawer({
   const header = (
     <div className="flex items-start gap-3">
       <div className="min-w-0 flex-1">
-        <h2 className="truncate text-lg font-bold">{exercise.name}</h2>
-        <p className="text-xs text-slate-400">
+        <h2 className="truncate text-lg font-semibold">{exercise.name}</h2>
+        <p className="text-xs text-muted">
           {MUSCLE_GROUP_LABELS[exercise.group]}
-          {lastTop ? <span className="ml-2 font-semibold text-lime-300">{formatLast(lastTop)}</span> : null}
+          {lastTop ? <span className="ml-2">{formatLast(lastTop)}</span> : null}
           {exercise.kind === "cardio" && exercise.last ? (
-            <span className="ml-2 font-semibold text-lime-300">Last: {exercise.last.minutes} min</span>
+            <span className="ml-2">Last: {exercise.last.minutes} min</span>
           ) : null}
         </p>
       </div>
       <button type="button" onClick={close} aria-label="Close" className={stepButtonClass}>
-        ×
+        <X aria-hidden size={18} strokeWidth={1.75} />
       </button>
     </div>
   );
 
   const footer = (
     <div className="flex flex-col gap-2">
-      <p className="text-center text-sm text-slate-300 tabular-nums" aria-live="polite">
+      <p className="text-center text-sm text-muted" aria-live="polite">
         {totals.volumeKg !== null ? (
           <>
-            <span className="font-semibold text-slate-100">{nf.format(totals.volumeKg)} kg</span> volume ·{" "}
+            <span className="font-semibold text-accent">{nf.format(totals.volumeKg)} kg</span> volume ·{" "}
           </>
         ) : null}
         ~{totals.minutes} min · ~{totals.calories} kcal
       </p>
       {locked ? (
-        <p className="rounded-xl bg-amber-400/15 px-3 py-2 text-center text-sm text-amber-200">This day can no longer be edited</p>
+        <p className={`text-center ${noticeWarnClass}`}>This day can no longer be edited</p>
       ) : (
         <>
           <button
             type="button"
             onClick={save}
             disabled={pending}
-            className="min-h-12 w-full touch-manipulation rounded-xl bg-lime-400 text-base font-bold text-slate-900 transition active:scale-[0.98] disabled:opacity-60 motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-300"
+            className={`min-h-12 w-full touch-manipulation text-base ${buttonClass}`}
           >
             {pending ? "Saving…" : exercise.entry ? "Save changes" : "Save"}
           </button>
@@ -169,7 +171,7 @@ export function GymDrawer({
               type="button"
               onClick={remove}
               disabled={pending}
-              className="min-h-11 touch-manipulation text-sm text-red-300 underline focus-visible:outline-2 focus-visible:outline-lime-400"
+              className={`touch-manipulation ${dangerLinkClass}`}
             >
               {confirmRemove ? "Tap again to remove from this day" : "Remove from this day"}
             </button>
@@ -183,18 +185,18 @@ export function GymDrawer({
     <BottomSheet open onClose={close} label={`${exercise.name} sets`} header={header} footer={footer}>
       <div className="flex flex-col gap-3">
         {hasDraft && !locked ? (
-          <div className="flex items-center gap-2 rounded-xl bg-sky-400/10 px-3 py-1 text-sm text-sky-200">
+          <div className="flex items-center gap-2 rounded-md border border-line bg-surface-2 px-3 py-1 text-sm text-ink">
             <span className="flex-1">
               Unsaved draft{savedElsewhere ? " · a saved version also exists" : ""}
             </span>
-            <button type="button" onClick={discard} className="min-h-11 touch-manipulation px-2 font-semibold underline">
+            <button type="button" onClick={discard} className="min-h-11 touch-manipulation rounded-md px-2 font-medium text-accent underline underline-offset-4">
               Discard draft
             </button>
           </div>
         ) : null}
 
         <div role="alert" aria-live="assertive">
-          {error ? <p className="rounded-xl bg-red-500/15 px-3 py-2 text-sm text-red-200">{error}</p> : null}
+          {error ? <p className={noticeErrorClass}>{error}</p> : null}
         </div>
 
         {state.mode === "cardio" ? (
@@ -221,8 +223,8 @@ function StrengthBody({
   return (
     <>
       <div className="grid grid-cols-2 gap-2">
-        <div className="flex flex-col items-center rounded-xl bg-[#1E293B] py-2">
-          <span className="text-xs font-semibold tracking-wide text-slate-400 uppercase">Sets</span>
+        <div className="flex flex-col items-center gap-1 rounded-md border border-line py-2">
+          <span className="eyebrow">Sets</span>
           <Stepper
             label="sets"
             onDec={() => dispatch({ type: "removeSet" })}
@@ -230,13 +232,13 @@ function StrengthBody({
             decDisabled={disabled || state.rows.length <= 1}
             incDisabled={disabled || state.rows.length >= GYM_MAX_SETS}
           >
-            <span className="w-10 text-center text-lg font-bold tabular-nums" aria-live="polite">
+            <span className="w-10 text-center font-mono text-lg font-medium" aria-live="polite">
               {state.rows.length}
             </span>
           </Stepper>
         </div>
-        <div className="flex flex-col items-center rounded-xl bg-[#1E293B] py-2">
-          <span className="text-xs font-semibold tracking-wide text-slate-400 uppercase">Default reps</span>
+        <div className="flex flex-col items-center gap-1 rounded-md border border-line py-2">
+          <span className="eyebrow">Default reps</span>
           <Stepper
             label="default reps"
             onDec={() => dispatch({ type: "defaultReps", delta: -1 })}
@@ -258,24 +260,22 @@ function StrengthBody({
         </div>
       </div>
 
-      <div className="flex items-center gap-1 px-1 text-xs font-semibold tracking-wide text-slate-400 uppercase">
+      <div className="eyebrow flex items-center gap-1 rounded-md bg-surface-2 px-1 py-1.5">
         <span className="w-6">#</span>
         <span className="flex-1 text-center">kg</span>
         <span className="flex-1 text-center">Reps</span>
         <span className="w-11 text-center">Done</span>
       </div>
 
-      <ol className="flex flex-col gap-1.5">
+      <ol className="flex flex-col divide-y divide-line border-b border-line">
         {state.rows.map((row, i) => {
           const n = i + 1;
           return (
             <li
               key={i}
-              className={`flex items-center gap-1 rounded-xl px-1 py-1 transition-colors motion-reduce:transition-none ${
-                row.completed ? "bg-lime-400/10 ring-1 ring-lime-400/40" : "bg-[#1E293B]"
-              }`}
+              className="flex items-center gap-1 px-1 py-1.5"
             >
-              <span className="w-6 text-center text-sm font-semibold text-slate-400 tabular-nums">#{n}</span>
+              <span className="w-6 text-center text-sm text-muted">{n}</span>
               <div className="flex flex-1 justify-center">
                 <Stepper
                   label={`set ${n} weight`}
@@ -322,11 +322,11 @@ function StrengthBody({
                 onClick={() => dispatch({ type: "toggleDone", index: i })}
                 aria-pressed={row.completed}
                 aria-label={`Set ${n} done`}
-                className={`grid min-h-11 min-w-11 touch-manipulation place-items-center rounded-full text-lg font-bold transition active:scale-90 motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-lime-400 ${
-                  row.completed ? "bg-lime-400 text-slate-900" : "bg-white/10 text-slate-500"
+                className={`grid min-h-11 min-w-11 touch-manipulation place-items-center rounded-md border transition-colors duration-150 ${
+                  row.completed ? "border-accent bg-accent-soft text-accent" : "border-line-strong bg-surface text-faint hover:text-muted"
                 }`}
               >
-                ✓
+                <Check aria-hidden size={18} strokeWidth={row.completed ? 2.25 : 1.75} />
               </button>
             </li>
           );
@@ -350,8 +350,8 @@ function CardioBody({
   name: string;
 }) {
   return (
-    <div className="flex flex-col items-center gap-2 rounded-xl bg-[#1E293B] py-4">
-      <span className="text-xs font-semibold tracking-wide text-slate-400 uppercase">Minutes</span>
+    <div className="flex flex-col items-center gap-2 rounded-md border border-line py-4">
+      <span className="eyebrow">Minutes</span>
       <Stepper
         label={`${name} minutes by 5`}
         onDec={() => dispatch({ type: "minutes", delta: -1 })}

@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { DateSchema, FoodDayViewSchema, OwnFoodsResponseSchema, RecentFoodsResponseSchema } from "@calci/shared";
 import { DayNav } from "@/components/day-nav";
 import { FoodScreen } from "@/components/food-screen";
+import { linkClass } from "@/components/form-bits";
 import { ApiRequestError, apiFetch } from "@/server/api";
 import { requireProfile } from "@/server/session";
 
@@ -30,11 +31,11 @@ async function FoodContent({ searchParams }: { searchParams: PageProps<"/food">[
     : [{ foods: [] }, { foods: [] }];
 
   return (
-    <div className="flex flex-col gap-5 rounded-3xl bg-[#0F172A] p-4 text-slate-100 sm:p-6">
+    <div className="flex flex-col gap-6">
       <DayNav date={view.date} today={view.today} basePath="/food" />
       <FoodScreen initialView={view} own={own.foods} recent={recent.foods} />
       <p className="text-sm">
-        <Link href="/food/mine" className="text-lime-300 underline">
+        <Link href="/food/mine" className={linkClass}>
           My foods
         </Link>
       </p>
@@ -44,7 +45,7 @@ async function FoodContent({ searchParams }: { searchParams: PageProps<"/food">[
 
 export default function FoodPage(props: PageProps<"/food">) {
   return (
-    <Suspense fallback={<p className="text-sm text-zinc-500">Loading…</p>}>
+    <Suspense fallback={<p className="text-sm text-muted">Loading…</p>}>
       <FoodContent searchParams={props.searchParams} />
     </Suspense>
   );

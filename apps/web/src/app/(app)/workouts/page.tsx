@@ -7,6 +7,7 @@ import { DayStrip } from "@/components/day-strip";
 import { PulseBar } from "@/components/pulse-bar";
 import { WorkoutChecklist } from "@/components/workout-checklist";
 import { WorkoutsTabs } from "@/components/workouts-tabs";
+import { linkClass } from "@/components/form-bits";
 import { ApiRequestError, apiFetch } from "@/server/api";
 import { requireProfile } from "@/server/session";
 
@@ -39,7 +40,7 @@ async function WorkoutsContent({ searchParams }: { searchParams: PageProps<"/wor
   const streak = currentStreak(history.days, view.today);
 
   return (
-    <div className="flex flex-col gap-5 rounded-3xl bg-[#0F172A] p-4 text-slate-100 sm:p-6">
+    <div className="flex flex-col gap-6">
       <DayNav date={view.date} today={view.today} basePath="/workouts" streak={streak} />
       <DayStrip days={strip.days} current={view.date} today={view.today} />
       {pulse?.note && pulse.metrics ? (
@@ -48,7 +49,7 @@ async function WorkoutsContent({ searchParams }: { searchParams: PageProps<"/wor
       <WorkoutsTabs active="activities" date={view.date} today={view.today} />
       <WorkoutChecklist initialView={view} />
       <p className="text-sm">
-        <Link href="/workouts/mine" className="text-lime-300 underline">
+        <Link href="/workouts/mine" className={linkClass}>
           My workouts
         </Link>
       </p>
@@ -58,7 +59,7 @@ async function WorkoutsContent({ searchParams }: { searchParams: PageProps<"/wor
 
 export default function WorkoutsPage(props: PageProps<"/workouts">) {
   return (
-    <Suspense fallback={<p className="text-sm text-zinc-500">Loading…</p>}>
+    <Suspense fallback={<p className="text-sm text-muted">Loading…</p>}>
       <WorkoutsContent searchParams={props.searchParams} />
     </Suspense>
   );

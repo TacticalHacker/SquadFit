@@ -11,8 +11,8 @@ export default function NewPasswordPage() {
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-6 px-4 py-16">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Choose your password</h1>
-        <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+        <h1 className="text-3xl font-semibold tracking-[-0.02em]">Choose your password</h1>
+        <p className="mt-2 text-muted">
           Replace the temporary password you were given with one only you know.
         </p>
       </div>

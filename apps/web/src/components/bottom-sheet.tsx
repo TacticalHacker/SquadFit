@@ -85,11 +85,11 @@ export function BottomSheet({
         // A click on the <dialog> itself (not the panel) is a click on the backdrop.
         if (e.target === dialogRef.current) onClose();
       }}
-      className="fixed inset-x-0 top-auto bottom-0 m-0 h-auto max-h-none w-full max-w-none bg-transparent p-0 text-slate-100 backdrop:bg-black/60 sm:mx-auto sm:max-w-lg"
+      className="fixed inset-x-0 top-auto bottom-0 m-0 h-auto max-h-none w-full max-w-none bg-transparent p-0 text-ink sm:mx-auto sm:max-w-lg"
     >
       <div
         ref={panelRef}
-        className="flex max-h-[85dvh] flex-col rounded-t-2xl bg-[#0F172A] shadow-2xl ring-1 ring-white/10 transition-transform duration-300 ease-out starting:translate-y-full motion-reduce:transition-none"
+        className="flex max-h-[85dvh] flex-col rounded-t-lg border border-b-0 border-line bg-surface transition-transform duration-200 ease-out starting:translate-y-full motion-reduce:transition-none"
       >
         <div
           className="shrink-0 touch-none select-none px-4 pt-2 pb-3"
@@ -98,12 +98,12 @@ export function BottomSheet({
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
         >
-          <div aria-hidden="true" className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-slate-600" />
+          <div aria-hidden="true" className="mx-auto mb-3 h-1 w-10 rounded-full bg-line-strong" />
           {header}
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-white/5 px-3 py-3">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-line px-4 py-3">{children}</div>
         {footer ? (
-          <div className="shrink-0 border-t border-white/10 bg-[#0F172A] px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <div className="shrink-0 border-t border-line bg-surface px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             {footer}
           </div>
         ) : null}

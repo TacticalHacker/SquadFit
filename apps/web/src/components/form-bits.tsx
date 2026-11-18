@@ -1,13 +1,48 @@
 import type { ReactNode } from "react";
 
-export const inputClass =
-  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-base text-zinc-900 placeholder:text-zinc-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 aria-[invalid=true]:border-red-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50";
+/*
+ * Shared "Training Log" class strings. Colours come only from the theme tokens in globals.css;
+ * the focus ring is global (:focus-visible), so nothing here sets one.
+ */
 
-export const buttonClass =
-  "inline-flex items-center justify-center rounded-md bg-emerald-600 px-4 py-2 font-medium text-white hover:bg-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:opacity-60";
+const motion = "transition-colors duration-150";
 
-export const secondaryButtonClass =
-  "inline-flex items-center justify-center rounded-md border border-zinc-300 px-4 py-2 font-medium hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 dark:border-zinc-700 dark:hover:bg-zinc-800";
+export const inputClass = `w-full min-h-11 rounded-md border border-line-strong bg-surface px-3 py-2 text-base text-ink placeholder:text-faint ${motion} focus:border-accent aria-[invalid=true]:border-danger disabled:text-faint`;
+
+/** Filled green: at most one per screen section. */
+export const buttonClass = `inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-accent px-4 py-2 font-medium text-on-accent ${motion} hover:bg-accent-hover disabled:opacity-50`;
+
+export const secondaryButtonClass = `inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-line-strong bg-surface px-4 py-2 font-medium text-ink ${motion} hover:bg-surface-2 disabled:opacity-50`;
+
+/** Text-only action, e.g. "Remove" under a form. */
+export const dangerLinkClass = `inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-sm text-danger underline-offset-4 hover:underline disabled:opacity-50`;
+
+export const cardClass = "rounded-lg border border-line bg-surface shadow-card";
+
+/** Square stepper / icon button: surface-2 fill, ink icon, 44 px. */
+export const iconButtonClass = `grid min-h-11 min-w-11 shrink-0 touch-manipulation select-none place-items-center rounded-md bg-surface-2 text-ink ${motion} hover:bg-line active:bg-line disabled:text-faint disabled:hover:bg-surface-2`;
+
+/** Chip / toggle. Selected uses accent-soft + accent border/text. */
+export const chipClass = (selected: boolean) =>
+  `inline-flex min-h-11 shrink-0 touch-manipulation items-center justify-center rounded-full border px-4 text-sm font-medium ${motion} ${
+    selected ? "border-accent bg-accent-soft text-accent" : "border-line-strong bg-surface text-ink hover:bg-surface-2"
+  }`;
+
+/** Two-option segmented control (e.g. Gym | Activities). */
+export const segmentGroupClass = "grid gap-1 rounded-lg border border-line bg-surface-2 p-1";
+export const segmentClass = (current: boolean) =>
+  `flex min-h-10 items-center justify-center rounded-md text-sm font-medium ${motion} ${
+    current ? "border border-line bg-surface text-ink shadow-card" : "text-muted hover:text-ink"
+  }`;
+
+export const noticeWarnClass = "rounded-md border border-warning/40 bg-warning/10 px-4 py-2 text-sm text-ink";
+export const noticeErrorClass = "rounded-md border border-danger/30 bg-danger/10 px-4 py-2 text-sm text-danger";
+export const noticeOkClass = "rounded-md border border-success/30 bg-success/10 px-4 py-2 text-sm text-success";
+
+/** Small outlined label (pills only for tiny badges). */
+export const badgeClass = "inline-flex items-center gap-1 rounded-full border border-line px-2 py-0.5 text-xs font-medium text-muted";
+
+export const linkClass = "text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent";
 
 /** Label + control + linked error/hint text. Pair the control with `describedBy(id, error, hint)`. */
 export function Field({
@@ -24,18 +59,18 @@ export function Field({
   children: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="text-sm font-medium">
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-sm font-medium text-ink">
         {label}
       </label>
       {children}
       {hint && !error ? (
-        <p id={`${id}-hint`} className="text-sm text-zinc-500">
+        <p id={`${id}-hint`} className="text-sm text-muted">
           {hint}
         </p>
       ) : null}
       {error ? (
-        <p id={`${id}-error`} role="alert" className="text-sm text-red-700 dark:text-red-400">
+        <p id={`${id}-error`} role="alert" className="text-sm text-danger">
           {error}
         </p>
       ) : null}
@@ -49,13 +84,13 @@ export const describedBy = (id: string, error?: string, hint?: string) =>
 export function FormMessage({ error, message }: { error?: string | undefined; message?: string | undefined }) {
   if (error)
     return (
-      <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">
+      <p role="alert" className={noticeErrorClass}>
         {error}
       </p>
     );
   if (message)
     return (
-      <p role="status" className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
+      <p role="status" className={noticeOkClass}>
         {message}
       </p>
     );

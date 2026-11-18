@@ -27,17 +27,17 @@ export function DayStrip({
                 href={d.date === today ? basePath : `${basePath}?date=${d.date}`}
                 {...(isCurrent ? { "aria-current": "date" as const } : {})}
                 aria-label={`${weekday.format(new Date(`${d.date}T00:00:00Z`))} ${dayNum.format(new Date(`${d.date}T00:00:00Z`))}: ${d.totalMinutes} minutes${goal ? ", goal met" : ""}`}
-                className={`flex flex-col items-center gap-1 rounded-xl py-2 transition active:scale-95 motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-lime-400 ${
-                  isCurrent ? "bg-lime-400 text-slate-900" : "bg-[#1E293B] text-slate-300 hover:bg-slate-700"
+                className={`flex flex-col items-center gap-1 rounded-md border py-2 transition-colors duration-150 ${
+                  isCurrent ? "border-accent bg-accent-soft text-accent" : "border-line bg-surface text-ink hover:bg-surface-2"
                 }`}
               >
-                <span className="text-[11px] uppercase tracking-wide opacity-80">{weekday.format(new Date(`${d.date}T00:00:00Z`))}</span>
-                <span className="text-base font-bold leading-none">{dayNum.format(new Date(`${d.date}T00:00:00Z`))}</span>
+                <span className={`text-[11px] uppercase tracking-[0.06em] ${isCurrent ? "" : "text-muted"}`}>
+                  {weekday.format(new Date(`${d.date}T00:00:00Z`))}
+                </span>
+                <span className="text-base font-semibold leading-none">{dayNum.format(new Date(`${d.date}T00:00:00Z`))}</span>
                 <span
                   aria-hidden="true"
-                  className={`size-2 rounded-full ${
-                    goal ? (isCurrent ? "bg-slate-900" : "bg-lime-400 shadow-[0_0_6px] shadow-lime-400") : active ? (isCurrent ? "bg-slate-900/50" : "bg-slate-500") : "bg-transparent ring-1 ring-inset ring-current opacity-30"
-                  }`}
+                  className={`size-1.5 rounded-full ${goal ? "bg-accent" : active ? "bg-muted" : "border border-line-strong"}`}
                 />
               </Link>
             </li>

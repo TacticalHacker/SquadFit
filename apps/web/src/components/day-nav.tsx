@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { ChevronLeft, ChevronRight, Flame } from "lucide-react";
 import { addDays } from "@calci/shared";
+import { linkClass } from "./form-bits";
 
-const link =
-  "rounded-lg px-2.5 py-1 text-lg text-slate-300 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-lime-400";
+const arrow =
+  "grid min-h-11 min-w-11 place-items-center rounded-md border border-line bg-surface text-ink transition-colors duration-150 hover:bg-surface-2";
 
 export function DayNav({ date, today, basePath, streak }: { date: string; today: string; basePath: string; streak?: number }) {
   const isToday = date === today;
@@ -11,31 +13,31 @@ export function DayNav({ date, today, basePath, streak }: { date: string; today:
   );
   const href = (d: string) => (d === today ? basePath : `${basePath}?date=${d}`);
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Link href={href(addDays(date, -1))} className={link} aria-label="Previous day">
-        ◀
+    <div className="flex flex-wrap items-center gap-3">
+      <Link href={href(addDays(date, -1))} className={arrow} aria-label="Previous day">
+        <ChevronLeft aria-hidden size={20} strokeWidth={1.75} />
       </Link>
       <div className="min-w-0">
-        <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{label}</h1>
+        <h1 className="text-xl font-semibold sm:text-2xl">{label}</h1>
         {isToday ? null : (
-          <Link href={basePath} className="text-xs text-lime-300 underline">
+          <Link href={basePath} className={`text-xs ${linkClass}`}>
             Back to today
           </Link>
         )}
       </div>
       {isToday ? null : (
-        <Link href={href(addDays(date, 1))} className={link} aria-label="Next day">
-          ▶
+        <Link href={href(addDays(date, 1))} className={arrow} aria-label="Next day">
+          <ChevronRight aria-hidden size={20} strokeWidth={1.75} />
         </Link>
       )}
       {streak === undefined ? null : (
         <p
-          className={`ml-auto flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold ${
-            streak > 0 ? "bg-orange-400/15 text-orange-300 shadow-[0_0_16px_-4px] shadow-orange-400/60" : "bg-white/5 text-slate-400"
+          className={`ml-auto flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 text-sm font-medium ${
+            streak > 0 ? "text-ink" : "text-muted"
           }`}
           title="Consecutive days with at least one workout (provisional rule)"
         >
-          <span aria-hidden="true">🔥</span>
+          <Flame aria-hidden size={18} strokeWidth={1.75} className={streak > 0 ? "text-accent" : "text-muted"} />
           {streak > 0 ? `${streak}-day streak` : "No streak yet"}
         </p>
       )}

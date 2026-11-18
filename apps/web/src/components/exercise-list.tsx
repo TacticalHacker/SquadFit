@@ -1,7 +1,9 @@
 "use client";
 
 import { MUSCLE_GROUP_LABELS, type GymExerciseView } from "@calci/shared";
+import { Check, ChevronRight, Plus } from "lucide-react";
 import { AiBadge } from "./ai-badge";
+import { cardClass } from "./form-bits";
 
 const nf = new Intl.NumberFormat("en");
 
@@ -29,46 +31,43 @@ export function ExerciseList({
   onAddCustom: () => void;
 }) {
   return (
-    <ul className="flex flex-col gap-2">
+    <ul className={`divide-y divide-line overflow-hidden ${cardClass}`}>
       {exercises.length === 0 ? (
-        <li className="rounded-2xl border border-dashed border-slate-700 px-4 py-6 text-center text-sm text-slate-400">No exercises match.</li>
+        <li className="px-4 py-6 text-center text-sm text-muted">No exercises match.</li>
       ) : null}
       {exercises.map((e) => {
         const logged = e.entry;
         const draft = drafts.has(e.exerciseId);
         return (
           <li key={e.exerciseId}>
-            <div className="flex items-stretch gap-1">
+            <div className="flex items-stretch">
               <button
                 type="button"
                 onClick={() => onOpen(e.exerciseId)}
-                className={`flex min-h-14 flex-1 touch-manipulation items-center gap-3 rounded-2xl px-4 py-2 text-left transition active:scale-[0.98] motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-lime-400 ${
-                  logged ? "bg-lime-400/10 ring-1 ring-lime-400/30" : "bg-[#1E293B]"
-                }`}
+                className="flex min-h-14 min-w-0 flex-1 touch-manipulation items-center gap-3 px-4 py-2 text-left transition-colors duration-150 hover:bg-surface-2"
               >
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{e.name}</span>
-                  <span className="flex flex-wrap items-center gap-x-2 text-xs text-slate-400">
+                  <span className="flex flex-wrap items-center gap-x-2 text-xs text-muted">
                     {showGroup ? <span>{MUSCLE_GROUP_LABELS[e.group]}</span> : null}
                     {!e.isBuiltIn ? <span>Yours</span> : null}
                     {logged ? (
-                      <span className="font-semibold text-lime-300">
-                        ✓ {gymEntrySummary(logged)} · {logged.calories} kcal
+                      <span className="inline-flex items-center gap-1 font-medium text-success">
+                        <Check aria-hidden size={14} strokeWidth={2} />
+                        {gymEntrySummary(logged)} · {logged.calories} kcal
                       </span>
                     ) : null}
-                    {draft ? <span className="rounded-full bg-sky-400/15 px-2 font-semibold text-sky-200">Draft</span> : null}
+                    {draft ? <span className="rounded-full border border-line-strong bg-surface-2 px-2 font-medium text-ink">Draft</span> : null}
                   </span>
                 </span>
-                <span aria-hidden="true" className="text-xl text-slate-500">
-                  ›
-                </span>
+                <ChevronRight aria-hidden="true" size={18} strokeWidth={1.75} className="shrink-0 text-muted" />
               </button>
               {!e.isBuiltIn && canAdd ? (
                 <button
                   type="button"
                   onClick={() => onEdit(e.exerciseId)}
                   aria-label={`Edit ${e.name}`}
-                  className="min-h-14 min-w-11 touch-manipulation rounded-2xl bg-[#1E293B] px-3 text-sm text-slate-300 focus-visible:outline-2 focus-visible:outline-lime-400"
+                  className="min-h-14 min-w-11 touch-manipulation border-l border-line px-4 text-sm text-muted transition-colors duration-150 hover:bg-surface-2 hover:text-ink"
                 >
                   Edit
                 </button>
@@ -83,9 +82,10 @@ export function ExerciseList({
           <button
             type="button"
             onClick={onAddCustom}
-            className="min-h-14 w-full touch-manipulation rounded-2xl border border-dashed border-slate-600 px-4 text-left font-semibold text-lime-300 focus-visible:outline-2 focus-visible:outline-lime-400"
+            className="flex min-h-14 w-full touch-manipulation items-center gap-2 px-4 text-left font-medium text-accent transition-colors duration-150 hover:bg-surface-2"
           >
-            + Custom Exercise
+            <Plus aria-hidden size={18} strokeWidth={1.75} />
+            Custom Exercise
           </button>
         </li>
       ) : null}
