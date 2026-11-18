@@ -15,13 +15,26 @@ export const PeriodSchema = z.enum(["week", "30d", "all"]);
 /** null = unranked (hidden viewer's own row, or "—" on the relative toggle). */
 export const RankSchema = z.number().int().min(1).nullable();
 
+export const NutritionSharingSchema = z.enum(["off", "totals", "meals"]);
+export type NutritionSharing = z.infer<typeof NutritionSharingSchema>;
+
 export const SquadSettingsSchema = z.strictObject({
   weeklyTarget: z.number().int().min(SQUAD_MIN_TARGET).max(SQUAD_MAX_TARGET),
   leaderboardVisible: z.boolean(),
   shareBodyWeight: z.boolean(),
+  /** Feature 011: what food other members may see. Default off. */
+  // Defaults to off so a web app that is ahead of the API (or the reverse during a deploy) still parses.
+  nutritionSharing: NutritionSharingSchema.default("off"),
 });
 export type SquadSettings = z.infer<typeof SquadSettingsSchema>;
-export const DEFAULT_SQUAD_SETTINGS: SquadSettings = { weeklyTarget: 3, leaderboardVisible: true, shareBodyWeight: false };
+export const DEFAULT_SQUAD_SETTINGS: SquadSettings = { weeklyTarget: 3, leaderboardVisible: true, shareBodyWeight: false, nutritionSharing: "off" };
+
+/** PUT /me/squad body. `nutritionSharing` may be left out (keeps the current level); `dismissPrompt` only hides the one-time card. */
+export const SquadSettingsInputSchema = SquadSettingsSchema.extend({
+  nutritionSharing: NutritionSharingSchema.optional(),
+  dismissPrompt: z.boolean().optional(),
+});
+export type SquadSettingsInput = z.infer<typeof SquadSettingsInputSchema>;
 
 export const WeeklyStreakSchema = z.strictObject({
   current: z.number().int(),
@@ -91,7 +104,7 @@ export type SquadLeaderboard = z.infer<typeof SquadLeaderboardSchema>;
 export const SquadFeedItemSchema = z.strictObject({
   id: z.string(),
   member: SquadMemberSchema,
-  kind: z.enum(["pr", "streak_week", "first_workout"]),
+  kind: z.enum(["pr", "streak_week", "first_workout", "protein_streak"]),
   date: DateSchema,
   pr: z
     .strictObject({ exerciseName: z.string(), weightKg: z.number(), reps: z.number().int(), e1rm: z.number().nullable() })

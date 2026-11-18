@@ -11,6 +11,7 @@ import {
 import type { Deps } from "./deps";
 import { newEntryId, type EntryUpdate, type FoodEntryItem } from "./food-repo";
 import type { WriteFailure } from "./gym-save";
+import { safeRefreshProtein } from "./protein-events";
 
 const LIST_MESSAGE = "Calories and macros follow the servings for foods from a list";
 const TOO_MANY = "That amount comes to more than 5,000 calories. Use fewer servings.";
@@ -45,7 +46,10 @@ export async function createFoodEntry(
   // The random suffix makes a clash with another entry in the same millisecond vanishingly rare; retry once anyway.
   for (let attempt = 0; attempt < 2; attempt++) {
     const entryId = newEntryId(deps.now().getTime(), randomBytes(3).toString("hex"));
-    if (await deps.food.putEntry(userId, { ...draft, entryId })) return { ok: true, entryId, entry: draft };
+    if (await deps.food.putEntry(userId, { ...draft, entryId })) {
+      await safeRefreshProtein(userId, deps);
+      return { ok: true, entryId, entry: draft };
+    }
   }
   return { ok: false, status: 409, code: "VALIDATION_FAILED", message: "Could not save; try again" };
 }
@@ -96,5 +100,6 @@ export async function patchFoodEntry(
 
   const updated = await deps.food.updateEntry(userId, existing.date, existing.entryId, fields, deps.now().toISOString());
   if (!updated) return { ok: false, status: 404, code: "NOT_FOUND", message: "Entry not found" };
+  await safeRefreshProtein(userId, deps);
   return { ok: true };
 }

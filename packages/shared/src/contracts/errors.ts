@@ -10,6 +10,7 @@ export const ApiErrorCodeSchema = z.enum([
   "NOT_FOUND",
   "RATE_LIMITED",
   "LIMIT_REACHED",
+  "MEMBER_PRIVATE",
 ]);
 export type ApiErrorCode = z.infer<typeof ApiErrorCodeSchema>;
 

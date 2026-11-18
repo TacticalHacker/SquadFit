@@ -1,6 +1,9 @@
 <!--
 Sync Impact Report
-- Version change: 2.2.0 → 2.3.0 (MINOR: principle VI allows a leaderboard opt-out and opt-in body weight ratio, feature 010)
+- Version change: 2.3.0 → 2.4.0 (MINOR: principle VI allows opt-in nutrition sharing at two levels, feature 011)
+- Modified principles: VI. Members-Only Visibility (a member may share daily nutrition totals, or totals plus meals; exact fields listed)
+- Templates requiring updates: none ✅
+- Previous: 2.2.0 → 2.3.0 (MINOR: principle VI allows a leaderboard opt-out and opt-in body weight ratio, feature 010)
 - Modified principles: VI. Members-Only Visibility (members may hide from the leaderboard; body weight may be shared only as an opt-in relative-strength ratio)
 - Templates requiring updates: none ✅
 - Previous: 2.1.0 → 2.2.0 (MINOR: principle VI names the only two anonymous aggregate figures, feature 009)
@@ -75,7 +78,13 @@ with a completed profile and the number of workout entries logged in the last 7 
 else (no names, weights, streaks, food or per-member figures) is served to anonymous requests. Each user's own data
 (food entries, calorie target, body weight, credentials) is visible only to them unless a spec explicitly
 publishes a derived figure; body weight may be shown to other members only as an e1RM ÷ body weight
-ratio, and only for members who opted in. Personal data is never written to logs. Passwords are stored only as
+ratio, and only for members who opted in. Food may be shown to other members only through a member's own
+"Share my nutrition with the squad" setting (default off), enforced on the server, per day, computed when requested
+so a change applies to past days at once, and never for a member hidden from the leaderboard. **Daily totals** exposes
+exactly: calories in, protein, carbs, fat, calories burned in workouts (with whether it includes an AI adjustment),
+and the member's protein and calorie targets. **Totals + meals** adds exactly: meal names, items with servings,
+per-meal macros, photo captions and food photos (expiring links only). Nothing else about food, and no rank or sort
+by calories in, calories burned or deficit. Personal data is never written to logs. Passwords are stored only as
 slow salted hashes. Rate limits (sign-in attempts, nudges) are enforced server-side.
 
 ### VII. Simplicity
@@ -107,4 +116,4 @@ principle or section is added; PATCH: wording only), and propagates the change t
 `.specify/templates/*`. Reviewers check plans against the "Constitution Check" gate. Runtime
 guidance for agents lives in `CLAUDE.md`.
 
-**Version**: 2.3.0 | **Ratified**: 2026-11-11 | **Last Amended**: 2026-11-18
+**Version**: 2.4.0 | **Ratified**: 2026-11-11 | **Last Amended**: 2026-11-18

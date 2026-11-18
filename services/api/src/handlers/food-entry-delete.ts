@@ -5,6 +5,7 @@ import { getDeps, type Deps } from "../lib/deps";
 import { loadFoodDay } from "../lib/food-day-loader";
 import { ENTRY_ID_PATTERN } from "../lib/food-repo";
 import { ok } from "../lib/http";
+import { safeRefreshProtein } from "../lib/protein-events";
 
 /** DELETE /food/entries/{date}/{entryId} : idempotent. */
 export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, deps: Deps) {
@@ -19,6 +20,7 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
     await deps.food.deleteEntry(caller.userId, d.date, entryId);
     // Entry first, picture second: a dangling entry with a missing image would be worse than a stray object.
     if (existing?.photoKey) await deps.photos.delete(existing.photoKey).catch(() => undefined);
+    await safeRefreshProtein(caller.userId, deps);
   }
   return ok(await loadFoodDay(caller.userId, c.ctx, d.date, deps));
 }

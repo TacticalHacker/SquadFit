@@ -2,7 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { DateSchema, HighFiveResultSchema, SquadSettingsSchema, type HighFiveResult } from "@calci/shared";
+import {
+  DayLogSchema,
+  DateSchema,
+  HighFiveResultSchema,
+  NutritionSharingSchema,
+  SquadSettingsSchema,
+  TimelineSchema,
+  type DayLog,
+  type HighFiveResult,
+  type Timeline,
+} from "@calci/shared";
+import { requireProfile } from "../session";
 import { z } from "zod";
 import { ApiRequestError, apiFetch, UnauthorizedError } from "../api";
 import type { ActionState } from "./state";
@@ -30,6 +41,7 @@ export async function saveSquadSettings(_prev: ActionState, formData: FormData):
     weeklyTarget: Number(formData.get("weeklyTarget")),
     leaderboardVisible: formData.get("leaderboardVisible") === "on",
     shareBodyWeight: formData.get("shareBodyWeight") === "on",
+    nutritionSharing: formData.get("nutritionSharing") ?? "off",
   });
   if (!parsed.success) return { error: "Choose a weekly target from 1 to 7" };
   const r = await call(() => apiFetch("/me/squad", { method: "PUT", body: parsed.data, schema: SquadSettingsSchema }));
@@ -71,4 +83,38 @@ export async function confirmJump(date: string, exerciseId: string, updatedAt: s
   revalidatePath("/workouts/gym");
   revalidatePath("/squad");
   return { ok: true };
+}
+
+/** The one-time card on /squad: pick a sharing level, or "dismiss" to keep Off and stop asking (feature 011, FR-026). */
+export async function saveNutritionSharing(choice: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const level = NutritionSharingSchema.safeParse(choice);
+  if (!level.success && choice !== "dismiss") return { ok: false, error: GENERIC };
+  const { profile } = await requireProfile();
+  const { weeklyTarget, leaderboardVisible, shareBodyWeight } = profile.squad;
+  const r = await call(() =>
+    apiFetch("/me/squad", {
+      method: "PUT",
+      body: { weeklyTarget, leaderboardVisible, shareBodyWeight, ...(level.success ? { nutritionSharing: level.data } : { dismissPrompt: true }) },
+      schema: SquadSettingsSchema,
+    }),
+  );
+  if (!r.ok) return r;
+  revalidatePath("/squad");
+  return { ok: true };
+}
+
+const MEMBER_ID = /^[A-Za-z0-9-]{1,64}$/;
+
+/** Lazy set-by-set log of one day (leaderboard rows and profile day cards). The API enforces visibility and sharing. */
+export async function loadDay(memberId: string, date: string): Promise<{ ok: true; log: DayLog } | { ok: false; error: string }> {
+  if (!MEMBER_ID.test(memberId) || !DateSchema.safeParse(date).success) return { ok: false, error: GENERIC };
+  const r = await call(() => apiFetch(`/squad/members/${memberId}/days/${date}`, { schema: DayLogSchema }));
+  return r.ok ? { ok: true, log: r.value } : { ok: false, error: r.error };
+}
+
+/** The next page of a member's timeline. */
+export async function loadTimeline(memberId: string, cursor: string): Promise<{ ok: true; data: Timeline } | { ok: false; error: string }> {
+  if (!MEMBER_ID.test(memberId) || !DateSchema.safeParse(cursor).success) return { ok: false, error: GENERIC };
+  const r = await call(() => apiFetch(`/squad/members/${memberId}/timeline?cursor=${cursor}`, { schema: TimelineSchema }));
+  return r.ok ? { ok: true, data: r.value } : { ok: false, error: r.error };
 }

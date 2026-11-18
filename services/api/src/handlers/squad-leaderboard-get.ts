@@ -1,10 +1,27 @@
 import type { APIGatewayProxyEventV2WithJWTAuthorizer, APIGatewayProxyHandlerV2WithJWTAuthorizer } from "aws-lambda";
-import { PeriodSchema, SquadLeaderboardSchema, buildBoards, localDate, type BoardMember } from "@calci/shared";
+import {
+  PeriodSchema,
+  SquadLeaderboardFullSchema,
+  SquadLeaderboardSchema,
+  addDays,
+  buildBoards,
+  dateRange,
+  hitDays,
+  isWorkoutEntry,
+  localDate,
+  proteinByDay,
+  rankNutrition,
+  weekStart,
+  type BoardMember,
+} from "@calci/shared";
+import { resolveReadDate } from "../lib/day-context";
+import { sharedLevel } from "../lib/member-access";
+import { nutritionOn } from "../lib/member-view";
 import { getCaller } from "../lib/auth";
 import { getDeps, type Deps } from "../lib/deps";
 import { apiError, ok } from "../lib/http";
 import { squadSettingsOf } from "../lib/profile-repo";
-import { visibleTo } from "../lib/squad-view";
+import { squadMember, visibleTo } from "../lib/squad-view";
 import { avatarUrl } from "../lib/views";
 
 /**
@@ -18,6 +35,10 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
   const q = event.queryStringParameters ?? {};
   const period = PeriodSchema.safeParse(q.period ?? "week");
   if (!period.success) return apiError(400, "VALIDATION_FAILED", "Invalid period", { period: "Use week, 30d or all" });
+
+  const me = (await deps.profiles.get(caller.userId))!;
+  const day = resolveReadDate(q.date, localDate(deps.now(), me.timezone));
+  if (!day.ok) return day.response;
 
   const profiles = (await deps.profiles.listCommunity()).filter((p) => visibleTo(p, caller.userId));
   const stats = await deps.squad.batchGetStats(profiles.map((p) => p.userId));
@@ -41,8 +62,63 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
     }),
   );
   const boards = buildBoards({ members, viewerId: caller.userId, period: period.data, exercise: q.exercise ?? "gx-bench-press" });
+  const base = SquadLeaderboardSchema.parse(boards);
+
+  // Feature 011. Members at level off never enter any of this, and only totals (never meals) are shown on rows.
+  const sharing = profiles.filter((p) => p.userId !== caller.userId && sharedLevel(p) !== "off");
+  const trainedOn = (
+    await Promise.all(profiles.map(async (p) => ((await deps.workouts.listEntriesForDay(p.userId, day.date)).some((e) => isWorkoutEntry(e)) ? p.userId : null)))
+  ).filter((id): id is string => id !== null);
+  const nutritionToday = (
+    await Promise.all(
+      sharing.map(async (p) => {
+        const workouts = await deps.workouts.listEntriesForDay(p.userId, day.date);
+        const nutrition = await nutritionOn(p, "totals", day.date, workouts, deps);
+        return nutrition ? { userId: p.userId, nutrition } : null;
+      }),
+    )
+  ).filter((r): r is NonNullable<typeof r> => r !== null);
+  // The viewer's own line follows the same rule as everyone else's: shown only when they share.
+  if (profiles.some((p) => p.userId === caller.userId) && sharedLevel(me) !== "off") {
+    const nutrition = await nutritionOn(me, "totals", day.date, await deps.workouts.listEntriesForDay(caller.userId, day.date), deps);
+    if (nutrition) nutritionToday.push({ userId: caller.userId, nutrition });
+  }
+
+  // Nutrition board: members sharing with a protein target, ranked on their own hit days only.
+  const nutritionPeriod = period.data === "30d" ? "30d" : "week";
+  const candidates = profiles.filter((p) => sharedLevel(p) !== "off" && p.dailyProteinTarget !== undefined);
+  const scored = await Promise.all(
+    candidates.map(async (p) => {
+      const todayLocal = localDate(now, p.timezone);
+      const dates = dateRange(nutritionPeriod === "30d" ? addDays(todayLocal, -29) : weekStart(todayLocal), todayLocal);
+      const byDay = proteinByDay(await deps.food.listEntriesInRange(p.userId, dates[0]!, todayLocal));
+      const { hit, logged } = hitDays(byDay, dates, p.dailyProteinTarget!);
+      return { userId: p.userId, name: p.displayName, hit, logged, periodDays: dates.length, profile: p };
+    }),
+  );
+  const rows = await Promise.all(
+    rankNutrition(scored).map(async (r) => ({
+      member: base.streaks.find((x) => x.member.userId === r.userId)?.member ?? (await squadMember(r.profile, caller.userId, deps.avatars)),
+      rank: r.rank,
+      hitDays: r.hit,
+      periodDays: r.periodDays,
+      daysLogged: r.logged,
+    })),
+  );
+  const myLevel = me.nutritionSharing ?? "off";
+
   // The strict schema guarantees nothing but the allowed fields leave the server (constitution VI).
-  return ok(SquadLeaderboardSchema.parse(boards));
+  return ok(
+    SquadLeaderboardFullSchema.parse({
+      ...base,
+      date: day.date,
+      today: localDate(now, me.timezone),
+      trainedOn,
+      nutritionToday,
+      nutrition: { rows, viewer: { level: myLevel, needsTarget: myLevel !== "off" && me.dailyProteinTarget === undefined } },
+      viewer: { nutritionPrompt: me.nutritionPromptSeen !== true },
+    }),
+  );
 }
 
 export const handler: APIGatewayProxyHandlerV2WithJWTAuthorizer = (event) => handle(event, getDeps());

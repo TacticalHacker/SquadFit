@@ -4,6 +4,7 @@ import { getCaller } from "../lib/auth";
 import { getDeps, type Deps } from "../lib/deps";
 import { ok, parseBody } from "../lib/http";
 import { toOwnProfile } from "../lib/views";
+import { safeRefreshProtein } from "../lib/protein-events";
 
 /** Creates the profile on first call (joining the community), otherwise updates the editable fields. */
 export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, deps: Deps) {
@@ -12,6 +13,7 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
   if (!parsed.ok) return parsed.response;
 
   const item = await deps.profiles.upsert(caller.userId, caller.username, parsed.data, deps.now().toISOString());
+  await safeRefreshProtein(caller.userId, deps);
   const body: MeResponse = { username: caller.username, profile: await toOwnProfile(item, deps.avatars) };
   return ok(body);
 }
