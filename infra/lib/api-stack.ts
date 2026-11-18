@@ -131,6 +131,10 @@ export class ApiStack extends Stack {
     route("gym-entry-confirm-put", HttpMethod.PUT, "/workouts/gym/entries/{date}/{exerciseId}/confirm", { write: true });
     route("squad-leaderboard-get", HttpMethod.GET, "/squad/leaderboard", { avatars: "read" });
     route("squad-feed-get", HttpMethod.GET, "/squad/feed", { avatars: "read" });
+    route("squad-member-get", HttpMethod.GET, "/squad/members/{memberId}", { avatars: "read" });
+    route("squad-member-timeline-get", HttpMethod.GET, "/squad/members/{memberId}/timeline", { photos: "read" });
+    route("squad-member-day-get", HttpMethod.GET, "/squad/members/{memberId}/days/{date}", { photos: "read" });
+    route("squad-today-get", HttpMethod.GET, "/squad/today", { avatars: "read" });
     route("squad-hi5-put", HttpMethod.PUT, "/squad/feed/{id}/high-five", { write: true });
     route("squad-hi5-delete", HttpMethod.DELETE, "/squad/feed/{id}/high-five", { write: true });
     // Nutrition (feature 003)

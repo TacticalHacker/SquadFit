@@ -1,0 +1,25 @@
+# Research: Squad Profiles and Shared Nutrition
+
+**R1: Where sharing is enforced.** Decision: one pure `nutritionFor(level, dayData)` in `packages/shared/src/domain/nutrition-share.ts` returning a discriminated union validated by three strict zod schemas (`NutritionOffSchema` = absent, `NutritionTotalsSchema`, `NutritionMealsSchema`). Every handler obtains the level from `member-access` and serialises only through these. Rationale: one choke point, testable per level, strict schemas reject extra keys. Alternatives: filter fields in each handler (easy to miss one); store pre-redacted copies (stale on level change, violates FR-024).
+
+**R2: Compute on read, no nutrition cache.** Decision: day nutrition is built from the member's food entries (`FoodRepo.listEntriesForDay/InRange`) and workout entries each request. Rationale: instant effect of level changes on past days (FR-024), no write path changes. Cost is bounded: profile timeline pages are 10 days, leaderboard rows use only today/selected day, Nutrition board reads ≤ 30 days per sharing member (tens of members). Alternative: materialised daily rollups; rejected as YAGNI, revisit if the squad grows beyond ~100.
+
+**R3: Timeline paging.** Decision: cursor = the oldest date already returned (exclusive). A page reads workout entries newest-first in chunks until it has 10 workout days or history ends; if a chunk limit is hit, the last (possibly partial) date is dropped and returned next page, so a day is never split or repeated. Milestones (`FEED#wk#`, `first`, PR events) are merged by date from the member's feed items (one query). Alternative: offset paging (breaks when entries change between pages).
+
+**R4: Sessions.** Data has one entry per exercise/activity per day. A day card has one gym session (all `kind:"gym"` entries that day, strength and cardio) and one session per activity entry. No data change.
+
+**R5: Heatmap.** Computed on read from the last 84 days of entries (not `dayVolumeKg`, which keeps only 14 days). Level 0 none, 1 trained without volume (activities/cardio only), 2–4 by the member's own volume terciles over those 84 days, so the scale suits both light and heavy lifters. Volume uses the feature 010 working-set rule.
+
+**R6: Day high-fives.** Decision: reuse feature 010's `FEED#<eventId>` item and `HI5#` items with event id `day#<date>`, created lazily on the first high-five and written **without** `gsi1pk`, so it never appears in the sparse feed index (FR-009). The server checks the date is a workout day for that member and the viewer is not the author. `refreshSquadStats` deletes `day#` items (with their high-fives) whose date stopped being a workout day. Existing endpoints `PUT|DELETE /squad/feed/{id}/high-five` work for these ids unchanged (id `<authorSub>~day#<date>`, URL-encoded). Alternative: a separate item type; rejected, duplicates the transaction code.
+
+**R7: Visibility gate.** Decision: `member-access.ts` loads the target profile; a missing profile, malformed id and a hidden member (`leaderboardVisible === false`, viewer not the owner) all return the same 403 `MEMBER_PRIVATE` so existence of hidden members is not revealed (spec edge case). The nutrition level is forced to `off` for hidden targets (FR-025).
+
+**R8: Nutrition board rule.** A member is a candidate if level ≠ off AND `dailyProteinTarget` set. For each local day in the period (week = Mon..today, 30d = last 30 days) a *hit* is `protein total ≥ target` on a day with ≥ 1 food entry counted (pending photos excluded, entries without macros contribute 0). Score = hit days; secondary display = days logged. Standard competition ranking via existing `rankRows` with key `[hits]` only; days logged and name break display order, never rank. Members sharing without a target appear nowhere to others; their own view gets `needsTarget: true`. Periods: week and 30d.
+
+**R9: Protein streak feed event.** Event id `protein7#<endDate>` created when the member has 7 consecutive local days each with a hit (using their current target), once per completed run (non-overlapping runs counted from the latest run end). Reconciled by `protein-events.ts` after food writes (HTTP and MCP `upsert_food_log`), target change and sharing change; failures never fail the write (same `safe*` pattern as feature 010). The feed handler additionally drops protein events whose author is hidden or at level off at read time, so lowering the level hides them at once.
+
+**R10: Photos.** The member endpoints sign photo URLs with the existing `PhotoStore.urlFor` (1-hour) only when the level is `meals`; at `totals` the photo key is never read into the response. The viewer's own profile always gets their photos.
+
+**R11: One-time card.** `nutritionPromptSeen` on the profile; the leaderboard response carries `viewer.nutritionPrompt: boolean` (true when never seen). `PUT /me/squad` with `nutritionSharing` sets it; a dismiss-only call sets only the flag (keeps Off).
+
+**R12: Linking.** `board-row.tsx` and feed render names/avatars as `<Link href="/squad/<id>">`. Row toggle is a separate button area so tapping the row toggles and the name navigates (FR-013).

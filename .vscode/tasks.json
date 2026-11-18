@@ -1,0 +1,105 @@
+{
+  "version": "2.0.0",
+  "inputs": [
+    {
+      "id": "confirmProd",
+      "type": "pickString",
+      "description": "Deploy to PROD?",
+      "options": [
+        "no",
+        "yes"
+      ],
+      "default": "no"
+    }
+  ],
+  "tasks": [
+    {
+      "label": "AWS login (macmini-raj)",
+      "type": "shell",
+      "command": "aws sts get-caller-identity --profile macmini-raj >/dev/null 2>&1 && echo 'AWS session still valid.' || aws sso login --profile macmini-raj",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Check (typecheck + lint + test)",
+      "type": "shell",
+      "command": "pnpm check",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+      
+    {
+      "label": "Synth (dev)",
+      "type": "shell",
+      "command": "pnpm synth",
+      "options": {
+        "env": {
+          "AWS_PROFILE": "macmini-raj",
+          "AWS_REGION": "ap-south-1",
+          "AWS_DEFAULT_REGION": "ap-south-1"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Deploy stacks (dev)",
+      "type": "shell",
+      "command": "pnpm deploy:dev",
+      "options": {
+        "env": {
+          "AWS_PROFILE": "macmini-raj",
+          "AWS_REGION": "ap-south-1",
+          "AWS_DEFAULT_REGION": "ap-south-1"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Deploy dev (login → check → synth → deploy)",
+      "dependsOn": [
+        "AWS login (macmini-raj)",
+        "Check (typecheck + lint + test)",
+        "Synth (dev)",
+        "Deploy stacks (dev)"
+      ],
+      "dependsOrder": "sequence",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Deploy prod (login → check → deploy)",
+      "type": "shell",
+      "command": "if [ \"${input:confirmProd}\" = \"yes\" ]; then (aws sts get-caller-identity --profile macmini-raj >/dev/null 2>&1 || aws sso login --profile macmini-raj) && pnpm check && pnpm deploy:prod; else echo 'Prod deploy cancelled.'; fi",
+      "options": {
+        "env": {
+          "AWS_PROFILE": "macmini-raj",
+          "AWS_REGION": "ap-south-1",
+          "AWS_DEFAULT_REGION": "ap-south-1"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

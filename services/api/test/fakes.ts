@@ -1,5 +1,5 @@
 import type { APIGatewayProxyEventV2WithJWTAuthorizer, APIGatewayProxyStructuredResultV2 } from "aws-lambda";
-import type { OverallNoteInput, ProfileInput, SquadSettings, SquadStats } from "@calci/shared";
+import type { OverallNoteInput, ProfileInput, SquadSettingsInput, SquadStats } from "@calci/shared";
 import type { AvatarStore } from "../src/lib/avatar-store";
 import { newCoachItem, toCoachNote, type CoachNoteItem, type CoachRepo, type TickResult } from "../src/lib/coach-repo";
 import type { CredentialRepo } from "../src/lib/credential-repo";
@@ -26,6 +26,8 @@ export class InMemoryProfileRepo implements ProfileRepo {
       ...(existing?.weeklyTarget !== undefined ? { weeklyTarget: existing.weeklyTarget } : {}),
       ...(existing?.leaderboardVisible !== undefined ? { leaderboardVisible: existing.leaderboardVisible } : {}),
       ...(existing?.shareBodyWeight !== undefined ? { shareBodyWeight: existing.shareBodyWeight } : {}),
+      ...(existing?.nutritionSharing !== undefined ? { nutritionSharing: existing.nutritionSharing } : {}),
+      ...(existing?.nutritionPromptSeen !== undefined ? { nutritionPromptSeen: existing.nutritionPromptSeen } : {}),
       userId,
       username,
       displayName: input.displayName,
@@ -57,10 +59,17 @@ export class InMemoryProfileRepo implements ProfileRepo {
     return next;
   }
 
-  async setSquadSettings(userId: string, settings: SquadSettings, nowIso: string) {
+  async setSquadSettings(userId: string, settings: SquadSettingsInput, nowIso: string) {
     const existing = this.items.get(userId);
     if (!existing) return null;
-    const next: ProfileItem = { ...existing, ...settings, updatedAt: nowIso };
+    const { dismissPrompt, nutritionSharing, ...rest } = settings;
+    const next: ProfileItem = {
+      ...existing,
+      ...rest,
+      ...(nutritionSharing ? { nutritionSharing } : {}),
+      ...(nutritionSharing || dismissPrompt ? { nutritionPromptSeen: true } : {}),
+      updatedAt: nowIso,
+    };
     this.items.set(userId, next);
     return next;
   }
@@ -450,7 +459,7 @@ export class InMemorySquadRepo implements SquadRepo {
   }
   async listSquadFeed(squadId: string, pageSize: number, startKey?: Record<string, unknown>) {
     const all = [...this.feed.values()]
-      .filter((f) => f.squadId === squadId)
+      .filter((f) => f.squadId === squadId && f.listed !== false)
       .sort((a, b) => `${b.createdAt}#${b.userId}#${b.eventId}`.localeCompare(`${a.createdAt}#${a.userId}#${a.eventId}`));
     const from = typeof startKey?.offset === "number" ? startKey.offset : 0;
     const items = all.slice(from, from + pageSize).map((f) => structuredClone(f));

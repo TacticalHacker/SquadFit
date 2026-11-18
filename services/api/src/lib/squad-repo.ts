@@ -25,6 +25,8 @@ export interface FeedItem {
   payload: Record<string, unknown>;
   hi5Count: number;
   createdAt: string;
+  /** false = a high-five target that never appears in the squad feed (feature 011 day cards); default true. */
+  listed?: boolean;
 }
 
 export type FeedKey = { userId: string; eventId: string };
@@ -74,6 +76,7 @@ function toFeed(i: Record<string, unknown>): FeedItem {
     payload: (i.payload ?? {}) as Record<string, unknown>,
     hi5Count: (i.hi5Count as number | undefined) ?? 0,
     createdAt: i.createdAt as string,
+    ...(i.gsi1pk === undefined ? { listed: false } : {}),
   };
 }
 
@@ -161,8 +164,9 @@ export class DynamoSquadRepo implements SquadRepo {
           pk: pk(item.userId),
           sk: feedSk(item.eventId),
           ...item,
-          gsi1pk: feedGsiPk(item.squadId),
-          gsi1sk: `${item.createdAt}#${item.userId}#${item.eventId}`,
+          ...(item.listed === false
+            ? {}
+            : { gsi1pk: feedGsiPk(item.squadId), gsi1sk: `${item.createdAt}#${item.userId}#${item.eventId}` }),
         },
       }),
     );

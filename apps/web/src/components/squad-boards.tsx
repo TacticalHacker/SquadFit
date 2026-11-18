@@ -1,11 +1,11 @@
 import Link from "next/link";
-import type { SquadLeaderboard } from "@calci/shared";
+import type { SquadLeaderboardFull } from "@calci/shared";
 import { segmentClass, segmentGroupClass, secondaryButtonClass, inputClass } from "./form-bits";
 import { BoardList, BoardRow, EmptyBoard } from "./board-row";
 
-export const BOARDS = ["streaks", "prs", "consistency", "lifts"] as const;
+export const BOARDS = ["streaks", "prs", "consistency", "lifts", "nutrition"] as const;
 export type BoardId = (typeof BOARDS)[number];
-const LABELS: Record<BoardId, string> = { streaks: "Streaks", prs: "PRs", consistency: "Consistency", lifts: "Lifts" };
+const LABELS: Record<BoardId, string> = { streaks: "Streaks", prs: "PRs", consistency: "Consistency", lifts: "Lifts", nutrition: "Nutrition" };
 
 const nf = new Intl.NumberFormat("en", { maximumFractionDigits: 1 });
 const shortDate = (d: string) =>
@@ -14,9 +14,13 @@ const PERIOD_WORDS = { week: "this week", "30d": "in the last 30 days", all: "ye
 
 export interface BoardQuery {
   board: BoardId;
-  period: SquadLeaderboard["period"];
+  period: SquadLeaderboardFull["period"];
   exercise: string | undefined;
   relative: boolean;
+  /** "today" = everyone's full workout for the day as cards (feature 011). */
+  view: "boards" | "today";
+  /** The selected day (YYYY-MM-DD); undefined = today. */
+  date: string | undefined;
 }
 
 /** Keeps the other choices when one changes (tabs, period, exercise are all plain links, so no client state). */
@@ -27,18 +31,22 @@ export function squadHref(q: BoardQuery, change: Partial<BoardQuery>): string {
   if (n.period !== "week") p.set("period", n.period);
   if (n.exercise) p.set("exercise", n.exercise);
   if (n.relative) p.set("rel", "1");
+  if (n.view === "today") p.set("view", "today");
+  if (n.date) p.set("date", n.date);
   const s = p.toString();
   return s ? `/squad?${s}` : "/squad";
 }
 
 export function PeriodToggle({ query }: { query: BoardQuery }) {
-  const items = [
+  const all = [
     ["week", "This week"],
     ["30d", "Last 30 days"],
     ["all", "All time"],
   ] as const;
+  // The Nutrition board has no all-time view (feature 011, FR-036).
+  const items = query.board === "nutrition" ? all.slice(0, 2) : all;
   return (
-    <nav aria-label="Period" className={`${segmentGroupClass} grid-cols-3`}>
+    <nav aria-label="Period" className={`${segmentGroupClass} ${items.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
       {items.map(([id, label]) => (
         <Link key={id} href={squadHref(query, { period: id })} aria-current={query.period === id ? "true" : undefined} className={segmentClass(query.period === id)}>
           {label}
@@ -61,7 +69,8 @@ export function BoardTabs({ query }: { query: BoardQuery }) {
 }
 
 /** The selected board. Streaks and Consistency do not depend on the period, and say so. */
-export function Board({ data, query }: { data: SquadLeaderboard; query: BoardQuery }) {
+export function Board({ data, query }: { data: SquadLeaderboardFull; query: BoardQuery }) {
+  if (query.board === "nutrition") return <NutritionBoard data={data} />;
   if (query.board === "streaks") return <Streaks data={data} />;
   if (query.board === "prs") return <Prs data={data} query={query} />;
   if (query.board === "consistency") return <Consistency data={data} />;
@@ -70,7 +79,13 @@ export function Board({ data, query }: { data: SquadLeaderboard; query: BoardQue
 
 const Note = ({ children }: { children: string }) => <p className="text-xs text-muted">{children}</p>;
 
-function Streaks({ data }: { data: SquadLeaderboard }) {
+/** Expansion data for a row: the selected day, whether the member trained and their compact nutrition line. */
+const dayFor = (data: SquadLeaderboardFull, userId: string) => {
+  const nutrition = data.nutritionToday.find((n) => n.userId === userId)?.nutrition;
+  return { date: data.date, trained: data.trainedOn.includes(userId), isToday: data.date === data.today, ...(nutrition ? { nutrition } : {}) };
+};
+
+function Streaks({ data }: { data: SquadLeaderboardFull }) {
   if (data.streaks.length === 0) return <EmptyBoard>No workouts logged yet. The first session starts the streak.</EmptyBoard>;
   return (
     <div className="flex flex-col gap-2">
@@ -86,6 +101,7 @@ function Streaks({ data }: { data: SquadLeaderboard }) {
               main={r.week.days}
               unit={`/ ${r.week.target} days`}
               secondary={`${r.current}-week streak · best ${r.best}`}
+              day={dayFor(data, r.member.userId)}
               below={
                 <div
                   role="img"
@@ -103,7 +119,7 @@ function Streaks({ data }: { data: SquadLeaderboard }) {
   );
 }
 
-function Prs({ data, query }: { data: SquadLeaderboard; query: BoardQuery }) {
+function Prs({ data, query }: { data: SquadLeaderboardFull; query: BoardQuery }) {
   if (data.prs.length === 0) return <EmptyBoard>No PRs {PERIOD_WORDS[query.period]}. Go lift something heavy.</EmptyBoard>;
   return (
     <div className="flex flex-col gap-2">
@@ -117,6 +133,7 @@ function Prs({ data, query }: { data: SquadLeaderboard; query: BoardQuery }) {
           main={r.count}
           unit={r.count === 1 ? "PR" : "PRs"}
           secondary={r.lifts[0] ? `${r.lifts[0].exerciseName} ${nf.format(r.lifts[0].weightKg)} kg × ${r.lifts[0].reps}` : undefined}
+          day={dayFor(data, r.member.userId)}
           expand={
             <ul className="flex flex-col gap-1.5 text-sm">
               {r.lifts.map((l) => (
@@ -137,7 +154,7 @@ function Prs({ data, query }: { data: SquadLeaderboard; query: BoardQuery }) {
   );
 }
 
-function Consistency({ data }: { data: SquadLeaderboard }) {
+function Consistency({ data }: { data: SquadLeaderboardFull }) {
   if (data.consistency.every((r) => r.percent === null)) {
     return <EmptyBoard>Consistency shows after your first full week.</EmptyBoard>;
   }
@@ -153,6 +170,7 @@ function Consistency({ data }: { data: SquadLeaderboard }) {
             main={r.percent === null ? "—" : r.percent}
             unit={r.percent === null ? undefined : "%"}
             secondary={`${r.weekDays}/${r.target} this week · ${nf.format(r.weekVolumeKg)} kg lifted`}
+            day={dayFor(data, r.member.userId)}
           />
         ))}
       </BoardList>
@@ -160,7 +178,7 @@ function Consistency({ data }: { data: SquadLeaderboard }) {
   );
 }
 
-function Lifts({ data, query }: { data: SquadLeaderboard; query: BoardQuery }) {
+function Lifts({ data, query }: { data: SquadLeaderboardFull; query: BoardQuery }) {
   const { lift } = data;
   const rows = query.relative
     ? [...lift.rows].sort((a, b) => (a.relativeRank ?? 1e9) - (b.relativeRank ?? 1e9) || a.member.displayName.localeCompare(b.member.displayName))
@@ -221,6 +239,7 @@ function Lifts({ data, query }: { data: SquadLeaderboard; query: BoardQuery }) {
                 main={r.relative === null ? "—" : r.relative.toFixed(2)}
                 unit={r.relative === null ? undefined : "×"}
                 secondary={r.relative === null ? "Not sharing body weight" : `e1RM ${nf.format(r.e1rm)} kg`}
+                day={dayFor(data, r.member.userId)}
               />
             ) : (
               <BoardRow
@@ -230,9 +249,53 @@ function Lifts({ data, query }: { data: SquadLeaderboard; query: BoardQuery }) {
                 main={nf.format(r.e1rm)}
                 unit="kg"
                 secondary={`${nf.format(r.weightKg)} kg × ${r.reps}`}
+                day={dayFor(data, r.member.userId)}
               />
             ),
           )}
+        </BoardList>
+      )}
+    </div>
+  );
+}
+
+/** Ranked only on days the member hit their own protein target. Calories in and burned are information, never a rank. */
+function NutritionBoard({ data }: { data: SquadLeaderboardFull }) {
+  const { rows, viewer } = data.nutrition;
+  return (
+    <div className="flex flex-col gap-2">
+      <Note>Ranked on how many days each member hit their own protein target. Everyone has a different target, so this is fair. Only members who share their nutrition appear.</Note>
+      {viewer.level !== "off" && viewer.needsTarget ? (
+        <p className="rounded-md border border-warning/40 bg-warning/10 px-4 py-2 text-sm text-ink">
+          Set a protein target in{" "}
+          <Link href="/settings" className="text-accent underline underline-offset-4">
+            Settings
+          </Link>{" "}
+          to be ranked.
+        </p>
+      ) : null}
+      {viewer.level === "off" ? (
+        <p className="rounded-md border border-line bg-surface-2 px-4 py-2 text-sm text-muted">
+          You&apos;re not sharing your nutrition, so you&apos;re not on this board.{" "}
+          <Link href="/settings#squad" className="text-accent underline underline-offset-4">
+            Sharing settings
+          </Link>
+        </p>
+      ) : null}
+      {rows.length === 0 ? (
+        <EmptyBoard>Nobody has shared their nutrition and set a protein target yet.</EmptyBoard>
+      ) : (
+        <BoardList label="Protein target days">
+          {rows.map((r) => (
+            <BoardRow
+              key={r.member.userId}
+              rank={r.rank}
+              member={r.member}
+              main={r.hitDays}
+              unit={`/ ${r.periodDays} days`}
+              secondary={`Hit their protein target · logged ${r.daysLogged} ${r.daysLogged === 1 ? "day" : "days"}`}
+            />
+          ))}
         </BoardList>
       )}
     </div>

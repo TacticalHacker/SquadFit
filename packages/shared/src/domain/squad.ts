@@ -67,7 +67,7 @@ export interface SquadStats {
   flags: { date: string; exerciseId: string }[];
 }
 
-export type SquadEventKind = "pr" | "streak_week" | "first_workout";
+export type SquadEventKind = "pr" | "streak_week" | "first_workout" | "workout_day" | "protein_streak";
 export interface SquadEvent {
   id: string;
   kind: SquadEventKind;
@@ -91,12 +91,12 @@ export function e1rm(weightKg: number, reps: number): number | null {
   return reps >= 1 && reps <= 10 ? round1(weightKg * (1 + reps / 30)) : null;
 }
 
-const isWorkingSet = (s: { reps: number; weightKg: number; completed: boolean }) => s.completed && s.reps >= 1 && s.weightKg > 0;
+export const isWorkingSet = (s: { reps: number; weightKg: number; completed: boolean }) => s.completed && s.reps >= 1 && s.weightKg > 0;
 
 const isGymStrength = (e: SquadEntry) => e.kind === "gym" && e.exerciseKind !== "cardio";
 
 /** FR-007: a workout day has gym strength with a completed set, gym cardio, or any activity entry. */
-function isWorkoutEntry(e: SquadEntry): boolean {
+export function isWorkoutEntry(e: SquadEntry): boolean {
   if (e.kind !== "gym") return true;
   if (e.exerciseKind === "cardio") return true;
   return (e.sets ?? []).some((s) => s.completed);

@@ -44,7 +44,7 @@ async function ProfileSection() {
 async function SquadSection() {
   const { profile } = await requireProfile();
   return (
-    <section aria-labelledby="squad-heading" className="flex flex-col gap-4">
+    <section id="squad" aria-labelledby="squad-heading" className="flex flex-col gap-4">
       <h2 id="squad-heading" className="text-xl font-semibold">
         Squad
       </h2>

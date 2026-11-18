@@ -1,6 +1,6 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, GetCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
-import { DEFAULT_SQUAD_SETTINGS, type ProfileInput, type SquadSettings } from "@calci/shared";
+import { DEFAULT_SQUAD_SETTINGS, type NutritionSharing, type ProfileInput, type SquadSettings, type SquadSettingsInput } from "@calci/shared";
 
 /** A stored profile. Key layout: see specs/001-user-accounts/data-model.md. */
 export interface ProfileItem {
@@ -16,17 +16,21 @@ export interface ProfileItem {
   weeklyTarget?: number;
   leaderboardVisible?: boolean;
   shareBodyWeight?: boolean;
+  /** Feature 011; absent = off / prompt not seen. */
+  nutritionSharing?: NutritionSharing;
+  nutritionPromptSeen?: boolean;
   avatarKey?: string;
   createdAt: string;
   updatedAt: string;
 }
 
 /** A member's squad settings with defaults applied. */
-export function squadSettingsOf(p: Pick<ProfileItem, "weeklyTarget" | "leaderboardVisible" | "shareBodyWeight">): SquadSettings {
+export function squadSettingsOf(p: Pick<ProfileItem, "weeklyTarget" | "leaderboardVisible" | "shareBodyWeight" | "nutritionSharing">): SquadSettings {
   return {
     weeklyTarget: p.weeklyTarget ?? DEFAULT_SQUAD_SETTINGS.weeklyTarget,
     leaderboardVisible: p.leaderboardVisible ?? DEFAULT_SQUAD_SETTINGS.leaderboardVisible,
     shareBodyWeight: p.shareBodyWeight ?? DEFAULT_SQUAD_SETTINGS.shareBodyWeight,
+    nutritionSharing: p.nutritionSharing ?? DEFAULT_SQUAD_SETTINGS.nutritionSharing,
   };
 }
 
@@ -47,7 +51,7 @@ export interface ProfileRepo {
     nowIso: string,
   ): Promise<ProfileItem | null>;
   /** Feature 010: save the three squad settings. Returns null if there is no profile. */
-  setSquadSettings(userId: string, settings: SquadSettings, nowIso: string): Promise<ProfileItem | null>;
+  setSquadSettings(userId: string, settings: SquadSettingsInput, nowIso: string): Promise<ProfileItem | null>;
   /** Set or clear the avatar key; returns the previous key. Throws ProfileMissingError if no profile. */
   setAvatarKey(userId: string, key: string | null, nowIso: string): Promise<string | null>;
   /** Everyone with a completed profile, in join order. */
@@ -68,6 +72,8 @@ function fromItem(item: Record<string, unknown>): ProfileItem {
     ...(typeof item.weeklyTarget === "number" ? { weeklyTarget: item.weeklyTarget } : {}),
     ...(typeof item.leaderboardVisible === "boolean" ? { leaderboardVisible: item.leaderboardVisible } : {}),
     ...(typeof item.shareBodyWeight === "boolean" ? { shareBodyWeight: item.shareBodyWeight } : {}),
+    ...(item.nutritionSharing === "totals" || item.nutritionSharing === "meals" || item.nutritionSharing === "off" ? { nutritionSharing: item.nutritionSharing } : {}),
+    ...(typeof item.nutritionPromptSeen === "boolean" ? { nutritionPromptSeen: item.nutritionPromptSeen } : {}),
     ...(typeof item.avatarKey === "string" ? { avatarKey: item.avatarKey } : {}),
     createdAt: item.createdAt as string,
     updatedAt: item.updatedAt as string,
@@ -161,19 +167,24 @@ export class DynamoProfileRepo implements ProfileRepo {
     }
   }
 
-  async setSquadSettings(userId: string, settings: SquadSettings, nowIso: string) {
+  async setSquadSettings(userId: string, settings: SquadSettingsInput, nowIso: string) {
     try {
       const res = await this.doc.send(
         new UpdateCommand({
           TableName: this.tableName,
           Key: { pk: pk(userId), sk: "PROFILE" },
           ConditionExpression: "attribute_exists(pk)",
-          UpdateExpression: "SET weeklyTarget = :w, leaderboardVisible = :v, shareBodyWeight = :s, updatedAt = :now",
+          UpdateExpression:
+            "SET weeklyTarget = :w, leaderboardVisible = :v, shareBodyWeight = :s, updatedAt = :now" +
+            (settings.nutritionSharing ? ", nutritionSharing = :n" : "") +
+            (settings.nutritionSharing || settings.dismissPrompt ? ", nutritionPromptSeen = :t" : ""),
           ExpressionAttributeValues: {
             ":w": settings.weeklyTarget,
             ":v": settings.leaderboardVisible,
             ":s": settings.shareBodyWeight,
             ":now": nowIso,
+            ...(settings.nutritionSharing ? { ":n": settings.nutritionSharing } : {}),
+            ...(settings.nutritionSharing || settings.dismissPrompt ? { ":t": true } : {}),
           },
           ReturnValues: "ALL_NEW",
         }),

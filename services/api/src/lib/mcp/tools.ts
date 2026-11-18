@@ -18,6 +18,7 @@ import { buildHistoryDays, noteSummary, pendingHint, profileBlock } from "./hist
 import { photoTools } from "./photos";
 import { writeTools } from "./writes";
 import { describeIssues, fail, stripUnknown, type Tool, type ToolContext, type ToolResult } from "./types";
+import { safeRefreshProtein } from "../protein-events";
 
 const getUserHistory: Tool = {
   name: "get_user_history",
@@ -136,6 +137,7 @@ const updateUserTargets: Tool = {
       ctx.deps.now().toISOString(),
     );
     if (!updated) return fail("Profile setup is not complete; finish it in the app first.");
+    await safeRefreshProtein(ctx.userId, ctx.deps);
     return {
       text: `Targets updated: calories ${updated.dailyCalorieTarget}, protein ${updated.dailyProteinTarget ?? "none"}.`,
     };

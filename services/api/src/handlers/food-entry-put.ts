@@ -7,6 +7,7 @@ import { loadFoodDay } from "../lib/food-day-loader";
 import { patchFoodEntry } from "../lib/food-write";
 import { ENTRY_ID_PATTERN, type EntryUpdate, type FoodEntryItem } from "../lib/food-repo";
 import { apiError, ok, parseBody } from "../lib/http";
+import { safeRefreshProtein } from "../lib/protein-events";
 
 /** PUT /food/entries/{date}/{entryId} : typed entries edit name/calories/macros/meal; list entries servings/meal (via `patchFoodEntry`). */
 export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, deps: Deps) {
@@ -73,5 +74,6 @@ async function handlePhotoEdit(
   const allowed: PhotoStatus[] = pending ? ["pending"] : ["ai", "manual", "edited"];
   const updated = await deps.food.updateEntryIf(ctx.caller.userId, ctx.d.date, ctx.entryId, fields, deps.now().toISOString(), allowed);
   if (!updated) return apiError(409, "VALIDATION_FAILED", CONFLICT, { _: CONFLICT });
+  await safeRefreshProtein(ctx.caller.userId, deps);
   return ok(await loadFoodDay(ctx.caller.userId, ctx.c.ctx, ctx.d.date, deps));
 }

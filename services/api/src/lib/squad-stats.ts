@@ -1,4 +1,4 @@
-import { SQUAD_ID, buildMemberStats, localDate } from "@calci/shared";
+import { SQUAD_ID, buildMemberStats, isWorkoutEntry, localDate } from "@calci/shared";
 import type { Deps } from "./deps";
 import { squadSettingsOf } from "./profile-repo";
 
@@ -44,6 +44,13 @@ export async function refreshSquadStats(userId: string, deps: StatsDeps, opts: {
     if ((await deps.squad.putStats(userId, stats, prev?.version ?? null)) === "conflict") continue;
 
     const derived = new Set(events.map((e) => e.id));
+    // Day high-five targets (feature 011) stay while that date is still a workout day; they are never created here.
+    // Protein events belong to protein-events.ts.
+    const workoutDays = new Set(entries.filter((e) => isWorkoutEntry(e)).map((e) => e.date));
+    for (const f of feed) {
+      if (f.eventId.startsWith("day#") && workoutDays.has(f.eventId.slice("day#".length))) derived.add(f.eventId);
+      if (f.eventId.startsWith("protein7#")) derived.add(f.eventId);
+    }
     for (const e of events) {
       const have = existing.get(e.id);
       if (!have) {

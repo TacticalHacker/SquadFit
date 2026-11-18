@@ -33,3 +33,6 @@ export * from "./contracts/public";
 export * from "./domain/week";
 export * from "./domain/squad";
 export * from "./contracts/squad";
+export * from "./domain/member-profile";
+export * from "./domain/nutrition-share";
+export * from "./contracts/squad-profile";

@@ -12,6 +12,7 @@ import {
 } from "@calci/shared";
 import { ENTRY_ID_PATTERN, type FoodEntryItem } from "../food-repo";
 import { describeIssues, fail, stripUnknown, type Tool, type ToolContext, type ToolResult } from "./types";
+import { safeRefreshProtein } from "../protein-events";
 
 // Photos, captions and entry values never go into error text or logs (spec FR-014).
 const NOT_FOUND = "No such photo meal. Use list_pending_food_photos to see the current ones.";
@@ -94,6 +95,7 @@ const submitFoodEstimate: Tool = {
       ["pending"],
     );
     if (!applied) return fail("This meal is no longer pending; it was not changed.");
+    await safeRefreshProtein(ctx.userId, ctx.deps);
     return { text: `Estimate saved for ${entry.meal} on ${date}: ${calories} kcal, P ${protein} g, C ${carbs} g, F ${fat} g.` };
   },
 };
