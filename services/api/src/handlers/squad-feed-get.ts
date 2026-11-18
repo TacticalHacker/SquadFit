@@ -4,7 +4,7 @@ import { getCaller } from "../lib/auth";
 import { getDeps, type Deps } from "../lib/deps";
 import { apiError, ok } from "../lib/http";
 import { feedId, type FeedItem } from "../lib/squad-repo";
-import { sharedLevel } from "../lib/member-access";
+import { sharedLevel, stepsShared } from "../lib/member-access";
 import { squadMember, visibleTo } from "../lib/squad-view";
 
 const SHOWN = 20;
@@ -25,6 +25,7 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
       if (!author || !visibleTo(author, caller.userId)) continue;
       if (item.kind === "workout_day") continue;
       if (item.kind === "protein_streak" && sharedLevel(author) === "off") continue;
+      if (item.kind === "step_streak" && !stepsShared(author)) continue;
       picked.push(item);
       if (picked.length === SHOWN) break;
     }

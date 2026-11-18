@@ -1,5 +1,7 @@
 import type { APIGatewayProxyEventV2WithJWTAuthorizer, APIGatewayProxyStructuredResultV2 } from "aws-lambda";
-import type { OverallNoteInput, ProfileInput, SquadSettingsInput, SquadStats } from "@calci/shared";
+import type { ActivitySource, ActivityValues, OverallNoteInput, ProfileInput, SquadSettingsInput, SquadStats, StepSettings } from "@calci/shared";
+import { toActivityItem, type ActivityItem, type ActivityRepo } from "../src/lib/activity-repo";
+import type { HealthTokenRepo } from "../src/lib/health-token-repo";
 import type { AvatarStore } from "../src/lib/avatar-store";
 import { newCoachItem, toCoachNote, type CoachNoteItem, type CoachRepo, type TickResult } from "../src/lib/coach-repo";
 import type { CredentialRepo } from "../src/lib/credential-repo";
@@ -28,6 +30,8 @@ export class InMemoryProfileRepo implements ProfileRepo {
       ...(existing?.shareBodyWeight !== undefined ? { shareBodyWeight: existing.shareBodyWeight } : {}),
       ...(existing?.nutritionSharing !== undefined ? { nutritionSharing: existing.nutritionSharing } : {}),
       ...(existing?.nutritionPromptSeen !== undefined ? { nutritionPromptSeen: existing.nutritionPromptSeen } : {}),
+      ...(existing?.dailyStepGoal !== undefined ? { dailyStepGoal: existing.dailyStepGoal } : {}),
+      ...(existing?.shareSteps !== undefined ? { shareSteps: existing.shareSteps } : {}),
       userId,
       username,
       displayName: input.displayName,
@@ -70,6 +74,14 @@ export class InMemoryProfileRepo implements ProfileRepo {
       ...(nutritionSharing || dismissPrompt ? { nutritionPromptSeen: true } : {}),
       updatedAt: nowIso,
     };
+    this.items.set(userId, next);
+    return next;
+  }
+
+  async setStepSettings(userId: string, settings: StepSettings, nowIso: string) {
+    const existing = this.items.get(userId);
+    if (!existing) return null;
+    const next: ProfileItem = { ...existing, ...settings, updatedAt: nowIso };
     this.items.set(userId, next);
     return next;
   }
@@ -487,6 +499,51 @@ export class InMemorySquadRepo implements SquadRepo {
   }
 }
 
+export class InMemoryActivityRepo implements ActivityRepo {
+  readonly items = new Map<string, ActivityItem>();
+  async putDays(userId: string, days: readonly ActivityValues[], source: ActivitySource, nowIso: string) {
+    const out = days.map((d) => toActivityItem(userId, d, source, nowIso));
+    for (const i of out) this.items.set(`${userId}#${i.date}`, i);
+    return out;
+  }
+  async listRange(userId: string, from: string, to: string) {
+    return [...this.items.values()].filter((i) => i.userId === userId && i.date >= from && i.date <= to).sort((a, b) => a.date.localeCompare(b.date));
+  }
+}
+
+export class InMemoryHealthTokenRepo implements HealthTokenRepo {
+  readonly byHash = new Map<string, string>();
+  readonly byUser = new Map<string, { tokenHash: string; createdAt: string; lastUsedAt: string | null }>();
+  readonly counts = new Map<string, number>();
+  async findUserId(hash: string) {
+    return this.byHash.get(hash) ?? null;
+  }
+  async get(userId: string) {
+    return this.byUser.get(userId) ?? null;
+  }
+  async issue(userId: string, hash: string, nowIso: string) {
+    const prev = this.byUser.get(userId);
+    if (prev) this.byHash.delete(prev.tokenHash);
+    this.byHash.set(hash, userId);
+    this.byUser.set(userId, { tokenHash: hash, createdAt: nowIso, lastUsedAt: null });
+  }
+  async revoke(userId: string) {
+    const prev = this.byUser.get(userId);
+    if (prev) this.byHash.delete(prev.tokenHash);
+    this.byUser.delete(userId);
+  }
+  async touch(userId: string, nowIso: string) {
+    const prev = this.byUser.get(userId);
+    if (prev) this.byUser.set(userId, { ...prev, lastUsedAt: nowIso });
+  }
+  async hit(userId: string, nowMs: number) {
+    const k = `${userId}#${Math.floor(nowMs / 3_600_000)}`;
+    const n = (this.counts.get(k) ?? 0) + 1;
+    this.counts.set(k, n);
+    return n;
+  }
+}
+
 export function makeDeps(now = "2026-11-11T10:00:00.000Z") {
   const profiles = new InMemoryProfileRepo();
   const workouts = new InMemoryWorkoutRepo();
@@ -498,9 +555,11 @@ export function makeDeps(now = "2026-11-11T10:00:00.000Z") {
   const photos = new FakePhotoStore();
   const waitlist = new InMemoryWaitlistRepo();
   const squad = new InMemorySquadRepo();
+  const activity = new InMemoryActivityRepo();
+  const healthTokens = new InMemoryHealthTokenRepo();
   let clock = new Date(now);
-  const deps: Deps = { profiles, workouts, gym, food, coach, credentials, avatars, photos, waitlist, squad, now: () => clock };
-  return { deps, profiles, workouts, gym, food, coach, credentials, avatars, photos, waitlist, squad, setNow: (iso: string) => (clock = new Date(iso)) };
+  const deps: Deps = { profiles, workouts, gym, food, coach, credentials, avatars, photos, waitlist, squad, activity, healthTokens, now: () => clock };
+  return { deps, profiles, workouts, gym, food, coach, credentials, avatars, photos, waitlist, squad, activity, healthTokens, setNow: (iso: string) => (clock = new Date(iso)) };
 }
 
 export function makeEvent(opts: {

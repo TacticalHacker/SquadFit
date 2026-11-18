@@ -158,6 +158,14 @@ export class ApiStack extends Stack {
     // Feature 008: same function, key in the path for clients that can't send headers (ChatGPT "No authentication").
     this.api.addRoutes({ path: "/mcp/{key}", methods: [HttpMethod.ANY], integration: new HttpLambdaIntegration("mcpKeyIntegration", mcpFn) });
 
+    // Health activity sync (feature 012). /integrations/activity has no Cognito authorizer: an iPhone Shortcut or the
+    // Health Auto Export app sends the member's sfh_ Health sync token, verified in the handler (write-only scope).
+    route("integrations-activity-post", HttpMethod.POST, "/integrations/activity", { auth: false, write: true });
+    route("me-health-sync-get", HttpMethod.GET, "/me/health-sync");
+    route("me-health-token-post", HttpMethod.POST, "/me/health-token", { write: true });
+    route("me-health-token-delete", HttpMethod.DELETE, "/me/health-token", { write: true });
+    route("me-steps-put", HttpMethod.PUT, "/me/steps", { write: true });
+
     // Public landing page (feature 009): anonymous, called only by the Next server. Pulse returns two counts
     // (constitution VI); the waitlist is rate-limited and dedupes by email in the handler.
     route("public-pulse-get", HttpMethod.GET, "/public/pulse", { auth: false });

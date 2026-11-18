@@ -43,6 +43,7 @@ describe("POST /mcp authentication and gating", () => {
     expect(r.status).toBe(200);
     const names = r.json.result.tools.map((t: { name: string }) => t.name).sort();
     expect(names).toEqual([
+      "get_daily_activity",
       "get_food_photo",
       "get_full_context",
       "get_user_history",
@@ -52,6 +53,7 @@ describe("POST /mcp authentication and gating", () => {
       "submit_food_estimate",
       "update_user_targets",
       "update_workout_calories",
+      "upsert_daily_activity",
       "upsert_food_log",
       "upsert_workout_log",
     ]);

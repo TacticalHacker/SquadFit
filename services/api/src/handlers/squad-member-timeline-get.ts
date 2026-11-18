@@ -3,13 +3,13 @@ import { DateSchema, TIMELINE_PAGE_DAYS, TimelineSchema, addDays, buildDayCards,
 import { getCaller } from "../lib/auth";
 import { getDeps, type Deps } from "../lib/deps";
 import { apiError, ok } from "../lib/http";
-import { resolveMember } from "../lib/member-access";
-import { dayCard, loadHighFives } from "../lib/member-view";
+import { resolveMember, stepsVisibleTo } from "../lib/member-access";
+import { dayCard, loadHighFives, stepsFor } from "../lib/member-view";
 import { feedId } from "../lib/squad-repo";
 import type { EntryItem } from "../lib/workout-repo";
 
 const WINDOW_DAYS = 90;
-const MILESTONES = new Set(["streak_week", "first_workout", "protein_streak"]);
+const MILESTONES = new Set(["streak_week", "first_workout", "protein_streak", "step_streak"]);
 
 /**
  * GET /squad/members/{memberId}/timeline?cursor=<date> : 10 workout days per page, newest first, with milestones
@@ -43,9 +43,10 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
   const { page, nextCursor } = pageTimeline(buildDayCards(loaded, {}), cursor);
 
   const hi5 = await loadHighFives(profile.userId, caller.userId, deps);
+  const steps = page.length ? await stepsFor(profile, caller.userId, page[page.length - 1]!.date, page[0]!.date, deps) : new Map();
   const cards = await Promise.all(
     page.map(async (c) => {
-      const card = await dayCard({ owner: profile, viewerId: caller.userId, level: access.level, date: c.date, workouts: loaded, stats, hi5, withSets: false, deps });
+      const card = await dayCard({ owner: profile, viewerId: caller.userId, level: access.level, date: c.date, workouts: loaded, stats, hi5, withSets: false, steps, deps });
       return card;
     }),
   );
@@ -53,11 +54,11 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
   const high = cursor ? addDays(cursor, -1) : "9999-12-31";
   const low = nextCursor === null ? "0000-01-01" : page[page.length - 1]!.date;
   const milestones = [...hi5.byEvent.values()]
-    .filter((f) => MILESTONES.has(f.kind) && f.eventDate >= low && f.eventDate <= high && (f.kind !== "protein_streak" || access.level !== "off"))
+    .filter((f) => MILESTONES.has(f.kind) && f.eventDate >= low && f.eventDate <= high && (f.kind !== "protein_streak" || access.level !== "off") && (f.kind !== "step_streak" || stepsVisibleTo(profile, caller.userId)))
     .map((f) => ({
       type: "milestone" as const,
       id: feedId(profile.userId, f.eventId),
-      kind: f.kind as "streak_week" | "first_workout" | "protein_streak",
+      kind: f.kind as "streak_week" | "first_workout" | "protein_streak" | "step_streak",
       date: f.eventDate,
       week: f.kind === "streak_week" ? ((f.payload.week as number | undefined) ?? null) : null,
       highFives: f.hi5Count,

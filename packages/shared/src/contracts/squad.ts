@@ -104,7 +104,7 @@ export type SquadLeaderboard = z.infer<typeof SquadLeaderboardSchema>;
 export const SquadFeedItemSchema = z.strictObject({
   id: z.string(),
   member: SquadMemberSchema,
-  kind: z.enum(["pr", "streak_week", "first_workout", "protein_streak"]),
+  kind: z.enum(["pr", "streak_week", "first_workout", "protein_streak", "step_streak"]),
   date: DateSchema,
   pr: z
     .strictObject({ exerciseName: z.string(), weightKg: z.number(), reps: z.number().int(), e1rm: z.number().nullable() })

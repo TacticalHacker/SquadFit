@@ -36,3 +36,5 @@ export * from "./contracts/squad";
 export * from "./domain/member-profile";
 export * from "./domain/nutrition-share";
 export * from "./contracts/squad-profile";
+export * from "./domain/activity";
+export * from "./contracts/activity";

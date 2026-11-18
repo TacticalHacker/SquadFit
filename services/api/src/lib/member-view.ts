@@ -2,6 +2,7 @@ import {
   DayCardSchema,
   buildDayCard,
   buildFoodDay,
+  isStepGoalHit,
   localDate,
   nutritionFor,
   type DayCard,
@@ -10,7 +11,8 @@ import {
   type SquadStats,
 } from "@calci/shared";
 import type { Deps } from "./deps";
-import type { ProfileItem } from "./profile-repo";
+import { stepsVisibleTo } from "./member-access";
+import { stepSettingsOf, type ProfileItem } from "./profile-repo";
 import { feedId, type FeedItem } from "./squad-repo";
 import type { EntryItem } from "./workout-repo";
 
@@ -52,6 +54,19 @@ export async function nutritionOn(owner: ProfileItem, level: NutritionLevel, dat
   return nutritionFor(level, view, workouts.some((w) => w.aiNote !== undefined));
 }
 
+export type StepsByDay = ReadonlyMap<string, { steps: number; goalHit: boolean }>;
+
+/**
+ * Feature 012: a member's synced steps in [from, to] as the viewer may see them, through the one steps gate
+ * (`stepsVisibleTo`). Empty when the owner does not share steps, so no caller can leak them by accident.
+ */
+export async function stepsFor(owner: ProfileItem, viewerId: string, from: string, to: string, deps: Deps): Promise<StepsByDay> {
+  if (!stepsVisibleTo(owner, viewerId)) return new Map();
+  const goal = stepSettingsOf(owner).dailyStepGoal;
+  const days = await deps.activity.listRange(owner.userId, from, to);
+  return new Map(days.map((d) => [d.date, { steps: d.steps, goalHit: isStepGoalHit(d.steps, goal) }]));
+}
+
 /** A strict-parsed card for `date`, or null when it was not a workout day. `workouts` are that member's entries (any days). */
 export async function dayCard(args: {
   owner: ProfileItem;
@@ -62,6 +77,8 @@ export async function dayCard(args: {
   stats: SquadStats | null;
   hi5: HighFives;
   withSets: boolean;
+  /** Feature 012: from `stepsFor`; absent or missing the date = no steps line. */
+  steps?: StepsByDay;
   deps: Deps;
 }): Promise<(DayCard & { updatedAt: string }) | null> {
   const { owner, viewerId, date, hi5 } = args;
@@ -78,6 +95,7 @@ export async function dayCard(args: {
     highFivedByMe: hi5.mine.has(id),
     canHighFive: owner.userId !== viewerId,
     ...(nutrition ? { nutrition } : {}),
+    ...(args.steps?.get(date) ? { steps: args.steps.get(date) } : {}),
   });
   return { ...parsed, updatedAt };
 }

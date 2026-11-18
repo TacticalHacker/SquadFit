@@ -1,6 +1,6 @@
 import type { OwnProfile, PublicMember } from "@calci/shared";
 import type { AvatarStore } from "./avatar-store";
-import { squadSettingsOf, type ProfileItem } from "./profile-repo";
+import { squadSettingsOf, stepSettingsOf, type ProfileItem } from "./profile-repo";
 
 export async function avatarUrl(item: ProfileItem, avatars: AvatarStore): Promise<string | null> {
   return item.avatarKey ? avatars.urlFor(item.avatarKey) : null;
@@ -14,6 +14,7 @@ export async function toOwnProfile(item: ProfileItem, avatars: AvatarStore): Pro
     dailyProteinTarget: item.dailyProteinTarget ?? null,
     bodyWeightKg: item.bodyWeightKg ?? null,
     squad: squadSettingsOf(item),
+    steps: stepSettingsOf(item),
     avatarUrl: await avatarUrl(item, avatars),
     joinedAt: item.createdAt,
   };
