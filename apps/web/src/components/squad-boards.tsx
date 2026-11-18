@@ -74,7 +74,7 @@ function Streaks({ data }: { data: SquadLeaderboard }) {
   if (data.streaks.length === 0) return <EmptyBoard>No workouts logged yet. The first session starts the streak.</EmptyBoard>;
   return (
     <div className="flex flex-col gap-2">
-      <Note>Streak = how many weeks in a row someone hit their weekly workout target. “Best” is their longest run ever. Not affected by the period.</Note>
+      <Note>Big number: workout days this week against the weekly target. A streak is how many weeks in a row someone hit that target; “best” is their longest run ever. Ranked by streak, then best, then days this week. Not affected by the period.</Note>
       <BoardList label="Streaks">
         {data.streaks.map((r) => {
           const pct = Math.min(100, Math.round((r.week.days / Math.max(1, r.week.target)) * 100));
@@ -83,9 +83,9 @@ function Streaks({ data }: { data: SquadLeaderboard }) {
               key={r.member.userId}
               rank={r.rank}
               member={r.member}
-              main={r.current}
-              unit={r.current === 1 ? "wk" : "wks"}
-              secondary={`best ${r.best} · this week ${r.week.days}/${r.week.target}`}
+              main={r.week.days}
+              unit={`/ ${r.week.target} days`}
+              secondary={`${r.current}-week streak · best ${r.best}`}
               below={
                 <div
                   role="img"
