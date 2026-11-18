@@ -1,5 +1,5 @@
 import type { APIGatewayProxyEventV2WithJWTAuthorizer, APIGatewayProxyStructuredResultV2 } from "aws-lambda";
-import type { OverallNoteInput, ProfileInput } from "@calci/shared";
+import type { OverallNoteInput, ProfileInput, SquadSettings, SquadStats } from "@calci/shared";
 import type { AvatarStore } from "../src/lib/avatar-store";
 import { newCoachItem, toCoachNote, type CoachNoteItem, type CoachRepo, type TickResult } from "../src/lib/coach-repo";
 import type { CredentialRepo } from "../src/lib/credential-repo";
@@ -10,6 +10,7 @@ import type { CustomWorkoutItem, EntryItem, WorkoutRepo } from "../src/lib/worko
 import type { GymEntryItem, GymRepo, OwnExerciseItem } from "../src/lib/gym-repo";
 import { ProfileMissingError, type ProfileItem, type ProfileRepo } from "../src/lib/profile-repo";
 import type { WaitlistEntry, WaitlistRepo } from "../src/lib/waitlist-repo";
+import { feedId, type FeedItem, type FeedKey, type SquadRepo } from "../src/lib/squad-repo";
 
 export class InMemoryProfileRepo implements ProfileRepo {
   readonly items = new Map<string, ProfileItem>();
@@ -22,6 +23,9 @@ export class InMemoryProfileRepo implements ProfileRepo {
     const existing = this.items.get(userId);
     const item: ProfileItem = {
       ...(existing?.avatarKey ? { avatarKey: existing.avatarKey } : {}),
+      ...(existing?.weeklyTarget !== undefined ? { weeklyTarget: existing.weeklyTarget } : {}),
+      ...(existing?.leaderboardVisible !== undefined ? { leaderboardVisible: existing.leaderboardVisible } : {}),
+      ...(existing?.shareBodyWeight !== undefined ? { shareBodyWeight: existing.shareBodyWeight } : {}),
       userId,
       username,
       displayName: input.displayName,
@@ -49,6 +53,14 @@ export class InMemoryProfileRepo implements ProfileRepo {
       ...(protein !== undefined ? { dailyProteinTarget: protein } : {}),
       updatedAt: nowIso,
     };
+    this.items.set(userId, next);
+    return next;
+  }
+
+  async setSquadSettings(userId: string, settings: SquadSettings, nowIso: string) {
+    const existing = this.items.get(userId);
+    if (!existing) return null;
+    const next: ProfileItem = { ...existing, ...settings, updatedAt: nowIso };
     this.items.set(userId, next);
     return next;
   }
@@ -116,6 +128,14 @@ export class InMemoryWorkoutRepo implements WorkoutRepo {
     if (!e) return "missing" as const;
     if (e.updatedAt !== expectedUpdatedAt) return "conflict" as const;
     this.entries.set(key, { ...e, ...fields, updatedAt: nowIso });
+    return "ok" as const;
+  }
+  async confirmJump(userId: string, date: string, workoutId: string, expectedUpdatedAt: string, nowIso: string) {
+    const key = this.entryKey(userId, date, workoutId);
+    const e = this.entries.get(key);
+    if (!e) return "missing" as const;
+    if (e.updatedAt !== expectedUpdatedAt) return "conflict" as const;
+    this.entries.set(key, { ...e, jumpConfirmedAt: nowIso });
     return "ok" as const;
   }
   async deleteEntry(userId: string, date: string, workoutId: string) {
@@ -387,6 +407,77 @@ export class FakeAvatarStore implements AvatarStore {
   }
 }
 
+export class InMemorySquadRepo implements SquadRepo {
+  readonly stats = new Map<string, SquadStats>();
+  readonly feed = new Map<string, FeedItem>();
+  /** `${author}~${eventId}~${reactor}` */
+  readonly reactions = new Set<string>();
+  /** Test hook: make the next `putStats` fail (the service must swallow it). */
+  failNextPut = false;
+
+  async getStats(userId: string) {
+    return structuredClone(this.stats.get(userId) ?? null);
+  }
+  async putStats(userId: string, stats: SquadStats, expectedVersion: number | null) {
+    if (this.failNextPut) {
+      this.failNextPut = false;
+      throw new Error("boom");
+    }
+    const current = this.stats.get(userId);
+    if ((current?.version ?? null) !== expectedVersion) return "conflict" as const;
+    this.stats.set(userId, structuredClone({ ...stats, version: (expectedVersion ?? 0) + 1 }));
+    return "ok" as const;
+  }
+  async batchGetStats(userIds: readonly string[]) {
+    return new Map(userIds.flatMap((u) => (this.stats.has(u) ? [[u, structuredClone(this.stats.get(u)!)] as const] : [])));
+  }
+  async listMemberFeed(userId: string) {
+    return [...this.feed.values()].filter((f) => f.userId === userId).map((f) => structuredClone(f));
+  }
+  async getFeed(userId: string, eventId: string) {
+    return structuredClone(this.feed.get(feedId(userId, eventId)) ?? null);
+  }
+  async putFeed(item: FeedItem) {
+    this.feed.set(feedId(item.userId, item.eventId), structuredClone(item));
+  }
+  async updateFeed(userId: string, eventId: string, eventDate: string, payload: Record<string, unknown>) {
+    const f = this.feed.get(feedId(userId, eventId));
+    if (f) this.feed.set(feedId(userId, eventId), { ...f, eventDate, payload });
+  }
+  async deleteFeed(userId: string, eventId: string) {
+    this.feed.delete(feedId(userId, eventId));
+    for (const r of [...this.reactions]) if (r.startsWith(`${feedId(userId, eventId)}~`)) this.reactions.delete(r);
+  }
+  async listSquadFeed(squadId: string, pageSize: number, startKey?: Record<string, unknown>) {
+    const all = [...this.feed.values()]
+      .filter((f) => f.squadId === squadId)
+      .sort((a, b) => `${b.createdAt}#${b.userId}#${b.eventId}`.localeCompare(`${a.createdAt}#${a.userId}#${a.eventId}`));
+    const from = typeof startKey?.offset === "number" ? startKey.offset : 0;
+    const items = all.slice(from, from + pageSize).map((f) => structuredClone(f));
+    return { items, ...(from + pageSize < all.length ? { lastKey: { offset: from + pageSize } } : {}) };
+  }
+  async addHighFive(author: FeedKey, reactorId: string) {
+    const f = this.feed.get(feedId(author.userId, author.eventId));
+    if (!f) return null;
+    const key = `${feedId(author.userId, author.eventId)}~${reactorId}`;
+    if (!this.reactions.has(key)) {
+      this.reactions.add(key);
+      this.feed.set(feedId(author.userId, author.eventId), { ...f, hi5Count: f.hi5Count + 1 });
+    }
+    return this.feed.get(feedId(author.userId, author.eventId))!.hi5Count;
+  }
+  async removeHighFive(author: FeedKey, reactorId: string) {
+    const f = this.feed.get(feedId(author.userId, author.eventId));
+    if (!f) return null;
+    const key = `${feedId(author.userId, author.eventId)}~${reactorId}`;
+    if (this.reactions.delete(key)) this.feed.set(feedId(author.userId, author.eventId), { ...f, hi5Count: Math.max(0, f.hi5Count - 1) });
+    return this.feed.get(feedId(author.userId, author.eventId))!.hi5Count;
+  }
+  async myHighFives(viewerId: string, items: readonly FeedKey[]) {
+    return new Set(items.map((k) => feedId(k.userId, k.eventId)).filter((id) => this.reactions.has(`${id}~${viewerId}`)));
+  }
+}
+
 export function makeDeps(now = "2026-11-11T10:00:00.000Z") {
   const profiles = new InMemoryProfileRepo();
   const workouts = new InMemoryWorkoutRepo();
@@ -397,9 +488,10 @@ export function makeDeps(now = "2026-11-11T10:00:00.000Z") {
   const avatars = new FakeAvatarStore();
   const photos = new FakePhotoStore();
   const waitlist = new InMemoryWaitlistRepo();
+  const squad = new InMemorySquadRepo();
   let clock = new Date(now);
-  const deps: Deps = { profiles, workouts, gym, food, coach, credentials, avatars, photos, waitlist, now: () => clock };
-  return { deps, profiles, workouts, gym, food, coach, credentials, avatars, photos, waitlist, setNow: (iso: string) => (clock = new Date(iso)) };
+  const deps: Deps = { profiles, workouts, gym, food, coach, credentials, avatars, photos, waitlist, squad, now: () => clock };
+  return { deps, profiles, workouts, gym, food, coach, credentials, avatars, photos, waitlist, squad, setNow: (iso: string) => (clock = new Date(iso)) };
 }
 
 export function makeEvent(opts: {

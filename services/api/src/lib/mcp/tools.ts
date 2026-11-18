@@ -1,8 +1,6 @@
 import {
   addDays,
   CoachNoteShape,
-  currentStreak,
-  dateRange,
   EDIT_WINDOW_DAYS,
   FullContextInputSchema,
   FullContextShape,
@@ -10,12 +8,12 @@ import {
   HistoryShape,
   OverallNoteInputSchema,
   OverallNoteShape,
-  summarize,
   TargetsInputSchema,
   TargetsShape,
   validateHistoryWindow,
   validateNoteDate,
 } from "@calci/shared";
+import { weeklyStreakOf } from "../squad-view";
 import { buildHistoryDays, noteSummary, pendingHint, profileBlock } from "./history";
 import { photoTools } from "./photos";
 import { writeTools } from "./writes";
@@ -56,7 +54,7 @@ const DEFAULT_CONTEXT_DAYS = 7;
 const getFullContext: Tool = {
   name: "get_full_context",
   description:
-    "Everything for a daily review in one call: the member's profile (body weight in kg, 75 default when unset; calorie and protein targets), every workout (gym sets, reps, weightKg, volume; activities) and food entry with its logId, daily totals (eaten, burned, net, macros, gym volume), the day's coach note headline, the current activity streak, and editableFrom (the oldest date write tools accept). Window: startDate/endDate (YYYY-MM-DD, at most 31 days, not after today); default is the last 7 days. There is no leaderboard yet.",
+    "Everything for a daily review in one call: the member's profile (body weight in kg, 75 default when unset; calorie and protein targets), every workout (gym sets, reps, weightKg, volume; activities) and food entry with its logId, daily totals (eaten, burned, net, macros, gym volume), the day's coach note headline, the weekly workout streak ({ current, best, weekDays, target }: weeks that reached the member's weekly target, with this week's progress), and editableFrom (the oldest date write tools accept). Window: startDate/endDate (YYYY-MM-DD, at most 31 days, not after today); default is the last 7 days. The squad leaderboard is not available to agents.",
   shape: FullContextShape,
   async run(args, ctx) {
     const parsed = FullContextInputSchema.safeParse(stripUnknown(args, FullContextShape));
@@ -69,22 +67,16 @@ const getFullContext: Tool = {
     const problem = validateHistoryWindow(startDate, endDate, ctx.today);
     if (problem) return fail(problem);
 
-    // One workout read covers both the window and the 62 days the streak looks back over (same as the Workouts page).
-    const streakFrom = addDays(ctx.today, -61);
-    const workoutsFrom = startDate < streakFrom ? startDate : streakFrom;
-    const [food, workouts, notes] = await Promise.all([
+    const [food, workouts, notes, profile, stats] = await Promise.all([
       ctx.deps.food.listEntriesInRange(ctx.userId, startDate, endDate),
-      ctx.deps.workouts.listEntriesInRange(ctx.userId, workoutsFrom, ctx.today),
+      ctx.deps.workouts.listEntriesInRange(ctx.userId, startDate, endDate),
       ctx.deps.coach.listInRange(ctx.userId, startDate, endDate),
+      ctx.deps.profiles.get(ctx.userId),
+      ctx.deps.squad.getStats(ctx.userId),
     ]);
-    const inWindow = workouts.filter((w) => w.date >= startDate && w.date <= endDate!);
-    const days = buildHistoryDays(ctx, startDate, endDate, food, inWindow).map((d) => ({
+    const days = buildHistoryDays(ctx, startDate, endDate, food, workouts).map((d) => ({
       ...d,
       coachNote: noteSummary(notes.find((n) => n.date === d.date)),
-    }));
-    const perDay = dateRange(streakFrom, ctx.today).map((date) => ({
-      date,
-      totalMinutes: summarize(workouts.filter((w) => w.date === date)).totalMinutes,
     }));
     return {
       text: JSON.stringify({
@@ -92,9 +84,9 @@ const getFullContext: Tool = {
         timezone: ctx.timezone,
         profile: profileBlock(ctx),
         editableFrom: addDays(ctx.today, -EDIT_WINDOW_DAYS),
-        streak: currentStreak(perDay, ctx.today),
+        streak: profile ? weeklyStreakOf(profile, stats, ctx.today) : null,
         leaderboard: null,
-        leaderboardNote: "Scoring is not built yet, so there is no leaderboard or squad standing.",
+        leaderboardNote: "The squad leaderboard is for members in the app and is not available to agents.",
         days,
         ...pendingHint(days),
       }),

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { CoachPulseResponseSchema, DateSchema, GymViewSchema, SummaryRangeResponseSchema, addDays, currentStreak } from "@calci/shared";
+import { CoachPulseResponseSchema, DateSchema, GymViewSchema, SummaryRangeResponseSchema, addDays } from "@calci/shared";
 import { DayNav } from "@/components/day-nav";
 import { DayStrip } from "@/components/day-strip";
 import { PulseBar } from "@/components/pulse-bar";
@@ -25,18 +25,14 @@ async function GymContent({ searchParams }: { searchParams: PageProps<"/workouts
     if (raw && err instanceof ApiRequestError && err.status === 400) redirect("/workouts/gym");
     throw err;
   });
-  // Same strip and streak as the Activities tab (FR-021).
-  const range = (from: string, to: string) => apiFetch(`/workouts/summary?from=${from}&to=${to}`, { schema: SummaryRangeResponseSchema });
-  const streakFrom = addDays(view.today, -61);
+  // Same strip and weekly streak as the Activities tab (FR-021).
   const stripFrom = addDays(view.date, -6);
-  const [history, stripOnly, pulse] = await Promise.all([
-    range(streakFrom, view.today),
-    stripFrom < streakFrom ? range(stripFrom, view.date) : Promise.resolve(null),
+  const [strip, pulse] = await Promise.all([
+    apiFetch(`/workouts/summary?from=${stripFrom}&to=${view.date}`, { schema: SummaryRangeResponseSchema }),
     // The coach note is decoration: a failed fetch must never break the screen (feature 007).
     apiFetch(`/coach-note?date=${view.date}`, { schema: CoachPulseResponseSchema }).catch(() => null),
   ]);
-  const strip = stripOnly ?? { days: history.days.filter((d) => d.date >= stripFrom && d.date <= view.date) };
-  const streak = currentStreak(history.days, view.today);
+  const streak = strip.weeklyStreak;
 
   return (
     <div className="flex flex-col gap-5">

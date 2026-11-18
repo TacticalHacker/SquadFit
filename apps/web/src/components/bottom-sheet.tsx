@@ -20,7 +20,7 @@ const SheetDismiss = createContext<() => void>(() => {});
 export function SheetClose({ label = "Close" }: { label?: string }) {
   const dismiss = useContext(SheetDismiss);
   return (
-    <button type="button" onClick={dismiss} aria-label={label} className={iconButtonClass}>
+    <button type="button" onClick={() => dismiss()} aria-label={label} className={iconButtonClass}>
       <X aria-hidden size={18} strokeWidth={1.75} />
     </button>
   );
@@ -107,7 +107,7 @@ export function BottomSheet({
     (velocity = 0) => {
       if (closing.current) return;
       closing.current = true;
-      springTo(height() + 24, Math.max(0, velocity), () => {
+      springTo(height() + 24, Number.isFinite(velocity) ? Math.max(0, velocity) : 0, () => {
         dialogRef.current?.close();
         onCloseRef.current();
       });

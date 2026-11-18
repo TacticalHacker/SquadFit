@@ -3,6 +3,7 @@ import { handle as foodGet } from "../src/handlers/food-get";
 import { handle as workoutsGet } from "../src/handlers/workouts-get";
 import { handle as summaryGet } from "../src/handlers/workouts-summary-get";
 import { makeDeps, makeEvent, parse, seedActivities, seedProfile } from "./fakes";
+import { handle as confirmPut } from "../src/handlers/gym-entry-confirm-put";
 import { exercise, gymDelete, gymGet, gymPut, sets } from "./gym-helpers";
 
 const setup = async (now = "2026-11-11T10:00:00.000Z") => {
@@ -163,5 +164,26 @@ describe("gym save clears an AI adjustment (feature 007, FR-013)", () => {
     const r = await gymPut(ctx.deps, "2026-11-11", "gx-bench-press", { sets: sets(2, 60, 8, true) });
     expect(r.body.entry).toMatchObject({ calories: 30, aiNote: null });
     expect((await ctx.workouts.getEntry("user-1", "2026-11-11", "gx-bench-press"))?.aiNote).toBeUndefined();
+  });
+});
+
+describe("PUT gym entry confirm (unusual jump, feature 010)", () => {
+  const confirm = (deps: Parameters<typeof confirmPut>[1], sub: string, updatedAt: string) =>
+    confirmPut(makeEvent({ sub, pathParameters: { date: "2026-11-11", exerciseId: "gx-bench-press" }, body: { updatedAt } }), deps).then(parse);
+
+  it("confirms the caller's own entry, and refuses a stale version", async () => {
+    const { deps, workouts } = await setup();
+    await gymPut(deps, "2026-11-11", "gx-bench-press", { sets: sets(1, 60, 8, true) });
+    const stored = (await workouts.getEntry("user-1", "2026-11-11", "gx-bench-press"))!;
+    expect((await confirm(deps, "user-1", "2020-01-01T00:00:00.000Z")).status).toBe(409);
+    expect((await confirm(deps, "user-1", stored.updatedAt)).status).toBe(200);
+    expect((await workouts.getEntry("user-1", "2026-11-11", "gx-bench-press"))?.jumpConfirmedAt).toBeDefined();
+  });
+
+  it("never touches another member's entry", async () => {
+    const { deps, profiles } = await setup();
+    await seedProfile(profiles, "user-2", "Asia/Kolkata", "bob");
+    await gymPut(deps, "2026-11-11", "gx-bench-press", { sets: sets(1, 60, 8, true) });
+    expect((await confirm(deps, "user-2", "2026-11-11T10:00:00.000Z")).status).toBe(404);
   });
 });

@@ -1,6 +1,9 @@
 <!--
 Sync Impact Report
-- Version change: 2.1.0 → 2.2.0 (MINOR: principle VI names the only two anonymous aggregate figures, feature 009)
+- Version change: 2.2.0 → 2.3.0 (MINOR: principle VI allows a leaderboard opt-out and opt-in body weight ratio, feature 010)
+- Modified principles: VI. Members-Only Visibility (members may hide from the leaderboard; body weight may be shared only as an opt-in relative-strength ratio)
+- Templates requiring updates: none ✅
+- Previous: 2.1.0 → 2.2.0 (MINOR: principle VI names the only two anonymous aggregate figures, feature 009)
 - Modified principles: VI. Members-Only Visibility (public landing page may show lifter count and 7-day workout count)
 - Templates requiring updates: none ✅
 - Previous: 2.0.0 → 2.1.0 (MINOR: "Lean tests" rule added under principle III)
@@ -62,14 +65,17 @@ worked examples. Rate limits, such as one nudge per sender→receiver per day, a
 server-side and atomically.
 
 ### VI. Members-Only Visibility
-There are no groups: every user with a completed profile belongs to one global community and
-appears on the global leaderboard. Community data (names, avatars, scores, streaks, activity)
+There are no groups yet: every user with a completed profile belongs to one global community (one
+squad) and appears on its leaderboard unless they turn off "Show me on the squad leaderboard";
+hidden members still see the board but are excluded from what others see. Squad data is keyed by a
+squad id so further squads can be added later. Community data (names, avatars, scores, streaks, activity)
 is visible only to signed-in users; anonymous requests get no user data. The single exception is
 the public landing page, which MAY show exactly two community-wide counts: the number of members
 with a completed profile and the number of workout entries logged in the last 7 days. Nothing
 else (no names, weights, streaks, food or per-member figures) is served to anonymous requests. Each user's own data
-(food entries, calorie target, credentials) is visible only to them unless a spec explicitly
-publishes a derived figure. Personal data is never written to logs. Passwords are stored only as
+(food entries, calorie target, body weight, credentials) is visible only to them unless a spec explicitly
+publishes a derived figure; body weight may be shown to other members only as an e1RM ÷ body weight
+ratio, and only for members who opted in. Personal data is never written to logs. Passwords are stored only as
 slow salted hashes. Rate limits (sign-in attempts, nudges) are enforced server-side.
 
 ### VII. Simplicity
@@ -101,4 +107,4 @@ principle or section is added; PATCH: wording only), and propagates the change t
 `.specify/templates/*`. Reviewers check plans against the "Constitution Check" gate. Runtime
 guidance for agents lives in `CLAUDE.md`.
 
-**Version**: 2.2.0 | **Ratified**: 2026-11-11 | **Last Amended**: 2026-11-12
+**Version**: 2.3.0 | **Ratified**: 2026-11-11 | **Last Amended**: 2026-11-18

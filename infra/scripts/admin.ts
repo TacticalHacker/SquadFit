@@ -7,6 +7,7 @@
  *   pnpm admin ai-key issue|revoke <username> [--stage dev|prod]   (feature 004: AI client access keys)
  *   pnpm admin ai-key list [--stage dev|prod]
  *   pnpm admin waitlist list [--stage dev|prod]                    (feature 009: invite requests, newest first)
+ *   pnpm admin squad backfill [--stage dev|prod]                   (feature 010: build squad stats from history, no feed items)
  *
  * Needs AWS credentials for the target account (AWS_PROFILE etc).
  */
@@ -22,7 +23,11 @@ import {
 import { UsernameSchema } from "@calci/shared";
 import { generateToken, hashToken } from "@calci/shared/ai-credential";
 import { DynamoCredentialRepo } from "../../services/api/src/lib/credential-repo";
+import { DynamoProfileRepo } from "../../services/api/src/lib/profile-repo";
+import { DynamoSquadRepo } from "../../services/api/src/lib/squad-repo";
+import { refreshSquadStats } from "../../services/api/src/lib/squad-stats";
 import { DynamoWaitlistRepo } from "../../services/api/src/lib/waitlist-repo";
+import { DynamoWorkoutRepo } from "../../services/api/src/lib/workout-repo";
 import { formatSnippets, parseAiKeySubcommand } from "./ai-key";
 import { generateTempPassword } from "./temp-password";
 
@@ -32,7 +37,8 @@ const USAGE = `Usage:
   pnpm admin list-users [--stage dev|prod]
   pnpm admin ai-key issue|revoke <username> [--stage dev|prod]
   pnpm admin ai-key list [--stage dev|prod]
-  pnpm admin waitlist list [--stage dev|prod]`;
+  pnpm admin waitlist list [--stage dev|prod]
+  pnpm admin squad backfill [--stage dev|prod]`;
 
 function fail(message: string): never {
   console.error(message);
@@ -145,6 +151,26 @@ async function main() {
     const rows = await new DynamoWaitlistRepo(await stackOutput("Data", "TableName", stage, region)).list();
     if (rows.length === 0) return void console.log("No invite requests yet.");
     for (const r of rows) console.log(`${r.createdAt}  ${r.primaryGoal.padEnd(15)}  ${r.name} <${r.email}>`);
+    return;
+  }
+
+  // Feature 010: no Cognito needed. History is trusted, nothing is flagged, and no feed item is created.
+  if (command === "squad") {
+    if (username !== "backfill") fail(USAGE);
+    const table = await stackOutput("Data", "TableName", stage, region);
+    const deps = { profiles: new DynamoProfileRepo(table), workouts: new DynamoWorkoutRepo(table), squad: new DynamoSquadRepo(table), now: () => new Date() };
+    const members = await deps.profiles.listCommunity();
+    let feedBefore = 0;
+    let feedAfter = 0;
+    let written = 0;
+    for (const m of members) {
+      feedBefore += (await deps.squad.listMemberFeed(m.userId)).length;
+      await refreshSquadStats(m.userId, deps, { seed: true });
+      if (await deps.squad.getStats(m.userId)) written++;
+      feedAfter += (await deps.squad.listMemberFeed(m.userId)).length;
+    }
+    // Counts only: never names or figures (constitution VI).
+    console.log(`members: ${members.length}, stats written: ${written}, new feed items: ${feedAfter - feedBefore}`);
     return;
   }
 

@@ -7,6 +7,7 @@ const LINKS = [
   // Opens the Gym tab by default; stays highlighted on every /workouts page.
   { href: "/workouts/gym", match: "/workouts", label: "Workouts" },
   { href: "/food", match: "/food", label: "Food" },
+  { href: "/squad", match: "/squad", label: "Squad" },
   { href: "/people", match: "/people", label: "People" },
   { href: "/settings", match: "/settings", label: "Settings" },
 ] as const;

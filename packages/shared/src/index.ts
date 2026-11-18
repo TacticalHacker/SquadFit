@@ -30,3 +30,6 @@ export * from "./contracts/food";
 export * from "./domain/coach-note";
 export * from "./contracts/coach";
 export * from "./contracts/public";
+export * from "./domain/week";
+export * from "./domain/squad";
+export * from "./contracts/squad";

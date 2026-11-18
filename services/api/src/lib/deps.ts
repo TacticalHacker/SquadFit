@@ -8,6 +8,7 @@ import { DynamoCredentialRepo, type CredentialRepo } from "./credential-repo";
 import { S3PhotoStore, type PhotoStore } from "./photo-store";
 import { DynamoProfileRepo, type ProfileRepo } from "./profile-repo";
 import { DynamoWaitlistRepo, type WaitlistRepo } from "./waitlist-repo";
+import { DynamoSquadRepo, type SquadRepo } from "./squad-repo";
 
 export interface Deps {
   profiles: ProfileRepo;
@@ -19,6 +20,7 @@ export interface Deps {
   avatars: AvatarStore;
   photos: PhotoStore;
   waitlist: WaitlistRepo;
+  squad: SquadRepo;
   now: () => Date;
 }
 
@@ -36,6 +38,7 @@ export function getDeps(): Deps {
     avatars: new S3AvatarStore(requireEnv("AVATAR_BUCKET")),
     photos: new S3PhotoStore(requireEnv("AVATAR_BUCKET")),
     waitlist: new DynamoWaitlistRepo(requireEnv("TABLE_NAME")),
+    squad: new DynamoSquadRepo(requireEnv("TABLE_NAME")),
     now: () => new Date(),
   };
   return cached;

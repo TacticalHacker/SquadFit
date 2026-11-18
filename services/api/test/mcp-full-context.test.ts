@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseLogId } from "@calci/shared";
 import { makeDeps, seedProfile, seedWorkoutEntry } from "./fakes";
+import { refreshSquadStats } from "../src/lib/squad-stats";
 import { callTool, seedKey, toolText } from "./mcp-helpers";
 
 // Fixed clock 2026-11-11T10:00Z → Asia/Kolkata today = 2026-11-11.
@@ -15,7 +16,7 @@ async function setup() {
   await seedProfile(ctx.profiles);
   await seedProfile(ctx.profiles, "user-2", "America/New_York", "bob");
   const token = await seedKey(ctx.deps);
-  // Workouts on the 3 days before today and today → streak 4.
+  // Workouts on 3 days of this week (Mon 9th, Tue 10th, today) plus Sunday 8th of the week before.
   for (const d of ["2026-11-08", "2026-11-09", "2026-11-10"]) await seedWorkoutEntry(ctx.workouts, "user-1", d, 100, "c-run");
   await ctx.gym.putGymEntry("user-1", {
     date: "2026-11-11", workoutId: "gx-bench-press", name: "Bench Press", kind: "gym", muscleGroup: "chest", exerciseKind: "strength",
@@ -28,6 +29,7 @@ async function setup() {
     typed("2026-11-11", "0000000000002-bbbbbb", "Photo meal", 0, null, { source: "photo", photo: { status: "pending", caption: "" } }),
   );
   await ctx.food.putEntry("user-2", typed("2026-11-11", "0000000000003-cccccc", "Bob's snack", 999));
+  await refreshSquadStats("user-1", ctx.deps);
   await ctx.coach.put("user-1", { date: "2026-11-11", headline: "Strong day", status: "on_track", highlights: ["x"], actionItems: [] }, "t");
   return { ...ctx, token };
 }
@@ -45,9 +47,9 @@ describe("get_full_context", () => {
     expect(out.timezone).toBe("Asia/Kolkata");
     expect(out.profile).toEqual({ bodyWeightKg: 75, bodyWeightIsDefault: true, calorieTarget: 2200, proteinTarget: null });
     expect(out.editableFrom).toBe("2026-11-09");
-    expect(out.streak).toBe(4);
+    expect(out.streak).toEqual({ current: 1, best: 1, weekDays: 3, target: 3 });
     expect(out.leaderboard).toBeNull();
-    expect(out.leaderboardNote).toMatch(/not built/);
+    expect(out.leaderboardNote).toMatch(/not available/);
     expect(out.days.map((d: { date: string }) => d.date)).toEqual([
       "2026-11-05", "2026-11-06", "2026-11-07", "2026-11-08", "2026-11-09", "2026-11-10", "2026-11-11",
     ]);

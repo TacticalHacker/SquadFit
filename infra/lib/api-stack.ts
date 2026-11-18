@@ -126,6 +126,13 @@ export class ApiStack extends Stack {
     route("gym-exercise-post", HttpMethod.POST, "/workouts/gym/exercises", { write: true });
     route("gym-exercise-put", HttpMethod.PUT, "/workouts/gym/exercises/{exerciseId}", { write: true });
     route("gym-exercise-delete", HttpMethod.DELETE, "/workouts/gym/exercises/{exerciseId}", { write: true });
+    // Squad leaderboard (feature 010): members-only; the boards and feed only read, settings/high-fives/confirm write.
+    route("me-squad-put", HttpMethod.PUT, "/me/squad", { write: true });
+    route("gym-entry-confirm-put", HttpMethod.PUT, "/workouts/gym/entries/{date}/{exerciseId}/confirm", { write: true });
+    route("squad-leaderboard-get", HttpMethod.GET, "/squad/leaderboard", { avatars: "read" });
+    route("squad-feed-get", HttpMethod.GET, "/squad/feed", { avatars: "read" });
+    route("squad-hi5-put", HttpMethod.PUT, "/squad/feed/{id}/high-five", { write: true });
+    route("squad-hi5-delete", HttpMethod.DELETE, "/squad/feed/{id}/high-five", { write: true });
     // Nutrition (feature 003)
     route("food-get", HttpMethod.GET, "/food", { photos: "read" });
     route("food-recent-get", HttpMethod.GET, "/food/recent");

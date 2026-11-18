@@ -4,6 +4,7 @@ import { getCaller } from "../lib/auth";
 import { loadDayContext, resolveReadDate } from "../lib/day-context";
 import { getDeps, type Deps } from "../lib/deps";
 import { apiError, ok } from "../lib/http";
+import { weeklyStreakOf } from "../lib/squad-view";
 
 const MAX_DAYS = 62;
 
@@ -27,11 +28,17 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
     return apiError(400, "VALIDATION_FAILED", "Invalid range", { from: `Range must be 1 to ${MAX_DAYS} days` });
   }
 
-  const entries = await deps.workouts.listEntriesInRange(caller.userId, from.date, to.date);
+  const [entries, profile, stats] = await Promise.all([
+    deps.workouts.listEntriesInRange(caller.userId, from.date, to.date),
+    deps.profiles.get(caller.userId),
+    deps.squad.getStats(caller.userId),
+  ]);
   const byDate = new Map<string, { minutes: number; calories: number }[]>();
   for (const e of entries) byDate.set(e.date, [...(byDate.get(e.date) ?? []), e]);
   const body: SummaryRangeResponse = {
     days: dateRange(from.date, to.date).map((date) => ({ date, ...summarize(byDate.get(date) ?? []) })),
+    // Feature 010: the weekly streak replaces the daily one on the Workouts screens (FR-032).
+    weeklyStreak: profile ? weeklyStreakOf(profile, stats, c.ctx.today) : null,
   };
   return ok(body);
 }

@@ -25,6 +25,8 @@ export interface StoredEntry {
   volumeKg?: number;
   /** Feature 007: one-line reason; present while calories/minutes are the AI's adjustment (FR-008, FR-013). */
   aiNote?: string;
+  /** Feature 010: set when the member tapped "Looks right" on a flagged jump; dropped by any full save. */
+  jumpConfirmedAt?: string;
   createdAt?: string;
   updatedAt?: string;
 }

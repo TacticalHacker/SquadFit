@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { WeeklyStreakSchema } from "./squad";
 import { MinutesSchema } from "../domain/calories";
 import { DateSchema } from "../domain/day";
 import { GymEntryViewSchema } from "./gym";
@@ -48,5 +49,7 @@ export type CustomWorkoutResponse = z.infer<typeof CustomWorkoutResponseSchema>;
 
 export const SummaryRangeResponseSchema = z.object({
   days: z.array(z.object({ date: DateSchema, totalMinutes: z.number(), totalCalories: z.number() })),
+  /** Feature 010: the member's weekly streak; null before their first stats build. */
+  weeklyStreak: WeeklyStreakSchema.nullable().default(null),
 });
 export type SummaryRangeResponse = z.infer<typeof SummaryRangeResponseSchema>;

@@ -52,6 +52,8 @@ export const GymEntryViewSchema = z.object({
   minutes: z.number(),
   calories: z.number(),
   aiNote: z.string().nullable().default(null),
+  /** Feature 010: an unusual jump awaiting "Looks right"; rollout-safe default. */
+  jumpFlag: z.boolean().default(false),
   updatedAt: z.string(),
 });
 
