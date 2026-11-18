@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { BodyWeightSchema, CalorieTargetSchema, DisplayNameSchema, ProteinTargetSchema } from "../domain/profile";
 import { isValidTimeZone } from "../domain/timezone";
+import { DEFAULT_SQUAD_SETTINGS, SquadSettingsSchema } from "./squad";
 
 export const ProfileInputSchema = z.object({
   displayName: DisplayNameSchema,
@@ -19,6 +20,8 @@ export const OwnProfileSchema = z.object({
   // default: an API deployed before feature 004 omits the field (rollout skew).
   dailyProteinTarget: z.number().nullable().default(null),
   bodyWeightKg: z.number().nullable().default(null),
+  /** Feature 010; defaults cover an API deployed before it (rollout skew). */
+  squad: SquadSettingsSchema.default(DEFAULT_SQUAD_SETTINGS),
   avatarUrl: z.string().nullable(),
   joinedAt: z.iso.datetime(),
 });

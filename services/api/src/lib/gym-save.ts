@@ -10,6 +10,7 @@ import {
 } from "@calci/shared";
 import type { Deps } from "./deps";
 import type { GymEntryItem } from "./gym-repo";
+import { safeRefresh } from "./squad-stats";
 
 export type WriteFailure = { ok: false; status: number; code: ApiErrorCode; message: string; fields?: Record<string, string> };
 
@@ -93,5 +94,7 @@ export async function saveGymEntry(
     entry = { ...common, minutes: totals.minutes, calories: totals.calories };
   }
   await deps.gym.putGymEntry(userId, entry);
+  // Feature 010: streaks, PRs and feed follow every gym save, from the app or the AI agent alike.
+  await safeRefresh(userId, deps);
   return { ok: true, entry };
 }

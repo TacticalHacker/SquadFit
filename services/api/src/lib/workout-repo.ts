@@ -61,6 +61,11 @@ export interface WorkoutRepo {
     expectedUpdatedAt: string,
     nowIso: string,
   ): Promise<"ok" | "missing" | "conflict">;
+  /**
+   * Feature 010: the member confirmed an unusual jump ("Looks right"). Conditional on the `updatedAt` they saw;
+   * does not change `updatedAt`, so a later edit (a full save) drops the confirmation.
+   */
+  confirmJump(userId: string, date: string, workoutId: string, expectedUpdatedAt: string, nowIso: string): Promise<"ok" | "missing" | "conflict">;
   deleteEntry(userId: string, date: string, workoutId: string): Promise<void>;
   /** Active (non-removed) custom workouts. */
   listCustomWorkouts(userId: string): Promise<CustomWorkoutItem[]>;
@@ -95,6 +100,7 @@ export function toEntry(i: Record<string, unknown>): EntryItem {
     createdAt: i.createdAt as string,
     updatedAt: i.updatedAt as string,
     ...(typeof i.aiNote === "string" ? { aiNote: i.aiNote } : {}),
+    ...(typeof i.jumpConfirmedAt === "string" ? { jumpConfirmedAt: i.jumpConfirmedAt } : {}),
     ...gymFields(i),
   };
 }
@@ -221,6 +227,24 @@ export class DynamoWorkoutRepo implements WorkoutRepo {
             ":seen": expectedUpdatedAt,
             ":now": nowIso,
           },
+        }),
+      );
+      return "ok" as const;
+    } catch (err) {
+      if (!isConditionFailure(err)) throw err;
+      return (await this.getEntry(userId, date, workoutId)) ? ("conflict" as const) : ("missing" as const);
+    }
+  }
+
+  async confirmJump(userId: string, date: string, workoutId: string, expectedUpdatedAt: string, nowIso: string) {
+    try {
+      await this.doc.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: { pk: pk(userId), sk: entrySk(date, workoutId) },
+          ConditionExpression: "attribute_exists(pk) AND updatedAt = :seen",
+          UpdateExpression: "SET jumpConfirmedAt = :now",
+          ExpressionAttributeValues: { ":seen": expectedUpdatedAt, ":now": nowIso },
         }),
       );
       return "ok" as const;

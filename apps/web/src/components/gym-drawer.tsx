@@ -19,9 +19,10 @@ import {
 } from "@calci/shared";
 import { browserStorage, clearDraft, loadDraft, saveDraft } from "@/lib/gym-draft";
 import { removeGymEntry, saveGymEntry } from "@/server/actions/gym";
-import { Check } from "lucide-react";
+import { confirmJump } from "@/server/actions/squad";
+import { AlertTriangle, Check } from "lucide-react";
 import { BottomSheet, SheetClose } from "./bottom-sheet";
-import { buttonClass, dangerLinkClass, noticeErrorClass, noticeWarnClass } from "./form-bits";
+import { buttonClass, dangerLinkClass, noticeErrorClass, noticeWarnClass, secondaryButtonClass } from "./form-bits";
 import { NumberField, Stepper } from "./stepper";
 
 const DRAFT_DEBOUNCE_MS = 300;
@@ -59,6 +60,8 @@ export function GymDrawer({
   const [locked, setLocked] = useState(!editable);
   const [error, setError] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  // Feature 010: an unusual jump the member can confirm; confirming makes the set count for PRs and the Lift board.
+  const [jumpFlag, setJumpFlag] = useState(exercise.entry?.jumpFlag ?? false);
   const [pending, startTransition] = useTransition();
   const baseUpdatedAt = useRef<string | null>(initialDraft ? initialDraft.baseUpdatedAt : (exercise.entry?.updatedAt ?? null));
 
@@ -110,6 +113,17 @@ export function GymDrawer({
       saveDraft(browserStorage(), username, date, id, state, baseUpdatedAt.current, new Date().toISOString());
     }
     onClose();
+  };
+
+  const looksRight = () => {
+    if (!exercise.entry) return;
+    const updatedAt = exercise.entry.updatedAt;
+    setError(null);
+    startTransition(async () => {
+      const r = await confirmJump(date, id, updatedAt);
+      if (r.ok) setJumpFlag(false);
+      else setError(r.error);
+    });
   };
 
   const save = () => finish(() => saveGymEntry(date, id, drawerToBody(state)));
@@ -189,6 +203,20 @@ export function GymDrawer({
             </span>
             <button type="button" onClick={discard} className="min-h-11 touch-manipulation rounded-md px-2 font-medium text-accent underline underline-offset-4">
               Discard draft
+            </button>
+          </div>
+        ) : null}
+
+        {jumpFlag && exercise.entry && !state.dirty ? (
+          <div className={`flex flex-col gap-2 ${noticeWarnClass}`}>
+            <p className="flex items-start gap-2">
+              <AlertTriangle aria-hidden size={18} strokeWidth={1.75} className="mt-0.5 shrink-0 text-warning" />
+              <span>
+                <span className="font-medium">Unusual jump, check this set.</span> It won&apos;t count as a PR until you confirm.
+              </span>
+            </p>
+            <button type="button" onClick={looksRight} disabled={pending} className={`touch-manipulation self-start ${secondaryButtonClass}`}>
+              Looks right
             </button>
           </div>
         ) : null}

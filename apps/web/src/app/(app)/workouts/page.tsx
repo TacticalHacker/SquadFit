@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { CoachPulseResponseSchema, DateSchema, DayViewSchema, SummaryRangeResponseSchema, addDays, currentStreak } from "@calci/shared";
+import { CoachPulseResponseSchema, DateSchema, DayViewSchema, SummaryRangeResponseSchema, addDays } from "@calci/shared";
 import { DayNav } from "@/components/day-nav";
 import { DayStrip } from "@/components/day-strip";
 import { PulseBar } from "@/components/pulse-bar";
@@ -25,19 +25,14 @@ async function WorkoutsContent({ searchParams }: { searchParams: PageProps<"/wor
     if (raw && err instanceof ApiRequestError && err.status === 400) redirect("/workouts");
     throw err;
   });
-  // The streak needs up to two months ending today; the strip needs the 7 days ending on the viewed date.
-  const range = (from: string, to: string) =>
-    apiFetch(`/workouts/summary?from=${from}&to=${to}`, { schema: SummaryRangeResponseSchema });
-  const streakFrom = addDays(view.today, -61);
+  // The strip needs the 7 days ending on the viewed date; the same response carries the weekly streak.
   const stripFrom = addDays(view.date, -6);
-  const [history, stripOnly, pulse] = await Promise.all([
-    range(streakFrom, view.today),
-    stripFrom < streakFrom ? range(stripFrom, view.date) : Promise.resolve(null),
+  const [strip, pulse] = await Promise.all([
+    apiFetch(`/workouts/summary?from=${stripFrom}&to=${view.date}`, { schema: SummaryRangeResponseSchema }),
     // The coach note is decoration: a failed fetch must never break the screen (feature 007).
     apiFetch(`/coach-note?date=${view.date}`, { schema: CoachPulseResponseSchema }).catch(() => null),
   ]);
-  const strip = stripOnly ?? { days: history.days.filter((d) => d.date >= stripFrom && d.date <= view.date) };
-  const streak = currentStreak(history.days, view.today);
+  const streak = strip.weeklyStreak;
 
   return (
     <div className="flex flex-col gap-6">

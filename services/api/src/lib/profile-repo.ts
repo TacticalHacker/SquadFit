@@ -1,6 +1,6 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, GetCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
-import type { ProfileInput } from "@calci/shared";
+import { DEFAULT_SQUAD_SETTINGS, type ProfileInput, type SquadSettings } from "@calci/shared";
 
 /** A stored profile. Key layout: see specs/001-user-accounts/data-model.md. */
 export interface ProfileItem {
@@ -12,9 +12,22 @@ export interface ProfileItem {
   dailyProteinTarget?: number;
   /** Feature 007; absent means the 75 kg default. */
   bodyWeightKg?: number;
+  /** Feature 010; absent attributes mean the defaults (3 / visible / not sharing). */
+  weeklyTarget?: number;
+  leaderboardVisible?: boolean;
+  shareBodyWeight?: boolean;
   avatarKey?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+/** A member's squad settings with defaults applied. */
+export function squadSettingsOf(p: Pick<ProfileItem, "weeklyTarget" | "leaderboardVisible" | "shareBodyWeight">): SquadSettings {
+  return {
+    weeklyTarget: p.weeklyTarget ?? DEFAULT_SQUAD_SETTINGS.weeklyTarget,
+    leaderboardVisible: p.leaderboardVisible ?? DEFAULT_SQUAD_SETTINGS.leaderboardVisible,
+    shareBodyWeight: p.shareBodyWeight ?? DEFAULT_SQUAD_SETTINGS.shareBodyWeight,
+  };
 }
 
 export class ProfileMissingError extends Error {
@@ -33,6 +46,8 @@ export interface ProfileRepo {
     targets: { dailyCalorieTarget?: number; dailyProteinTarget?: number | null },
     nowIso: string,
   ): Promise<ProfileItem | null>;
+  /** Feature 010: save the three squad settings. Returns null if there is no profile. */
+  setSquadSettings(userId: string, settings: SquadSettings, nowIso: string): Promise<ProfileItem | null>;
   /** Set or clear the avatar key; returns the previous key. Throws ProfileMissingError if no profile. */
   setAvatarKey(userId: string, key: string | null, nowIso: string): Promise<string | null>;
   /** Everyone with a completed profile, in join order. */
@@ -50,6 +65,9 @@ function fromItem(item: Record<string, unknown>): ProfileItem {
     dailyCalorieTarget: item.dailyCalorieTarget as number,
     ...(typeof item.dailyProteinTarget === "number" ? { dailyProteinTarget: item.dailyProteinTarget } : {}),
     ...(typeof item.bodyWeightKg === "number" ? { bodyWeightKg: item.bodyWeightKg } : {}),
+    ...(typeof item.weeklyTarget === "number" ? { weeklyTarget: item.weeklyTarget } : {}),
+    ...(typeof item.leaderboardVisible === "boolean" ? { leaderboardVisible: item.leaderboardVisible } : {}),
+    ...(typeof item.shareBodyWeight === "boolean" ? { shareBodyWeight: item.shareBodyWeight } : {}),
     ...(typeof item.avatarKey === "string" ? { avatarKey: item.avatarKey } : {}),
     createdAt: item.createdAt as string,
     updatedAt: item.updatedAt as string,
@@ -133,6 +151,30 @@ export class DynamoProfileRepo implements ProfileRepo {
           ConditionExpression: "attribute_exists(pk)",
           UpdateExpression: `SET ${sets.join(", ")}${removes.length ? ` REMOVE ${removes.join(", ")}` : ""}`,
           ExpressionAttributeValues: values,
+          ReturnValues: "ALL_NEW",
+        }),
+      );
+      return fromItem(res.Attributes ?? {});
+    } catch (err) {
+      if (err instanceof Error && err.name === "ConditionalCheckFailedException") return null;
+      throw err;
+    }
+  }
+
+  async setSquadSettings(userId: string, settings: SquadSettings, nowIso: string) {
+    try {
+      const res = await this.doc.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: { pk: pk(userId), sk: "PROFILE" },
+          ConditionExpression: "attribute_exists(pk)",
+          UpdateExpression: "SET weeklyTarget = :w, leaderboardVisible = :v, shareBodyWeight = :s, updatedAt = :now",
+          ExpressionAttributeValues: {
+            ":w": settings.weeklyTarget,
+            ":v": settings.leaderboardVisible,
+            ":s": settings.shareBodyWeight,
+            ":now": nowIso,
+          },
           ReturnValues: "ALL_NEW",
         }),
       );

@@ -2,7 +2,7 @@
 
 import { useId, useRef, useState, type KeyboardEvent } from "react";
 import { Check, Circle, Flame, Minus, NotebookPen, Plus } from "lucide-react";
-import { badgeClass, segmentClass, segmentGroupClass } from "@/components/form-bits";
+import { segmentClass, segmentGroupClass } from "@/components/form-bits";
 
 /** Static mockups only: nothing here reads member data (spec FR-007). */
 const TABS = [
@@ -162,10 +162,7 @@ function SquadMock() {
   ];
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-2">
-        <p className="eyebrow">Squad · This week</p>
-        <span className={badgeClass}>Coming soon</span>
-      </div>
+      <p className="eyebrow">Squad · This week</p>
       <ol className="divide-y divide-line border-y border-line">
         {rows.map((r, i) => (
           <li key={r.name} className="flex items-center gap-3 py-3 text-sm">

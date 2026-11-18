@@ -141,3 +141,12 @@ describe("upsert_food_log", () => {
     expect(neither.isError).toBe(true);
   });
 });
+
+describe("squad stats follow AI writes (feature 010)", () => {
+  it("a heavier set logged through the agent creates the same PR feed item as the app", async () => {
+    const { deps, squad, token } = await setup();
+    await callTool(deps, token, "upsert_workout_log", { date: "2026-11-10", exercise: "gx-bench-press", sets: lifts(3, 60, 8) });
+    await callTool(deps, token, "upsert_workout_log", { date: "2026-11-11", exercise: "gx-bench-press", sets: lifts(3, 65, 5) });
+    expect([...squad.feed.values()].map((f) => f.eventId)).toContain("pr#gx-bench-press#2026-11-11");
+  });
+});

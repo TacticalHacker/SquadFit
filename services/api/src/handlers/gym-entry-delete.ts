@@ -5,6 +5,7 @@ import { loadDayContext, resolveWriteDate } from "../lib/day-context";
 import { getDeps, type Deps } from "../lib/deps";
 import { loadGymSaveResult } from "../lib/gym-view-loader";
 import { apiError, ok } from "../lib/http";
+import { safeRefresh } from "../lib/squad-stats";
 
 /** DELETE /workouts/gym/entries/{date}/{exerciseId} : remove that day's gym entry. Idempotent (FR-019). */
 export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, deps: Deps) {
@@ -17,6 +18,7 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
   // Only gym ids: plain workout entries are removed through feature 002's route.
   if (!isGymId(exerciseId)) return apiError(404, "NOT_FOUND", "Exercise not found");
   await deps.gym.deleteGymEntry(caller.userId, d.date, exerciseId);
+  await safeRefresh(caller.userId, deps);
   return ok(await loadGymSaveResult(caller.userId, c.ctx, d.date, exerciseId, deps));
 }
 

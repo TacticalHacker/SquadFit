@@ -5,6 +5,7 @@ import { loadDayContext, resolveWriteDate } from "../lib/day-context";
 import { loadDayView } from "../lib/day-view-loader";
 import { getDeps, type Deps } from "../lib/deps";
 import { apiError, ok, parseBody } from "../lib/http";
+import { safeRefresh } from "../lib/squad-stats";
 
 /** PUT /workouts/entries/{date}/{workoutId} : tick, or change the minutes of, one workout on one day. Idempotent. */
 export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, deps: Deps) {
@@ -57,6 +58,8 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
     if (!created && minutes !== undefined) {
       await deps.workouts.updateEntryMinutes(userId, d.date, workoutId, m, calories, nowIso);
     }
+    // A new entry can make that day a workout day (feature 010); minute changes alone never do.
+    await safeRefresh(userId, deps);
   }
   return ok(await loadDayView(userId, c.ctx, d.date, deps));
 }

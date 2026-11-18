@@ -201,6 +201,8 @@ export interface GymEntryView {
   calories: number;
   /** Feature 007: the AI's one-line reason when it adjusted calories; null otherwise. */
   aiNote: string | null;
+  /** Feature 010: an unusual jump awaiting "Looks right"; set by the server from the member's squad stats. */
+  jumpFlag: boolean;
   updatedAt: string;
 }
 
@@ -253,6 +255,7 @@ export function toGymEntryView(e: StoredEntry): GymEntryView {
     minutes: e.minutes,
     calories: e.calories,
     aiNote: e.aiNote ?? null,
+    jumpFlag: false,
     updatedAt: e.updatedAt ?? "",
   };
 }

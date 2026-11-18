@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { ProfileForm } from "@/components/profile-form";
+import { SquadSettingsForm } from "@/components/squad-settings-form";
 import { secondaryButtonClass } from "@/components/form-bits";
 import { removeAvatar } from "@/server/actions/profile";
 import { requireProfile } from "@/server/session";
@@ -40,12 +41,27 @@ async function ProfileSection() {
   );
 }
 
+async function SquadSection() {
+  const { profile } = await requireProfile();
+  return (
+    <section aria-labelledby="squad-heading" className="flex flex-col gap-4">
+      <h2 id="squad-heading" className="text-xl font-semibold">
+        Squad
+      </h2>
+      <SquadSettingsForm initial={profile.squad} hasBodyWeight={profile.bodyWeightKg !== null} />
+    </section>
+  );
+}
+
 export default function SettingsPage() {
   return (
     <div className="flex flex-col gap-10">
       <h1 className="text-3xl font-semibold tracking-[-0.02em]">Settings</h1>
       <Suspense fallback={<p className="text-sm text-muted">Loading…</p>}>
         <ProfileSection />
+      </Suspense>
+      <Suspense fallback={null}>
+        <SquadSection />
       </Suspense>
       <section aria-labelledby="password-heading" className="flex flex-col gap-4">
         <h2 id="password-heading" className="text-xl font-semibold">
