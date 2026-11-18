@@ -28,6 +28,8 @@ async function SquadContent({ searchParams }: { searchParams: PageProps<"/squad"
     view: first(params.view) === "today" ? "today" : "boards",
     date: dateRaw.success ? dateRaw.data : undefined,
   };
+  // Nutrition and Steps have no all-time view; show "This week" selected instead of nothing.
+  if ((query.board === "nutrition" || query.board === "steps") && query.period === "all") query.period = "week";
   const q = new URLSearchParams({ period: query.period });
   if (query.exercise) q.set("exercise", query.exercise);
   if (query.date) q.set("date", query.date);

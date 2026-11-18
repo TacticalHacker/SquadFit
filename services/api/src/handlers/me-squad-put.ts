@@ -6,6 +6,7 @@ import { apiError, ok, parseBody } from "../lib/http";
 import { squadSettingsOf } from "../lib/profile-repo";
 import { safeRefresh } from "../lib/squad-stats";
 import { safeRefreshProtein } from "../lib/protein-events";
+import { safeRefreshSteps } from "../lib/step-events";
 
 /** PUT /me/squad : weekly target, leaderboard visibility, body weight sharing (feature 010, FR-003/004/006). */
 export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, deps: Deps) {
@@ -18,6 +19,8 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
   await safeRefresh(caller.userId, deps);
   // A level or target change decides whether the protein-streak feed items exist.
   await safeRefreshProtein(caller.userId, deps);
+  // Leaderboard visibility also gates steps (feature 012).
+  await safeRefreshSteps(caller.userId, deps);
   return ok(squadSettingsOf(item));
 }
 

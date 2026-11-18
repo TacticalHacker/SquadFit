@@ -28,3 +28,19 @@ export function parseBearer(header: string | undefined): string | null {
   const token = m?.[1];
   return token && TOKEN_PATTERN.test(token) ? token : null;
 }
+
+/**
+ * Feature 012: Health sync tokens. A different prefix from AI keys, so neither credential parses on the other's route
+ * (`parseBearer` only accepts `sfk_`, `parseHealthBearer` only `sfh_`). Stored only as a SHA-256 hash (`hashToken`).
+ */
+const HEALTH_TOKEN_PATTERN = /^sfh_[A-Za-z0-9_-]{43}$/;
+
+export function generateHealthToken(): string {
+  return `sfh_${randomBytes(32).toString("base64url")}`;
+}
+
+export function parseHealthBearer(header: string | undefined): string | null {
+  const m = /^Bearer\s+(\S+)$/i.exec(header?.trim() ?? "");
+  const token = m?.[1];
+  return token && HEALTH_TOKEN_PATTERN.test(token) ? token : null;
+}

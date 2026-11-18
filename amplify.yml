@@ -1,7 +1,8 @@
 # AWS Amplify Hosting build for the Next.js app in a pnpm monorepo.
 # pnpm monorepos need `nodeLinker: hoisted` (nodeLinker in pnpm-workspace.yaml) and the build run from the repo root
 # (buildPath '/'), so node_modules holds real packages that Amplify can package.
-# Console: set AMPLIFY_MONOREPO_APP_ROOT=apps/web and the env vars API_URL, COGNITO_REGION, COGNITO_CLIENT_ID.
+# Console: set AMPLIFY_MONOREPO_APP_ROOT=apps/web and the env vars API_URL, COGNITO_REGION, COGNITO_CLIENT_ID
+# (and optionally HEALTH_SHORTCUT_URL, the iCloud link of the SquadFit Shortcut, feature 012).
 version: 1
 applications:
   - appRoot: apps/web
@@ -16,7 +17,7 @@ applications:
         build:
           commands:
             # Server-side code reads these at runtime; Amplify only exposes them to the build by default.
-            - env | grep -E '^(API_URL|COGNITO_REGION|COGNITO_CLIENT_ID|COGNITO_ENDPOINT)=' >> apps/web/.env.production
+            - env | grep -E '^(API_URL|COGNITO_REGION|COGNITO_CLIENT_ID|COGNITO_ENDPOINT|HEALTH_SHORTCUT_URL)=' >> apps/web/.env.production
             - pnpm --filter @calci/web build
       artifacts:
         baseDirectory: apps/web/.next

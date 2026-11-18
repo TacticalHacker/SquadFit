@@ -67,7 +67,7 @@ export interface SquadStats {
   flags: { date: string; exerciseId: string }[];
 }
 
-export type SquadEventKind = "pr" | "streak_week" | "first_workout" | "workout_day" | "protein_streak";
+export type SquadEventKind = "pr" | "streak_week" | "first_workout" | "workout_day" | "protein_streak" | "step_streak";
 export interface SquadEvent {
   id: string;
   kind: SquadEventKind;

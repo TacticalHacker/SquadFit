@@ -8,6 +8,7 @@ import { loadDay } from "@/server/actions/squad";
 import { Avatar } from "./avatar";
 import { PrBadges, SessionList } from "./day-card";
 import { NutritionLine } from "./nutrition-view";
+import { StepsLine } from "./steps-chart";
 
 interface RowMember {
   userId: string;
@@ -45,7 +46,9 @@ export function BoardList({ children, label }: { children: ReactNode; label: str
 /** Full workout of a member for the selected day, loaded when its row is first opened and then kept. */
 const dayCache = new Map<string, DayLog>();
 
-function RowWorkout({ memberId, date, trained, isToday }: { memberId: string; date: string; trained: boolean; isToday: boolean }) {
+type StepsDay = { steps: number; goalHit: boolean };
+
+function RowWorkout({ memberId, date, trained, isToday, steps }: { memberId: string; date: string; trained: boolean; isToday: boolean; steps?: StepsDay | undefined }) {
   const key = `${memberId}:${date}`;
   const [log, setLog] = useState<DayLog | null>(() => dayCache.get(key) ?? null);
   const [error, setError] = useState(false);
@@ -66,7 +69,8 @@ function RowWorkout({ memberId, date, trained, isToday }: { memberId: string; da
     };
   }, [key, memberId, date, trained]);
   const empty = !trained || (log !== null && log.rest);
-  if (empty) return <p className="text-sm text-muted">{isToday ? "Nothing logged yet" : "Rest day"}</p>;
+  // Feature 012: a day without a workout but with synced steps reads "Rest day · 11,240 steps".
+  if (empty) return steps ? <StepsLine steps={steps.steps} goalHit={steps.goalHit} rest /> : <p className="text-sm text-muted">{isToday ? "Nothing logged yet" : "Rest day"}</p>;
   if (error) return <p className="text-sm text-danger">Couldn&apos;t load this workout.</p>;
   if (!log || log.rest) return <p className="text-sm text-muted">Loading…</p>;
   return (
@@ -77,6 +81,7 @@ function RowWorkout({ memberId, date, trained, isToday }: { memberId: string; da
       </p>
       <SessionList sessions={log.sessions} detailed />
       <PrBadges badges={log.prBadges} />
+      {steps ? <StepsLine steps={steps.steps} goalHit={steps.goalHit} /> : null}
     </div>
   );
 }
@@ -104,7 +109,7 @@ export function BoardRow({
   /** Extra content under the name (e.g. a progress bar). */
   below?: ReactNode;
   expand?: ReactNode;
-  day?: { date: string; trained: boolean; isToday: boolean; nutrition?: NutritionTotals };
+  day?: { date: string; trained: boolean; isToday: boolean; nutrition?: NutritionTotals; steps?: StepsDay };
 }) {
   const { open, toggle } = useContext(OpenRows);
   const expandable = Boolean(expand || day);
@@ -151,7 +156,7 @@ export function BoardRow({
       {isOpen ? (
         <div className="flex flex-col gap-3 border-t border-line px-4 py-3 pl-[3.75rem]">
           {expand}
-          {day ? <RowWorkout memberId={member.userId} date={day.date} trained={day.trained} isToday={day.isToday} /> : null}
+          {day ? <RowWorkout memberId={member.userId} date={day.date} trained={day.trained} isToday={day.isToday} steps={day.steps} /> : null}
         </div>
       ) : null}
     </li>

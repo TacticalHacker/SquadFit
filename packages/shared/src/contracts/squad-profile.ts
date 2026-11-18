@@ -2,6 +2,7 @@ import { z } from "zod";
 import { DateSchema } from "../domain/day";
 import { MealSchema } from "../domain/nutrition";
 import { SquadMemberSchema } from "./squad";
+import { StepsDaySchema } from "./activity";
 
 /** Feature 011 API shapes. See specs/011-squad-profiles-nutrition/contracts/api.md. All strict. */
 
@@ -70,6 +71,8 @@ export const DayCardSchema = z.strictObject({
   highFivedByMe: z.boolean(),
   canHighFive: z.boolean(),
   nutrition: NutritionSchema.optional(),
+  /** Feature 012: present only when the owner shares steps (or is the viewer) and synced that day. */
+  steps: StepsDaySchema.optional(),
 });
 export type DayCard = z.infer<typeof DayCardSchema>;
 
@@ -93,6 +96,19 @@ export const MemberProfileSchema = z.strictObject({
   heatmap: z.strictObject({ cells: z.array(z.strictObject({ date: DateSchema, level: z.number().int().min(0).max(4) })) }),
   nutritionLevel: NutritionLevelSchema,
   isYou: z.boolean(),
+  /**
+   * Feature 012: absent when the owner does not share steps. Active calories and distance appear only here, as
+   * information from Apple Health (constitution VI 2.5.0). `shared` tells the owner whether others see it.
+   */
+  steps: z
+    .strictObject({
+      goal: z.number().int(),
+      shared: z.boolean(),
+      days: z.array(
+        z.strictObject({ date: DateSchema, steps: z.number().int().nullable(), activeKcal: z.number().int().nullable(), distanceKm: z.number().nullable() }),
+      ),
+    })
+    .optional(),
 });
 export type MemberProfile = z.infer<typeof MemberProfileSchema>;
 
@@ -103,7 +119,7 @@ export const TimelineSchema = z.strictObject({
       z.strictObject({
         type: z.literal("milestone"),
         id: z.string(),
-        kind: z.enum(["streak_week", "first_workout", "protein_streak"]),
+        kind: z.enum(["streak_week", "first_workout", "protein_streak", "step_streak"]),
         date: DateSchema,
         week: z.number().int().nullable(),
         highFives: z.number().int().min(0),
@@ -119,6 +135,8 @@ export type Timeline = z.infer<typeof TimelineSchema>;
 export const TodaySchema = z.strictObject({
   date: DateSchema,
   cards: z.array(DayCardSchema.extend({ member: SquadMemberSchema })),
+  /** Feature 012: members sharing steps who synced this day but did not train ("Rest day · 11,240 steps"). */
+  restDays: z.array(z.strictObject({ member: SquadMemberSchema, steps: StepsDaySchema })).default([]),
 });
 export type TodayCards = z.infer<typeof TodaySchema>;
 
@@ -148,5 +166,24 @@ export const SquadLeaderboardFullSchema = SquadLeaderboardSchema.extend({
     viewer: z.strictObject({ level: NutritionLevelSchema, needsTarget: z.boolean() }),
   }),
   viewer: z.strictObject({ nutritionPrompt: z.boolean() }),
+  /** Feature 012: steps on `date` for expanded rows, sharing members only. */
+  stepsToday: z.array(z.strictObject({ userId: z.string(), steps: z.number().int(), goalHit: z.boolean() })).default([]),
+  /** Feature 012: ranked by average steps over synced days only; never by calories. */
+  stepsBoard: z
+    .strictObject({
+      period: z.enum(["week", "30d"]),
+      rows: z.array(
+        z.strictObject({
+          member: SquadMemberSchema,
+          rank: z.number().int().min(1),
+          avgSteps: z.number().int(),
+          hitDays: z.number().int(),
+          periodDays: z.number().int(),
+          syncedDays: z.number().int(),
+        }),
+      ),
+      viewer: z.strictObject({ sharing: z.boolean() }),
+    })
+    .default({ period: "week", rows: [], viewer: { sharing: true } }),
 });
 export type SquadLeaderboardFull = z.infer<typeof SquadLeaderboardFullSchema>;

@@ -11,16 +11,18 @@ import {
   localDate,
   proteinByDay,
   rankNutrition,
+  rankSteps,
+  stepsBoardRow,
   weekStart,
   type BoardMember,
 } from "@calci/shared";
 import { resolveReadDate } from "../lib/day-context";
-import { sharedLevel } from "../lib/member-access";
-import { nutritionOn } from "../lib/member-view";
+import { sharedLevel, stepsShared, stepsVisibleTo } from "../lib/member-access";
+import { nutritionOn, stepsFor } from "../lib/member-view";
 import { getCaller } from "../lib/auth";
 import { getDeps, type Deps } from "../lib/deps";
 import { apiError, ok } from "../lib/http";
-import { squadSettingsOf } from "../lib/profile-repo";
+import { squadSettingsOf, stepSettingsOf } from "../lib/profile-repo";
 import { squadMember, visibleTo } from "../lib/squad-view";
 import { avatarUrl } from "../lib/views";
 
@@ -107,6 +109,40 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
   );
   const myLevel = me.nutritionSharing ?? "off";
 
+  // Feature 012. Steps only through the steps gate; ranked by average over synced days, never by calories.
+  const stepsToday = (
+    await Promise.all(
+      profiles.map(async (p) => {
+        const s = (await stepsFor(p, caller.userId, day.date, day.date, deps)).get(day.date);
+        return s ? { userId: p.userId, ...s } : null;
+      }),
+    )
+  ).filter((r): r is NonNullable<typeof r> => r !== null);
+  const stepsPeriod = period.data === "30d" ? "30d" : "week";
+  const stepScored = (
+    await Promise.all(
+      profiles
+        .filter((p) => stepsShared(p) && stepsVisibleTo(p, caller.userId))
+        .map(async (p) => {
+          const todayLocal = localDate(now, p.timezone);
+          const dates = dateRange(stepsPeriod === "30d" ? addDays(todayLocal, -29) : weekStart(todayLocal), todayLocal);
+          const byDay = new Map((await deps.activity.listRange(p.userId, dates[0]!, todayLocal)).map((d) => [d.date, d.steps] as const));
+          const row = stepsBoardRow(byDay, dates, stepSettingsOf(p).dailyStepGoal);
+          return row ? { ...row, userId: p.userId, name: p.displayName, profile: p } : null;
+        }),
+    )
+  ).filter((r): r is NonNullable<typeof r> => r !== null);
+  const stepRows = await Promise.all(
+    rankSteps(stepScored).map(async (r) => ({
+      member: base.streaks.find((x) => x.member.userId === r.userId)?.member ?? (await squadMember(r.profile, caller.userId, deps.avatars)),
+      rank: r.rank,
+      avgSteps: r.avgSteps,
+      hitDays: r.hitDays,
+      periodDays: r.periodDays,
+      syncedDays: r.syncedDays,
+    })),
+  );
+
   // The strict schema guarantees nothing but the allowed fields leave the server (constitution VI).
   return ok(
     SquadLeaderboardFullSchema.parse({
@@ -117,6 +153,8 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
       nutritionToday,
       nutrition: { rows, viewer: { level: myLevel, needsTarget: myLevel !== "off" && me.dailyProteinTarget === undefined } },
       viewer: { nutritionPrompt: me.nutritionPromptSeen !== true },
+      stepsToday,
+      stepsBoard: { period: stepsPeriod, rows: stepRows, viewer: { sharing: stepsShared(me) } },
     }),
   );
 }

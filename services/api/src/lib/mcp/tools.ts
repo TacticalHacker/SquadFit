@@ -16,6 +16,7 @@ import {
 import { weeklyStreakOf } from "../squad-view";
 import { buildHistoryDays, noteSummary, pendingHint, profileBlock } from "./history";
 import { photoTools } from "./photos";
+import { activityTools } from "./activity";
 import { writeTools } from "./writes";
 import { describeIssues, fail, stripUnknown, type Tool, type ToolContext, type ToolResult } from "./types";
 import { safeRefreshProtein } from "../protein-events";
@@ -144,4 +145,4 @@ const updateUserTargets: Tool = {
   },
 };
 
-export const TOOLS: readonly Tool[] = [getFullContext, getUserHistory, postOverallCoachNote, postDailyCoachNote, updateUserTargets, ...writeTools, ...photoTools];
+export const TOOLS: readonly Tool[] = [getFullContext, getUserHistory, postOverallCoachNote, postDailyCoachNote, updateUserTargets, ...writeTools, ...photoTools, ...activityTools];

@@ -83,7 +83,8 @@ describe("stacks", () => {
       "POST /workouts/gym/exercises", "PUT /workouts/gym/exercises/{exerciseId}", "DELETE /workouts/gym/exercises/{exerciseId}",
       "PUT /coach-note/{date}/actions/{index}", "ANY /mcp/{key}", "GET /public/pulse", "POST /public/waitlist",
       "PUT /me/squad", "PUT /workouts/gym/entries/{date}/{exerciseId}/confirm", "GET /squad/leaderboard", "GET /squad/feed",
-      "PUT /squad/feed/{id}/high-five", "DELETE /squad/feed/{id}/high-five"]) {
+      "PUT /squad/feed/{id}/high-five", "DELETE /squad/feed/{id}/high-five",
+      "POST /integrations/activity", "GET /me/health-sync", "POST /me/health-token", "DELETE /me/health-token", "PUT /me/steps"]) {
       apiT.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: key });
     }
   });
@@ -94,7 +95,8 @@ describe("stacks", () => {
       const props = route.Properties as { RouteKey: string; AuthorizationType?: string };
       // /mcp is guarded by an operator-issued bearer key checked in the handler (feature 004, research R2).
       // /public/* serve the landing page: two counts and the rate-limited waitlist (feature 009).
-      if (["GET /health", "ANY /mcp", "ANY /mcp/{key}", "GET /public/pulse", "POST /public/waitlist"].includes(props.RouteKey)) expect(props.AuthorizationType).toBe("NONE");
+      // /integrations/activity is guarded by the member's Health sync token, checked in the handler (feature 012).
+      if (["GET /health", "ANY /mcp", "ANY /mcp/{key}", "GET /public/pulse", "POST /public/waitlist", "POST /integrations/activity"].includes(props.RouteKey)) expect(props.AuthorizationType).toBe("NONE");
       else expect(props.AuthorizationType, props.RouteKey).toBe("JWT");
     }
   });

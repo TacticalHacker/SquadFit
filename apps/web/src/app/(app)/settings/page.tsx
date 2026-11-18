@@ -4,6 +4,9 @@ import { SquadSettingsForm } from "@/components/squad-settings-form";
 import { secondaryButtonClass } from "@/components/form-bits";
 import { removeAvatar } from "@/server/actions/profile";
 import { requireProfile } from "@/server/session";
+import { HealthSyncStatusSchema } from "@calci/shared";
+import { HealthSyncSection } from "@/components/health-sync-section";
+import { apiFetch } from "@/server/api";
 import { PasswordForm } from "./password-form";
 
 export const metadata = { title: "Settings · SquadFit" };
@@ -53,6 +56,42 @@ async function SquadSection() {
   );
 }
 
+const SOURCE_LABEL = { mcp: "AI agent", shortcut: "Shortcut", health_auto_export: "Health Auto Export", manual: "Manual" } as const;
+
+/** Only an https link is used for the Shortcut button (feature 012); anything else hides it. */
+function shortcutUrl(): string | null {
+  const raw = process.env.HEALTH_SHORTCUT_URL?.trim();
+  if (!raw) return null;
+  try {
+    return new URL(raw).protocol === "https:" ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+async function HealthSection() {
+  const { profile } = await requireProfile();
+  const status = await apiFetch("/me/health-sync", { schema: HealthSyncStatusSchema });
+  const fmt = (iso: string) =>
+    new Intl.DateTimeFormat("en-GB", { timeZone: profile.timezone, day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }).format(new Date(iso));
+  return (
+    <section id="health" aria-labelledby="health-heading" className="flex flex-col gap-4">
+      <h2 id="health-heading" className="text-xl font-semibold">
+        Apple Health sync
+      </h2>
+      <HealthSyncSection
+        view={{
+          token: status.token ? { created: fmt(status.token.createdAt), lastUsed: status.token.lastUsedAt ? fmt(status.token.lastUsedAt) : null } : null,
+          lastSync: status.lastSync ? { when: fmt(status.lastSync.syncedAt), source: SOURCE_LABEL[status.lastSync.source] } : null,
+          steps: status.steps,
+        }}
+        endpointUrl={`${process.env.API_URL ?? ""}/integrations/activity`}
+        shortcutUrl={shortcutUrl()}
+      />
+    </section>
+  );
+}
+
 export default function SettingsPage() {
   return (
     <div className="flex flex-col gap-10">
@@ -62,6 +101,9 @@ export default function SettingsPage() {
       </Suspense>
       <Suspense fallback={null}>
         <SquadSection />
+      </Suspense>
+      <Suspense fallback={null}>
+        <HealthSection />
       </Suspense>
       <section aria-labelledby="password-heading" className="flex flex-col gap-4">
         <h2 id="password-heading" className="text-xl font-semibold">

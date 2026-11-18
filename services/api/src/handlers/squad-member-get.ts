@@ -1,10 +1,10 @@
 import type { APIGatewayProxyEventV2WithJWTAuthorizer, APIGatewayProxyHandlerV2WithJWTAuthorizer } from "aws-lambda";
-import { DEFAULT_LIFT_IDS, MemberProfileSchema, addDays, heatmapCells, localDate, streakFigures, HEATMAP_WEEKS, weekStart } from "@calci/shared";
+import { DEFAULT_LIFT_IDS, MemberProfileSchema, STEPS_CHART_DAYS, addDays, dateRange, heatmapCells, localDate, streakFigures, HEATMAP_WEEKS, weekStart } from "@calci/shared";
 import { getCaller } from "../lib/auth";
 import { getDeps, type Deps } from "../lib/deps";
 import { apiError, ok } from "../lib/http";
-import { resolveMember } from "../lib/member-access";
-import { squadSettingsOf } from "../lib/profile-repo";
+import { resolveMember, stepsShared, stepsVisibleTo } from "../lib/member-access";
+import { squadSettingsOf, stepSettingsOf } from "../lib/profile-repo";
 import { squadMember } from "../lib/squad-view";
 
 /** GET /squad/members/{memberId} : header, PR board and heatmap of a visible member (feature 011). Nothing is logged. */
@@ -35,6 +35,21 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
       bestE1rm: l.bestE1rm ? { weightKg: l.bestE1rm.weightKg, reps: l.bestE1rm.reps, e1rm: l.bestE1rm.e1rm, date: l.bestE1rm.date } : null,
     }));
 
+  // Feature 012: 30 days of steps through the steps gate; active kcal and distance appear only here (constitution VI).
+  let steps: object | undefined;
+  if (stepsVisibleTo(profile, caller.userId)) {
+    const chartFrom = addDays(today, -(STEPS_CHART_DAYS - 1));
+    const synced = new Map((await deps.activity.listRange(profile.userId, chartFrom, today)).map((d) => [d.date, d]));
+    steps = {
+      goal: stepSettingsOf(profile).dailyStepGoal,
+      shared: stepsShared(profile),
+      days: dateRange(chartFrom, today).map((date) => {
+        const d = synced.get(date);
+        return { date, steps: d?.steps ?? null, activeKcal: d?.activeKcal ?? null, distanceKm: d?.distanceKm ?? null };
+      }),
+    };
+  }
+
   return ok(
     MemberProfileSchema.parse({
       member: await squadMember(profile, caller.userId, deps.avatars),
@@ -46,6 +61,7 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
       heatmap: { cells: heatmapCells(entries, today) },
       nutritionLevel: access.level,
       isYou: access.isYou,
+      ...(steps ? { steps } : {}),
     }),
   );
 }

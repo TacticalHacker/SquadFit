@@ -1,6 +1,9 @@
 <!--
 Sync Impact Report
-- Version change: 2.3.0 → 2.4.0 (MINOR: principle VI allows opt-in nutrition sharing at two levels, feature 011)
+- Version change: 2.4.0 → 2.5.0 (MINOR: principle VI allows sharing daily steps under "Share my steps", feature 012)
+- Modified principles: VI. Members-Only Visibility (steps, step goal, goal hits, step-run feed items; active calories and distance on the profile only; no ranking by active calories)
+- Templates requiring updates: none ✅
+- Previous: 2.3.0 → 2.4.0 (MINOR: principle VI allows opt-in nutrition sharing at two levels, feature 011)
 - Modified principles: VI. Members-Only Visibility (a member may share daily nutrition totals, or totals plus meals; exact fields listed)
 - Templates requiring updates: none ✅
 - Previous: 2.2.0 → 2.3.0 (MINOR: principle VI allows a leaderboard opt-out and opt-in body weight ratio, feature 010)
@@ -84,7 +87,10 @@ so a change applies to past days at once, and never for a member hidden from the
 exactly: calories in, protein, carbs, fat, calories burned in workouts (with whether it includes an AI adjustment),
 and the member's protein and calorie targets. **Totals + meals** adds exactly: meal names, items with servings,
 per-meal macros, photo captions and food photos (expiring links only). Nothing else about food, and no rank or sort
-by calories in, calories burned or deficit. Personal data is never written to logs. Passwords are stored only as
+by calories in, calories burned or deficit. Daily activity synced from a health source may be shown to other members only
+while the member is visible on the leaderboard and has "Share my steps" on (default on), enforced on the server per
+request: exactly daily steps, the step goal, whether it was hit, and step-goal streak feed items; active calories and
+distance may appear only on the member's own profile page, as information, and are never ranked, sorted or compared. Personal data is never written to logs. Passwords are stored only as
 slow salted hashes. Rate limits (sign-in attempts, nudges) are enforced server-side.
 
 ### VII. Simplicity
@@ -116,4 +122,4 @@ principle or section is added; PATCH: wording only), and propagates the change t
 `.specify/templates/*`. Reviewers check plans against the "Constitution Check" gate. Runtime
 guidance for agents lives in `CLAUDE.md`.
 
-**Version**: 2.4.0 | **Ratified**: 2026-11-11 | **Last Amended**: 2026-11-18
+**Version**: 2.5.0 | **Ratified**: 2026-11-11 | **Last Amended**: 2026-11-18

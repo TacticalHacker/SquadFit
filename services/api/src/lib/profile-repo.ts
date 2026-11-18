@@ -1,6 +1,6 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, GetCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
-import { DEFAULT_SQUAD_SETTINGS, type NutritionSharing, type ProfileInput, type SquadSettings, type SquadSettingsInput } from "@calci/shared";
+import { DEFAULT_SQUAD_SETTINGS, DEFAULT_STEP_SETTINGS, type NutritionSharing, type StepSettings, type ProfileInput, type SquadSettings, type SquadSettingsInput } from "@calci/shared";
 
 /** A stored profile. Key layout: see specs/001-user-accounts/data-model.md. */
 export interface ProfileItem {
@@ -19,9 +19,17 @@ export interface ProfileItem {
   /** Feature 011; absent = off / prompt not seen. */
   nutritionSharing?: NutritionSharing;
   nutritionPromptSeen?: boolean;
+  /** Feature 012; absent = 8,000 / sharing on. */
+  dailyStepGoal?: number;
+  shareSteps?: boolean;
   avatarKey?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Feature 012: a member's step settings with defaults applied. */
+export function stepSettingsOf(p: Pick<ProfileItem, "dailyStepGoal" | "shareSteps">): StepSettings {
+  return { dailyStepGoal: p.dailyStepGoal ?? DEFAULT_STEP_SETTINGS.dailyStepGoal, shareSteps: p.shareSteps ?? DEFAULT_STEP_SETTINGS.shareSteps };
 }
 
 /** A member's squad settings with defaults applied. */
@@ -52,6 +60,8 @@ export interface ProfileRepo {
   ): Promise<ProfileItem | null>;
   /** Feature 010: save the three squad settings. Returns null if there is no profile. */
   setSquadSettings(userId: string, settings: SquadSettingsInput, nowIso: string): Promise<ProfileItem | null>;
+  /** Feature 012: save the step goal and "Share my steps". Returns null if there is no profile. */
+  setStepSettings(userId: string, settings: StepSettings, nowIso: string): Promise<ProfileItem | null>;
   /** Set or clear the avatar key; returns the previous key. Throws ProfileMissingError if no profile. */
   setAvatarKey(userId: string, key: string | null, nowIso: string): Promise<string | null>;
   /** Everyone with a completed profile, in join order. */
@@ -74,6 +84,8 @@ function fromItem(item: Record<string, unknown>): ProfileItem {
     ...(typeof item.shareBodyWeight === "boolean" ? { shareBodyWeight: item.shareBodyWeight } : {}),
     ...(item.nutritionSharing === "totals" || item.nutritionSharing === "meals" || item.nutritionSharing === "off" ? { nutritionSharing: item.nutritionSharing } : {}),
     ...(typeof item.nutritionPromptSeen === "boolean" ? { nutritionPromptSeen: item.nutritionPromptSeen } : {}),
+    ...(typeof item.dailyStepGoal === "number" ? { dailyStepGoal: item.dailyStepGoal } : {}),
+    ...(typeof item.shareSteps === "boolean" ? { shareSteps: item.shareSteps } : {}),
     ...(typeof item.avatarKey === "string" ? { avatarKey: item.avatarKey } : {}),
     createdAt: item.createdAt as string,
     updatedAt: item.updatedAt as string,
@@ -186,6 +198,25 @@ export class DynamoProfileRepo implements ProfileRepo {
             ...(settings.nutritionSharing ? { ":n": settings.nutritionSharing } : {}),
             ...(settings.nutritionSharing || settings.dismissPrompt ? { ":t": true } : {}),
           },
+          ReturnValues: "ALL_NEW",
+        }),
+      );
+      return fromItem(res.Attributes ?? {});
+    } catch (err) {
+      if (err instanceof Error && err.name === "ConditionalCheckFailedException") return null;
+      throw err;
+    }
+  }
+
+  async setStepSettings(userId: string, settings: StepSettings, nowIso: string) {
+    try {
+      const res = await this.doc.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: { pk: pk(userId), sk: "PROFILE" },
+          ConditionExpression: "attribute_exists(pk)",
+          UpdateExpression: "SET dailyStepGoal = :g, shareSteps = :s, updatedAt = :now",
+          ExpressionAttributeValues: { ":g": settings.dailyStepGoal, ":s": settings.shareSteps, ":now": nowIso },
           ReturnValues: "ALL_NEW",
         }),
       );

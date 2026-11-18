@@ -45,11 +45,11 @@ export async function refreshSquadStats(userId: string, deps: StatsDeps, opts: {
 
     const derived = new Set(events.map((e) => e.id));
     // Day high-five targets (feature 011) stay while that date is still a workout day; they are never created here.
-    // Protein events belong to protein-events.ts.
+    // Protein and step-run events belong to protein-events.ts and step-events.ts.
     const workoutDays = new Set(entries.filter((e) => isWorkoutEntry(e)).map((e) => e.date));
     for (const f of feed) {
       if (f.eventId.startsWith("day#") && workoutDays.has(f.eventId.slice("day#".length))) derived.add(f.eventId);
-      if (f.eventId.startsWith("protein7#")) derived.add(f.eventId);
+      if (f.eventId.startsWith("protein7#") || f.eventId.startsWith("steps7#")) derived.add(f.eventId);
     }
     for (const e of events) {
       const have = existing.get(e.id);
