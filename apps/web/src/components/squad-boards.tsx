@@ -3,9 +3,9 @@ import type { SquadLeaderboardFull } from "@calci/shared";
 import { segmentClass, segmentGroupClass, secondaryButtonClass, inputClass } from "./form-bits";
 import { BoardList, BoardRow, EmptyBoard } from "./board-row";
 
-export const BOARDS = ["streaks", "prs", "consistency", "lifts", "nutrition"] as const;
+export const BOARDS = ["streaks", "prs", "consistency", "lifts", "nutrition", "steps"] as const;
 export type BoardId = (typeof BOARDS)[number];
-const LABELS: Record<BoardId, string> = { streaks: "Streaks", prs: "PRs", consistency: "Consistency", lifts: "Lifts", nutrition: "Nutrition" };
+const LABELS: Record<BoardId, string> = { streaks: "Streaks", prs: "PRs", consistency: "Consistency", lifts: "Lifts", nutrition: "Nutrition", steps: "Steps" };
 
 const nf = new Intl.NumberFormat("en", { maximumFractionDigits: 1 });
 const shortDate = (d: string) =>
@@ -43,8 +43,8 @@ export function PeriodToggle({ query }: { query: BoardQuery }) {
     ["30d", "Last 30 days"],
     ["all", "All time"],
   ] as const;
-  // The Nutrition board has no all-time view (feature 011, FR-036).
-  const items = query.board === "nutrition" ? all.slice(0, 2) : all;
+  // The Nutrition and Steps boards have no all-time view (feature 011 FR-036, feature 012 FR-024).
+  const items = query.board === "nutrition" || query.board === "steps" ? all.slice(0, 2) : all;
   return (
     <nav aria-label="Period" className={`${segmentGroupClass} ${items.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
       {items.map(([id, label]) => (
@@ -58,7 +58,7 @@ export function PeriodToggle({ query }: { query: BoardQuery }) {
 
 export function BoardTabs({ query }: { query: BoardQuery }) {
   return (
-    <nav aria-label="Boards" className={`${segmentGroupClass} grid-cols-2 sm:grid-cols-4`}>
+    <nav aria-label="Boards" className={`${segmentGroupClass} grid-cols-3 sm:grid-cols-6`}>
       {BOARDS.map((id) => (
         <Link key={id} href={squadHref(query, { board: id })} aria-current={query.board === id ? "page" : undefined} className={segmentClass(query.board === id)}>
           {LABELS[id]}
@@ -71,6 +71,7 @@ export function BoardTabs({ query }: { query: BoardQuery }) {
 /** The selected board. Streaks and Consistency do not depend on the period, and say so. */
 export function Board({ data, query }: { data: SquadLeaderboardFull; query: BoardQuery }) {
   if (query.board === "nutrition") return <NutritionBoard data={data} />;
+  if (query.board === "steps") return <StepsBoard data={data} />;
   if (query.board === "streaks") return <Streaks data={data} />;
   if (query.board === "prs") return <Prs data={data} query={query} />;
   if (query.board === "consistency") return <Consistency data={data} />;
@@ -82,7 +83,14 @@ const Note = ({ children }: { children: string }) => <p className="text-xs text-
 /** Expansion data for a row: the selected day, whether the member trained and their compact nutrition line. */
 const dayFor = (data: SquadLeaderboardFull, userId: string) => {
   const nutrition = data.nutritionToday.find((n) => n.userId === userId)?.nutrition;
-  return { date: data.date, trained: data.trainedOn.includes(userId), isToday: data.date === data.today, ...(nutrition ? { nutrition } : {}) };
+  const s = data.stepsToday.find((x) => x.userId === userId);
+  return {
+    date: data.date,
+    trained: data.trainedOn.includes(userId),
+    isToday: data.date === data.today,
+    ...(nutrition ? { nutrition } : {}),
+    ...(s ? { steps: { steps: s.steps, goalHit: s.goalHit } } : {}),
+  };
 };
 
 function Streaks({ data }: { data: SquadLeaderboardFull }) {
@@ -294,6 +302,43 @@ function NutritionBoard({ data }: { data: SquadLeaderboardFull }) {
               main={r.hitDays}
               unit={`/ ${r.periodDays} days`}
               secondary={`Hit their protein target · logged ${r.daysLogged} ${r.daysLogged === 1 ? "day" : "days"}`}
+            />
+          ))}
+        </BoardList>
+      )}
+    </div>
+  );
+}
+
+const stepsNf = new Intl.NumberFormat("en");
+
+/** Feature 012: average daily steps over the days each member synced. Active calories are never ranked. */
+function StepsBoard({ data }: { data: SquadLeaderboardFull }) {
+  const { rows, viewer, period } = data.stepsBoard;
+  return (
+    <div className="flex flex-col gap-2">
+      <Note>Ranked on average daily steps over the days each member synced from Apple Health. Goal days count against each member&apos;s own goal.</Note>
+      {!viewer.sharing ? (
+        <p className="rounded-md border border-line bg-surface-2 px-4 py-2 text-sm text-muted">
+          You&apos;re not sharing your steps, so you&apos;re not on this board.{" "}
+          <Link href="/settings#health" className="text-accent underline underline-offset-4">
+            Steps settings
+          </Link>
+        </p>
+      ) : null}
+      {rows.length === 0 ? (
+        <EmptyBoard>Nobody has synced steps {PERIOD_WORDS[period]}. Set up Apple Health sync in Settings.</EmptyBoard>
+      ) : (
+        <BoardList label="Average daily steps">
+          {rows.map((r) => (
+            <BoardRow
+              key={r.member.userId}
+              rank={r.rank}
+              member={r.member}
+              main={stepsNf.format(r.avgSteps)}
+              unit="/ day"
+              secondary={`Goal hit ${r.hitDays}/${r.periodDays} days · synced ${r.syncedDays}`}
+              day={dayFor(data, r.member.userId)}
             />
           ))}
         </BoardList>

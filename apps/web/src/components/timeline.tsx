@@ -15,6 +15,7 @@ type Item = TimelineData["items"][number];
 function milestoneText(i: Extract<Item, { type: "milestone" }>) {
   if (i.kind === "streak_week") return `Week ${i.week} of the streak`;
   if (i.kind === "protein_streak") return "Hit the protein target 7 days in a row";
+  if (i.kind === "step_streak") return "Hit the step goal 7 days in a row";
   return "First workout";
 }
 

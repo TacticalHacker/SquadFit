@@ -9,6 +9,7 @@ import { Avatar } from "./avatar";
 import { cardClass, badgeClass } from "./form-bits";
 import { HighFiveButton } from "./high-five-button";
 import { NutritionDay } from "./nutrition-view";
+import { StepsLine } from "./steps-chart";
 
 const nf = new Intl.NumberFormat("en", { maximumFractionDigits: 1 });
 const dayLabel = (d: string) =>
@@ -119,6 +120,7 @@ export function DayCard({ card, memberId, member }: { card: DayCardData; memberI
         </p>
       ) : null}
       <PrBadges badges={card.prBadges} />
+      {card.steps ? <StepsLine steps={card.steps.steps} goalHit={card.steps.goalHit} /> : null}
       {card.nutrition ? <NutritionDay n={card.nutrition} /> : null}
       <div className="flex justify-end">
         <HighFiveButton id={card.id} count={card.highFives} mine={card.highFivedByMe} canHighFive={card.canHighFive} />

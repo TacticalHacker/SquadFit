@@ -4,6 +4,7 @@ import type { MemberProfile as Profile } from "@calci/shared";
 import { Avatar } from "./avatar";
 import { cardClass, linkClass } from "./form-bits";
 import { Heatmap } from "./heatmap";
+import { StepsChart } from "./steps-chart";
 
 const nf = new Intl.NumberFormat("en", { maximumFractionDigits: 1 });
 const shortDate = (d: string) =>
@@ -80,6 +81,25 @@ export function MemberProfileView({ profile }: { profile: Profile }) {
           <Heatmap cells={profile.heatmap.cells} />
         </div>
       </section>
+
+      {profile.steps ? (
+        <section aria-labelledby="steps-heading" className="flex flex-col gap-2">
+          <h2 id="steps-heading" className="text-xl font-semibold">
+            Steps · last 30 days
+          </h2>
+          {profile.isYou && !profile.steps.shared ? (
+            <p className="text-sm text-muted">
+              Only you can see your steps.{" "}
+              <Link href="/settings#health" className={linkClass}>
+                Change in Settings
+              </Link>
+            </p>
+          ) : null}
+          <div className={`${cardClass} p-3`}>
+            <StepsChart days={profile.steps.days} goal={profile.steps.goal} />
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

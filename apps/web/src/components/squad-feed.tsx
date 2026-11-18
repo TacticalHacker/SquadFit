@@ -19,6 +19,7 @@ function sentence(i: SquadFeedItem): string {
     return `${name} hit a ${i.pr.exerciseName} PR: ${nf.format(i.pr.weightKg)} kg × ${i.pr.reps}${e}`;
   }
   if (i.kind === "protein_streak") return `${name} hit their protein target 7 days in a row`;
+  if (i.kind === "step_streak") return `${name} hit their step goal 7 days in a row`;
   if (i.kind === "streak_week") return `${name} completed week ${i.week} of their streak`;
   return `${name} logged their first workout`;
 }
