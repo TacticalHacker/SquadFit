@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { handle as rxDelete } from "../src/handlers/squad-reaction-delete";
 import { handle as rxPut } from "../src/handlers/squad-reaction-put";
 import { handle as feedGet } from "../src/handlers/squad-feed-get";
+import { handle as exercisePost } from "../src/handlers/gym-exercise-post";
 import { handle as timelineGet } from "../src/handlers/squad-member-timeline-get";
 import { handle as squadPut } from "../src/handlers/me-squad-put";
 import { refreshSquadStats } from "../src/lib/squad-stats";
@@ -43,6 +44,19 @@ describe("feed reactions", () => {
 
     await bench(deps, "user-1", "2026-11-11", 55, 5); // no longer beats the 60 kg best
     expect((await rx(deps, "user-2", PR, "fire", true)).status).toBe(404);
+  });
+
+  it("lists PRs on built-in exercises only; own-exercise PRs stay on the profile", async () => {
+    const { deps } = await setup();
+    const own = (await exercisePost(makeEvent({ sub: "user-1", body: { name: "Forearm Curl", group: "arms" } }), deps).then(parse)).body.exercise.exerciseId;
+    expect(own).toMatch(/^gc-/);
+    await gymPut(deps, "2026-11-10", own, { sets: sets(3, 20, 8, true) });
+    await gymPut(deps, "2026-11-11", own, { sets: sets(3, 25, 8, true) }); // PR on an own exercise
+    await bench(deps, "user-1", "2026-11-10", 60, 8);
+    await bench(deps, "user-1", "2026-11-11", 65, 5);
+    const ids = (await feedGet(makeEvent({ sub: "user-2" }), deps).then(parse)).body.items.map((i: { id: string }) => i.id);
+    expect(ids).toContain(PR);
+    expect(ids.some((id: string) => id.includes(own))).toBe(false);
   });
 
   it("refuses own items, unknown types and hidden authors", async () => {

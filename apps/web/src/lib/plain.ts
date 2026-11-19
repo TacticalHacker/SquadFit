@@ -78,6 +78,8 @@ export const BOARD_COPY: {
     empty: string;
     /** Rows exist but nobody qualifies to be ranked yet (e.g. everyone still needs more synced days). */
     emptyUnranked?: string;
+    /** The card fills its top 3 with unranked (greyed) rows when fewer than 3 are ranked. */
+    showUnranked?: boolean;
     value: (r: RowOf<Id>) => string;
     sub: (r: RowOf<Id>) => string;
   };
@@ -122,10 +124,10 @@ export const BOARD_COPY: {
   strength: {
     title: "Current strength",
     info: "Your estimated max on bench press, squat and deadlift, added together. Uses your best ever, so it doesn't reset.",
-    empty: "Nobody has logged all three lifts yet.",
-    emptyUnranked: "Nobody has logged all three lifts yet.",
-    value: (r) => (r.big3 === null ? "–" : kg(r.big3)),
-    sub: (r) => (r.big3 === null ? joinHint(r.missing.filter((m) => m !== "Overhead Press")) : "est. bench + squat + deadlift"),
+    empty: "Nobody has logged a bench press, squat or deadlift yet.",
+    value: (r) => kg(r.big3 ?? r.big3Partial),
+    sub: (r) => (r.big3 === null ? `${3 - r.missing.filter((m) => m !== "Overhead Press").length} of 3 lifts` : "est. bench + squat + deadlift"),
+    showUnranked: true,
   },
   protein: {
     title: "Protein days",
