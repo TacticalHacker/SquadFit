@@ -94,7 +94,7 @@ AWS runs only in **ap-south-1** (`AWS_REGION` in `infra/lib/config.ts`): CDK sta
 
 - Route `/workouts/gym` is the default Workouts tab ("Gym | Activities" in `WorkoutsTabs`; `/` and the Workouts nav link land there; `?date=` kept; `?open=<exerciseId>` opens a drawer). API: `GET /workouts/gym`, `PUT|DELETE /workouts/gym/entries/{date}/{exerciseId}`, `POST|PUT|DELETE /workouts/gym/exercises[/{id}]`.
 - A gym entry is a workout entry: `USER#<sub>/ENTRY#<date>#<exerciseId>` with `kind: "gym"`, so day totals, the strip, the food ledger's burned and AI history include it automatically. It also sets `gsi1pk = GYM#<sub>#<exerciseId>`, `gsi1sk = <date>` for "last time" lookups. Own exercises: `GYMEX#gc-<uuid>` (max 50, never Cardio).
-- Ids: built-in `gx-<slug>` (`GYM_EXERCISES`, 28 items), own `gc-<uuid>`. Feature 002's entry routes return 404 for these ids.
+- Ids: built-in `gx-<slug>` (`GYM_EXERCISES`, 54 items), own `gc-<uuid>`. Feature 002's entry routes return 404 for these ids.
 - `gymTotals` / `cardioTotals` in `packages/shared/src/domain/gym.ts` are the only gym math (2.5 min/set, 15 kcal/set, every set counts); the server recomputes and rejects client totals. `drawerReducer` (`gym-drawer.ts`) drives the steppers.
 - Save/remove return `GymSaveResult` (no per-exercise "last" fan-out); the client keeps its `last` values.
 - Unsaved drawer values are drafts in `localStorage` (`sf:gymdraft:v1:<username>:<date>:<id>`, `lib/gym-draft.ts`), read via `useSyncExternalStore`, never sent to the server.

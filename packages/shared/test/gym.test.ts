@@ -21,21 +21,21 @@ const sets = (n: number, weightKg: number, reps: number) =>
   Array.from({ length: n }, (_, i) => ({ setNumber: i + 1, weightKg, reps, completed: false }));
 
 describe("GYM_EXERCISES", () => {
-  it("has the 30 built-in exercises in their groups", () => {
+  it("has the 54 built-in exercises in their groups", () => {
     const byGroup = (g: string) => GYM_EXERCISES.filter((e) => e.group === g).map((e) => e.name);
-    expect(GYM_EXERCISES).toHaveLength(30);
-    expect(byGroup("chest")).toEqual(["Bench Press", "Incline Dumbbell Press", "Cable Flyes", "Chest Dips", "Machine Chest Press", "Machine Pec Fly"]);
-    expect(byGroup("back")).toEqual(["Deadlift", "Lat Pulldown", "Barbell Row", "Seated Cable Row", "Pull-Ups"]);
+    expect(GYM_EXERCISES).toHaveLength(54);
+    expect(byGroup("chest")).toEqual(["Bench Press", "Incline Dumbbell Press", "Cable Flyes", "Chest Dips", "Machine Chest Press", "Machine Pec Fly", "Flat Dumbbell Press", "Dumbbell Fly", "Dumbbell Pullover"]);
+    expect(byGroup("back")).toEqual(["Deadlift", "Lat Pulldown", "Barbell Row", "Seated Cable Row", "Pull-Ups", "T-Bar Row", "Straight Arm Pulldown", "Single Arm Dumbbell Row", "Dumbbell Bent-Over Row", "Back Extension"]);
     expect(byGroup("legs")).toEqual(["Barbell Squat", "Leg Press", "Romanian Deadlift", "Leg Extension", "Hamstring Curl", "Calf Raises"]);
-    expect(byGroup("shoulders")).toEqual(["Overhead Press", "Lateral Raises", "Face Pulls", "Rear Delt Flyes"]);
-    expect(byGroup("arms")).toEqual(["Barbell Curl", "Hammer Curl", "Tricep Pushdown", "Skullcrushers"]);
-    expect(byGroup("core")).toEqual(["Hanging Leg Raises", "Cable Crunch", "Sit-Ups"]);
+    expect(byGroup("shoulders")).toEqual(["Overhead Press", "Lateral Raises", "Face Pulls", "Rear Delt Flyes", "Front Raises", "Seated Dumbbell Shoulder Press", "Arnold Press", "Upright Rows"]);
+    expect(byGroup("arms")).toEqual(["Barbell Curl", "Hammer Curl", "Tricep Pushdown", "Skullcrushers", "EZ-Bar Curl", "Wrist Curl", "Reverse Wrist Curl", "Incline Dumbbell Curl", "Overhead Cable Extension", "Single-Arm Cable Pushdown"]);
+    expect(byGroup("core")).toEqual(["Hanging Leg Raises", "Cable Crunch", "Sit-Ups", "Russian Twists", "Bicycle Crunches", "Palloff Press", "Bird Dog", "Dead Bug", "V-Up"]);
     expect(byGroup("cardio")).toEqual(["Incline Treadmill Walk", "Stairmaster"]);
   });
 
   it("uses unique gx- ids and names that clash with nothing", () => {
     expect(GYM_EXERCISES.every((e) => /^gx-[a-z0-9-]+$/.test(e.id))).toBe(true);
-    expect(new Set(GYM_EXERCISES.map((e) => e.id)).size).toBe(30);
+    expect(new Set(GYM_EXERCISES.map((e) => e.id)).size).toBe(54);
     const names = GYM_EXERCISES.map((e) => normalizeWorkoutName(e.name));
     expect(new Set(names).size).toBe(names.length);
   });

@@ -51,7 +51,7 @@ describe("filterExercises", () => {
   });
 
   it("searches every group, ignoring case and spaces", () => {
-    expect(names(filterExercises(list, "chest", "  CURL "))).toEqual(["Hamstring Curl", "Barbell Curl", "Hammer Curl", "Cable Curl Machine"]);
+    expect(names(filterExercises(list, "chest", "  CURL "))).toEqual(["Hamstring Curl", "Barbell Curl", "Hammer Curl", "EZ-Bar Curl", "Wrist Curl", "Reverse Wrist Curl", "Incline Dumbbell Curl", "Cable Curl Machine"]);
   });
 });
 
