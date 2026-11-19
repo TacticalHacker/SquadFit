@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { addDays } from "../src/domain/day";
 import {
   buildMemberStats,
-  consistency,
   e1rm,
+  weekVolumes,
   rankRows,
   streakFigures,
   type SquadEntry,
@@ -78,7 +78,7 @@ describe("e1RM and PRs", () => {
 
   it("records one PR for a later heavier set", () => {
     const { stats, events } = build([lift("2026-11-14", [[60, 8]]), lift("2026-11-16", [[62.5, 3]])]);
-    expect(stats.lifts["gx-bench-press"]?.prDays).toEqual([{ date: "2026-11-16", weightKg: 62.5, reps: 3, e1rm: 68.8 }]);
+    expect(stats.lifts["gx-bench-press"]?.prDays).toEqual([{ date: "2026-11-16", weightKg: 62.5, reps: 3, e1rm: 68.8, gainKg: 2.5 }]);
     expect(events.find((e) => e.kind === "pr")?.id).toBe("pr#gx-bench-press#2026-11-16");
   });
 
@@ -151,21 +151,71 @@ describe("feed events", () => {
   });
 });
 
-describe("consistency", () => {
-  const weeks = {
-    "2026-10-26": { days: 3, target: 3 },
-    "2026-11-02": { days: 1, target: 3 },
-    "2026-11-09": { days: 4, target: 3 },
-    "2026-10-19": { days: 3, target: 3 },
-  };
-  it("is the share of the last 4 ended weeks that hit", () => {
-    expect(consistency(weeks, TODAY, "2026-01-01")).toBe(75);
+describe("months", () => {
+  it("buckets workout days and lifts improved by the month of the entry date", () => {
+    const { stats } = build([lift("2026-10-31", [[100, 5]]), lift("2026-11-01", [[100, 6], [50, 10]]), activity("2026-11-01"), activity("2026-11-02")]);
+    expect(stats.months).toEqual({ "2026-10": { workoutDays: 1, liftsImproved: 0 }, "2026-11": { workoutDays: 2, liftsImproved: 1 } });
+    expect("dayVolumeKg" in stats).toBe(false);
   });
-  it("only counts weeks since the member joined", () => {
-    expect(consistency({ "2026-11-02": { days: 3, target: 3 }, "2026-11-09": { days: 3, target: 3 } }, TODAY, "2026-11-02")).toBe(100);
+
+  it("counts a session that beats the previous one: more weight at the same or more reps, or more reps at the same weight", () => {
+    const sessions = (top: [number, number][], id = "gx-bench-press") => top.map(([w, r], i) => lift(`2026-11-0${i + 1}`, [[w, r]], id));
+    const improved = (top: [number, number][]) => build(sessions(top)).stats.months["2026-11"]?.liftsImproved;
+    expect(improved([[60, 8], [62.5, 8], [62.5, 9], [65, 10]])).toBe(3); // first session is a baseline
+    expect(improved([[60, 8], [62.5, 6]])).toBe(0); // more weight but fewer reps
+    expect(improved([[60, 8], [60, 8]])).toBe(0); // same session again
+    expect(improved([[60, 8], [55, 12], [57.5, 12]])).toBe(1); // compares with the previous session, not the best ever
+    // Cardio and other exercises never count, and each exercise compares only with itself.
+    const cardio: SquadEntry = { date: "2026-11-02", workoutId: "gx-stairmaster", name: "Stairmaster", kind: "gym", exerciseKind: "cardio" };
+    expect(build([...sessions([[60, 8]]), lift("2026-11-02", [[100, 5]], "gx-deadlift"), cardio]).stats.months["2026-11"]?.liftsImproved).toBe(0);
   });
-  it("is null before the first ended week", () => {
-    expect(consistency({}, TODAY, "2026-11-16")).toBeNull();
+
+  it("keeps each lift's best estimate per month, without flagged sets", () => {
+    const { stats } = build([lift("2026-10-20", [[100, 1]]), lift("2026-10-27", [[90, 1]]), lift("2026-11-03", [[200, 1]]), lift("2026-11-04", [[102, 1]])]);
+    expect(stats.lifts["gx-bench-press"]?.monthBests).toEqual({
+      "2026-10": { e1rm: 103.3, date: "2026-10-20" },
+      "2026-11": { e1rm: 105.4, date: "2026-11-04" },
+    });
+  });
+
+  it("puts the gain over the previous best on PR events", () => {
+    const { events } = build([lift("2026-11-02", [[100, 1]]), lift("2026-11-09", [[110, 1]])]);
+    expect(events.find((e) => e.id === "pr#gx-bench-press#2026-11-09")?.payload.gainKg).toBe(10.4);
+  });
+});
+
+describe("weekVolumes", () => {
+  it("sums working sets this week (Mon–today) and all of last week", () => {
+    // TODAY is Wednesday 18 Nov: this week = 16–18 Nov, last week = 9–15 Nov.
+    const v = weekVolumes([lift("2026-11-08", [[100, 5]]), lift("2026-11-09", [[100, 5]]), lift("2026-11-15", [[50, 10, false]]), lift("2026-11-16", [[60, 10]])], TODAY);
+    expect(v).toEqual({ thisWeek: 600, lastWeek: 500 });
+  });
+});
+
+describe("club badges", () => {
+  const big3 = (date: string, bench: number, squat: number, dead: number) => [
+    lift(date, [[bench, 1]], "gx-bench-press"),
+    lift(date, [[squat, 1]], "gx-barbell-squat"),
+    lift(date, [[dead, 1]], "gx-deadlift"),
+  ];
+  // e1rm(w, 1) = w × 1.0333, so 300 kg of single reps is ~310 kg estimated.
+  it("holds each club from the first date the estimated Big 3 met it, with one event each", () => {
+    const { stats, events } = build([...big3("2026-11-02", 60, 80, 70), ...big3("2026-11-09", 90, 110, 100)]);
+    expect(stats.badges).toEqual({ club225: "2026-11-09", club300: "2026-11-09" });
+    expect(events.filter((e) => e.kind === "badge").map((e) => e.id)).toEqual(["badge#club225", "badge#club300"]);
+  });
+
+  it("needs all three lifts", () => {
+    expect(build([lift("2026-11-02", [[200, 1]], "gx-bench-press"), lift("2026-11-02", [[200, 1]], "gx-deadlift")]).stats.badges).toEqual({});
+  });
+
+  it("is identical when rebuilt and disappears when the lifts no longer reach it", () => {
+    const entries = big3("2026-11-09", 90, 110, 100);
+    const a = build(entries);
+    expect(build(entries, a.stats).events.filter((e) => e.kind === "badge")).toEqual(a.events.filter((e) => e.kind === "badge"));
+    const edited = build(big3("2026-11-09", 60, 80, 70), a.stats);
+    expect(edited.stats.badges).toEqual({});
+    expect(edited.events.some((e) => e.kind === "badge")).toBe(false);
   });
 });
 

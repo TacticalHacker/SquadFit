@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { ProfileForm } from "@/components/profile-form";
 import { SquadSettingsForm } from "@/components/squad-settings-form";
-import { secondaryButtonClass } from "@/components/form-bits";
+import { noticeWarnClass, secondaryButtonClass } from "@/components/form-bits";
 import { removeAvatar } from "@/server/actions/profile";
 import { requireProfile } from "@/server/session";
 import { HealthSyncStatusSchema } from "@calci/shared";
@@ -21,6 +21,9 @@ async function ProfileSection() {
       <p className="text-sm text-muted">
         Username: <span className="font-medium text-ink">{username}</span> (can&apos;t be changed)
       </p>
+      {profile.targetsConfirmed ? null : (
+        <p className={noticeWarnClass}>Your daily goals aren&apos;t confirmed yet. Check them and save to share them with the squad.</p>
+      )}
       <ProfileForm
         mode="edit"
         submitLabel="Save"
@@ -51,7 +54,7 @@ async function SquadSection() {
       <h2 id="squad-heading" className="text-xl font-semibold">
         Squad
       </h2>
-      <SquadSettingsForm initial={profile.squad} hasBodyWeight={profile.bodyWeightKg !== null} />
+      <SquadSettingsForm initial={profile.squad} />
     </section>
   );
 }

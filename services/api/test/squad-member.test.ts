@@ -42,6 +42,15 @@ describe("member profile", () => {
     expect((await day(deps, "user-1", "user-2", "2026-11-12")).status).toBe(400);
   });
 
+  it("shows total weight lifted this week against last week (clock: Wed 11 Nov)", async () => {
+    const { deps, setNow } = await setup();
+    setNow("2026-11-04T10:00:00.000Z"); // log last week's session inside its edit window
+    await bench(deps, "user-2", "2026-11-04", 50, 10); // last week: 3 × 10 × 50
+    setNow("2026-11-11T10:00:00.000Z");
+    await bench(deps, "user-2", "2026-11-10", 60, 10); // this week: 3 × 10 × 60
+    expect((await profile(deps, "user-1", "user-2")).body.weightLifted).toEqual({ thisWeek: 1800, lastWeek: 1500 });
+  });
+
   it("pages the timeline newest first with every day exactly once", async () => {
     const { deps, workouts } = await setup();
     for (let d = 1; d <= 12; d++) await seedWorkoutEntry(workouts, "user-2", `2026-10-${String(d).padStart(2, "0")}`, 100);

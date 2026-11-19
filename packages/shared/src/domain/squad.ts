@@ -1,5 +1,4 @@
 import { addDays } from "./day";
-import { GYM_EXERCISES } from "./gym";
 import { isWeekEnded, weekStart } from "./week";
 
 /** Feature 010 (squad leaderboard). Pure rules; see specs/010-squad-leaderboard/data-model.md. */
@@ -12,9 +11,18 @@ export const SQUAD_MAX_TARGET = 7;
 export const JUMP_RATIO = 1.5;
 export const JUMP_MIN_KG = 20;
 const DAY_BEST_DAYS = 31;
-const VOLUME_DAYS = 14;
 
 export const DEFAULT_LIFT_IDS = ["gx-bench-press", "gx-barbell-squat", "gx-deadlift", "gx-overhead-press"] as const;
+/** Feature 013: the lifts of the estimated Big 3 total (club badges, Current strength). */
+export const BIG3_LIFT_IDS = ["gx-bench-press", "gx-barbell-squat", "gx-deadlift"] as const;
+export const CLUBS = [
+  { id: "club225", kg: 225 },
+  { id: "club300", kg: 300 },
+  { id: "club400", kg: 400 },
+  { id: "club450", kg: 450 },
+  { id: "club500", kg: 500 },
+] as const;
+export type ClubId = (typeof CLUBS)[number]["id"];
 
 // ---------------------------------------------------------------- types
 
@@ -41,6 +49,8 @@ export interface PrDay {
   weightKg: number;
   reps: number;
   e1rm: number | null;
+  /** Feature 013: gain over the previous best (estimate for an estimate PR, else weight). Absent on old stats. */
+  gainKg?: number;
 }
 export interface LiftStats {
   name: string;
@@ -49,6 +59,13 @@ export interface LiftStats {
   bestE1rm: (LiftSet & { e1rm: number }) | null;
   prDays: PrDay[];
   dayBests: Record<string, { weightKg: number; reps: number; e1rm: number }>;
+  /** Feature 013: best eligible estimate per "YYYY-MM" (month of the entry's local date). */
+  monthBests: Record<string, { e1rm: number; date: string }>;
+}
+export interface MonthRecord {
+  workoutDays: number;
+  /** Strength sessions that beat the previous session of the same exercise (feature 013, "Lifts improved"). */
+  liftsImproved: number;
 }
 export interface WeekRecord {
   days: number;
@@ -62,12 +79,15 @@ export interface SquadStats {
   seededEventIds: string[];
   firstWorkoutDate: string | null;
   weeks: Record<string, WeekRecord>;
-  dayVolumeKg: Record<string, number>;
+  /** Feature 013: per "YYYY-MM", all history. */
+  months: Record<string, MonthRecord>;
   lifts: Record<string, LiftStats>;
   flags: { date: string; exerciseId: string }[];
+  /** Feature 013: club id → the first date the best-so-far estimated Big 3 met it. */
+  badges: Partial<Record<ClubId, string>>;
 }
 
-export type SquadEventKind = "pr" | "streak_week" | "first_workout" | "workout_day" | "protein_streak" | "step_streak";
+export type SquadEventKind = "pr" | "streak_week" | "first_workout" | "workout_day" | "protein_streak" | "step_streak" | "badge";
 export interface SquadEvent {
   id: string;
   kind: SquadEventKind;
@@ -111,6 +131,9 @@ interface SetView {
   e1rm: number | null;
 }
 
+/** More weight at the same or more reps, or more reps at the same weight (top set against top set). */
+const beats = (now: SetView, prev: SetView) => (now.weightKg > prev.weightKg && now.reps >= prev.reps) || (now.weightKg === prev.weightKg && now.reps > prev.reps);
+
 /** Walk one exercise's days in date order, producing PRs, bests and flags. */
 function walkLift(entries: readonly SquadEntry[], trustedBefore: string | undefined, today: string) {
   const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
@@ -118,6 +141,12 @@ function walkLift(entries: readonly SquadEntry[], trustedBefore: string | undefi
   let bestE = null as (LiftSet & { e1rm: number }) | null;
   const prDays: PrDay[] = [];
   const dayBests: LiftStats["dayBests"] = {};
+  const monthBests: LiftStats["monthBests"] = {};
+  /** Each date the best estimate rose (badges). */
+  const bestSteps: { date: string; e1rm: number }[] = [];
+  /** Dates whose top set beat the previous session's top set ("Lifts improved"). */
+  const improved: string[] = [];
+  let prevTop: SetView | null = null;
   const flagged: string[] = [];
   const windowStart = addDays(today, -(DAY_BEST_DAYS - 1));
 
@@ -134,6 +163,8 @@ function walkLift(entries: readonly SquadEntry[], trustedBefore: string | undefi
     if (eligible.length === 0) continue;
 
     const heaviest: SetView = eligible.reduce((a: SetView, b: SetView) => (b.weightKg > a.weightKg || (b.weightKg === a.weightKg && b.reps > a.reps) ? b : a));
+    if (prevTop !== null && beats(heaviest, prevTop)) improved.push(entry.date);
+    prevTop = heaviest;
     const withE: SetView[] = eligible.filter((s) => s.e1rm !== null);
     const topE: SetView | null = withE.length ? withE.reduce((a: SetView, b: SetView) => (b.e1rm! > a.e1rm! ? b : a)) : null;
 
@@ -142,14 +173,41 @@ function walkLift(entries: readonly SquadEntry[], trustedBefore: string | undefi
       const estimatePr = topE !== null && prevE !== null && topE.e1rm! > prevE;
       if (weightPr || estimatePr) {
         const shown = estimatePr ? topE! : heaviest;
-        prDays.push({ date: entry.date, weightKg: shown.weightKg, reps: shown.reps, e1rm: shown.e1rm });
+        const gainKg = round1(estimatePr ? topE!.e1rm! - prevE! : heaviest.weightKg - best.weightKg);
+        prDays.push({ date: entry.date, weightKg: shown.weightKg, reps: shown.reps, e1rm: shown.e1rm, gainKg });
       }
     }
     if (best === null || heaviest.weightKg > best.weightKg) best = { ...heaviest, date: entry.date };
-    if (topE && (bestE === null || topE.e1rm! > bestE.e1rm)) bestE = { weightKg: topE.weightKg, reps: topE.reps, e1rm: topE.e1rm!, date: entry.date };
+    if (topE && (bestE === null || topE.e1rm! > bestE.e1rm)) {
+      bestE = { weightKg: topE.weightKg, reps: topE.reps, e1rm: topE.e1rm!, date: entry.date };
+      bestSteps.push({ date: entry.date, e1rm: topE.e1rm! });
+    }
     if (topE && entry.date >= windowStart) dayBests[entry.date] = { weightKg: topE.weightKg, reps: topE.reps, e1rm: topE.e1rm! };
+    const ym = entry.date.slice(0, 7);
+    if (topE && (!monthBests[ym] || topE.e1rm! > monthBests[ym]!.e1rm)) monthBests[ym] = { e1rm: topE.e1rm!, date: entry.date };
   }
-  return { best, bestE, prDays, dayBests, flagged };
+  return { best, bestE, prDays, dayBests, monthBests, bestSteps, improved, flagged };
+}
+
+/** Feature 013: the first date the running best estimates of all three Big 3 lifts summed to each club's threshold. */
+function clubDates(steps: readonly (readonly { date: string; e1rm: number }[])[]): { badges: Partial<Record<ClubId, string>>; totals: Partial<Record<ClubId, number>> } {
+  const timeline = steps.flatMap((list, lift) => list.map((s) => ({ ...s, lift }))).sort((a, b) => a.date.localeCompare(b.date));
+  const current: (number | undefined)[] = steps.map(() => undefined);
+  const badges: Partial<Record<ClubId, string>> = {};
+  const totals: Partial<Record<ClubId, number>> = {};
+  for (let i = 0; i < timeline.length; i++) {
+    const s = timeline[i]!;
+    current[s.lift] = s.e1rm;
+    // Settle every change on one date before comparing.
+    if (timeline[i + 1]?.date === s.date) continue;
+    if (current.some((v) => v === undefined)) continue;
+    const total = round1(current.reduce((t, v) => t! + v!, 0)!);
+    for (const c of CLUBS) if (total >= c.kg && !badges[c.id]) {
+      badges[c.id] = s.date;
+      totals[c.id] = total;
+    }
+  }
+  return { badges, totals };
 }
 
 // ---------------------------------------------------------------- stats rebuild
@@ -177,14 +235,10 @@ export function buildMemberStats(
   }
   const firstWorkoutDate = dayset.size ? [...dayset].sort()[0]! : null;
 
-  // Volume (working sets, recent days only).
-  const volumeFrom = addDays(today, -(VOLUME_DAYS - 1));
-  const tenths: Record<string, number> = {};
-  for (const e of entries) {
-    if (!isGymStrength(e) || e.date < volumeFrom) continue;
-    for (const s of (e.sets ?? []).filter(isWorkingSet)) tenths[e.date] = (tenths[e.date] ?? 0) + s.reps * Math.round(s.weightKg * 10);
-  }
-  const dayVolumeKg = Object.fromEntries(Object.entries(tenths).map(([d, t]) => [d, t / 10]));
+  // Months (feature 013): workout days per month of the entry date; lifts improved are added below.
+  const months: Record<string, MonthRecord> = {};
+  const month = (ym: string) => (months[ym] ??= { workoutDays: 0, liftsImproved: 0 });
+  for (const d of [...dayset].sort()) month(d.slice(0, 7)).workoutDays++;
 
   // Lifts.
   const byExercise = new Map<string, SquadEntry[]>();
@@ -192,6 +246,7 @@ export function buildMemberStats(
   const lifts: Record<string, LiftStats> = {};
   const flags: SquadStats["flags"] = [];
   const events: SquadEvent[] = [];
+  const steps = new Map<string, { date: string; e1rm: number }[]>();
   for (const [exerciseId, list] of byExercise) {
     const walked = walkLift(list, trustedBefore, today);
     if (!walked.best && walked.flagged.length === 0) continue;
@@ -203,16 +258,26 @@ export function buildMemberStats(
       bestE1rm: walked.bestE,
       prDays: walked.prDays,
       dayBests: walked.dayBests,
+      monthBests: walked.monthBests,
     };
+    steps.set(exerciseId, walked.bestSteps);
+    for (const d of walked.improved) month(d.slice(0, 7)).liftsImproved++;
     for (const date of walked.flagged) flags.push({ date, exerciseId });
     for (const pr of walked.prDays) {
       events.push({
         id: `pr#${exerciseId}#${pr.date}`,
         kind: "pr",
         date: pr.date,
-        payload: { exerciseName: latest.name, weightKg: pr.weightKg, reps: pr.reps, e1rm: pr.e1rm },
+        payload: { exerciseName: latest.name, weightKg: pr.weightKg, reps: pr.reps, e1rm: pr.e1rm, gainKg: pr.gainKg ?? null },
       });
     }
+  }
+
+  // Club badges (feature 013): derived like PRs, so a badge that stops being true disappears with its event.
+  const clubs = clubDates(BIG3_LIFT_IDS.map((id) => steps.get(id) ?? []));
+  for (const c of CLUBS) {
+    const date = clubs.badges[c.id];
+    if (date) events.push({ id: `badge#${c.id}`, kind: "badge", date, payload: { club: c.id, totalKg: clubs.totals[c.id]! } });
   }
 
   // Streak-week and first-workout events.
@@ -236,9 +301,10 @@ export function buildMemberStats(
     seededEventIds: prev?.seededEventIds ?? [],
     firstWorkoutDate,
     weeks,
-    dayVolumeKg,
+    months,
     lifts,
     flags,
+    badges: clubs.badges,
   };
   return { stats, events: events.filter((e) => !seeded.has(e.id)) };
 }
@@ -273,29 +339,22 @@ export function streakFigures(weeks: Record<string, WeekRecord>, today: string, 
   return { current: streak, best, weekDays: weeks[current]?.days ?? 0, target: weeklyTarget };
 }
 
-/** FR-018: whole-number share of the last 4 ended weeks (since joining) that hit; null if there is none. */
-export function consistency(weeks: Record<string, WeekRecord>, today: string, joinedDate: string): number | null {
-  const currentWeek = weekStart(today);
-  const joinedWeek = weekStart(joinedDate);
-  let counted = 0;
-  let hits = 0;
-  for (let i = 1; i <= 4; i++) {
-    const ws = addDays(currentWeek, -7 * i);
-    if (ws < joinedWeek) break;
-    counted++;
-    const rec = weeks[ws];
-    if (rec && rec.days >= rec.target) hits++;
+/**
+ * Feature 013 (profile): total weight lifted (reps × weight of working sets) this week so far and all of last week,
+ * Monday–Sunday on the member's local dates.
+ */
+export function weekVolumes(entries: readonly SquadEntry[], today: string): { thisWeek: number; lastWeek: number } {
+  const thisStart = weekStart(today);
+  const lastStart = addDays(thisStart, -7);
+  let thisT = 0;
+  let lastT = 0;
+  for (const e of entries) {
+    if (!isGymStrength(e) || e.date < lastStart || e.date > today) continue;
+    const t = (e.sets ?? []).filter(isWorkingSet).reduce((sum, s) => sum + s.reps * Math.round(s.weightKg * 10), 0);
+    if (e.date >= thisStart) thisT += t;
+    else lastT += t;
   }
-  return counted === 0 ? null : Math.round((hits / counted) * 100);
-}
-
-/** Sum of the volume recorded for the member's current week (FR-019). */
-export function weekVolumeKg(stats: SquadStats | null, today: string): number {
-  if (!stats) return 0;
-  const from = weekStart(today);
-  let tenths = 0;
-  for (const [d, v] of Object.entries(stats.dayVolumeKg)) if (d >= from && d <= today) tenths += Math.round(v * 10);
-  return tenths / 10;
+  return { thisWeek: thisT / 10, lastWeek: lastT / 10 };
 }
 
 // ---------------------------------------------------------------- ranking
@@ -314,126 +373,4 @@ export function rankRows<T>(rows: readonly T[], keys: (row: T) => number[], name
     if (i === 0 || cmp(sorted[i - 1]!, row) !== 0) rank = i + 1;
     return { ...row, rank };
   });
-}
-
-// ---------------------------------------------------------------- boards
-
-export type Period = "week" | "30d" | "all";
-
-export interface BoardMember {
-  userId: string;
-  displayName: string;
-  avatarUrl: string | null;
-  today: string;
-  /** The member's join date as a local calendar date. */
-  joinedDate: string;
-  weeklyTarget: number;
-  visible: boolean;
-  shareBodyWeight: boolean;
-  /** Only a saved weight; never the 75 kg default. */
-  bodyWeightKg: number | null;
-  stats: SquadStats | null;
-}
-
-interface PublicMember {
-  userId: string;
-  displayName: string;
-  avatarUrl: string | null;
-  isYou: boolean;
-}
-type Ranked<T> = { member: PublicMember; rank: number | null } & T;
-
-export interface Boards {
-  period: Period;
-  viewerHidden: boolean;
-  streaks: Ranked<{ current: number; best: number; week: { days: number; target: number } }>[];
-  prs: Ranked<{ count: number; lifts: { exerciseName: string; date: string; weightKg: number; reps: number; e1rm: number | null }[] }>[];
-  consistency: Ranked<{ percent: number | null; weekDays: number; target: number; weekVolumeKg: number }>[];
-  lift: {
-    exerciseId: string;
-    exerciseName: string;
-    options: { exerciseId: string; name: string }[];
-    rows: Ranked<{ relativeRank: number | null; e1rm: number; weightKg: number; reps: number; relative: number | null }>[];
-  };
-}
-
-const publicMember = (m: BoardMember, viewerId: string): PublicMember => ({
-  userId: m.userId,
-  displayName: m.displayName,
-  avatarUrl: m.avatarUrl,
-  isYou: m.userId === viewerId,
-});
-
-const periodStart = (period: Period, today: string) => (period === "week" ? weekStart(today) : period === "30d" ? addDays(today, -29) : "0000-00-00");
-
-const builtInStrength = GYM_EXERCISES.filter((e) => e.kind === "strength");
-const exerciseName = (id: string) => builtInStrength.find((e) => e.id === id)?.name ?? id;
-
-/** Build all four boards for `viewerId`. Hidden members are removed before ranking (FR-003, FR-024). */
-export function buildBoards(input: { members: readonly BoardMember[]; viewerId: string; period: Period; exercise: string }): Boards {
-  const { members, viewerId, period } = input;
-  const viewer = members.find((m) => m.userId === viewerId);
-  const viewerHidden = viewer !== undefined && !viewer.visible;
-  const ranked = members.filter((m) => m.visible);
-  /** Ranked rows, plus the hidden viewer's own row unranked at the end. */
-  const withViewer = <R extends { member: PublicMember }>(rows: (R & { rank: number | null })[], own: R | null): (R & { rank: number | null })[] =>
-    viewerHidden && own ? [...rows, { ...own, rank: null }] : rows;
-
-  const streakRow = (m: BoardMember) => {
-    const f = streakFigures(m.stats?.weeks ?? {}, m.today, m.weeklyTarget);
-    return { member: publicMember(m, viewerId), current: f.current, best: f.best, week: { days: f.weekDays, target: f.target } };
-  };
-  const streaks = withViewer(rankRows(ranked.map(streakRow), (r) => [r.current, r.best, r.week.days], (r) => r.member.displayName), viewer && viewerHidden ? streakRow(viewer) : null);
-
-  const prRow = (m: BoardMember) => {
-    const from = periodStart(period, m.today);
-    const lifts = Object.values(m.stats?.lifts ?? {}).flatMap((l) =>
-      l.prDays.filter((p) => p.date >= from && p.date <= m.today).map((p) => ({ exerciseName: l.name, date: p.date, weightKg: p.weightKg, reps: p.reps, e1rm: p.e1rm })),
-    );
-    lifts.sort((a, b) => b.date.localeCompare(a.date));
-    return { member: publicMember(m, viewerId), count: lifts.length, lifts };
-  };
-  const prs = withViewer(
-    rankRows(ranked.map(prRow).filter((r) => r.count > 0), (r) => [r.count], (r) => r.member.displayName),
-    viewer && viewerHidden && prRow(viewer).count > 0 ? prRow(viewer) : null,
-  );
-
-  const consistencyRow = (m: BoardMember) => {
-    const percent = consistency(m.stats?.weeks ?? {}, m.today, m.joinedDate);
-    const f = streakFigures(m.stats?.weeks ?? {}, m.today, m.weeklyTarget);
-    return { member: publicMember(m, viewerId), percent, weekDays: f.weekDays, target: f.target, weekVolumeKg: weekVolumeKg(m.stats, m.today) };
-  };
-  const consistencyBoard = withViewer(
-    rankRows(ranked.map(consistencyRow), (r) => [r.percent ?? -1, r.weekDays], (r) => r.member.displayName),
-    viewer && viewerHidden ? consistencyRow(viewer) : null,
-  );
-
-  // Lift board: defaults plus built-in lifts at least 2 visible members have logged. Own exercises are never offered.
-  const loggedBy = (id: string) => ranked.filter((m) => m.stats?.lifts[id]?.best).length;
-  const optionIds = builtInStrength.map((e) => e.id).filter((id) => (DEFAULT_LIFT_IDS as readonly string[]).includes(id) || loggedBy(id) >= 2);
-  const options = optionIds.map((id) => ({ exerciseId: id, name: exerciseName(id) }));
-  const exerciseId = optionIds.includes(input.exercise) ? input.exercise : DEFAULT_LIFT_IDS[0];
-
-  const liftRow = (m: BoardMember) => {
-    const l = m.stats?.lifts[exerciseId];
-    if (!l) return null;
-    let top: { e1rm: number; weightKg: number; reps: number } | null = null;
-    if (period === "all") top = l.bestE1rm;
-    else {
-      const from = periodStart(period, m.today);
-      for (const [d, v] of Object.entries(l.dayBests)) if (d >= from && d <= m.today && (!top || v.e1rm > top.e1rm)) top = v;
-    }
-    if (!top) return null;
-    const relative = m.shareBodyWeight && m.bodyWeightKg ? Math.round((top.e1rm / m.bodyWeightKg) * 100) / 100 : null;
-    return { member: publicMember(m, viewerId), e1rm: top.e1rm, weightKg: top.weightKg, reps: top.reps, relative };
-  };
-  const liftRows = ranked.map(liftRow).filter((r): r is NonNullable<typeof r> => r !== null);
-  const rankedLift = rankRows(liftRows, (r) => [r.e1rm], (r) => r.member.displayName);
-  const relRanks = new Map(rankRows(liftRows.filter((r) => r.relative !== null), (r) => [r.relative!], (r) => r.member.displayName).map((r) => [r.member.userId, r.rank]));
-  const rows = withViewer(
-    rankedLift.map((r) => ({ ...r, relativeRank: relRanks.get(r.member.userId) ?? null })),
-    viewer && viewerHidden ? (() => { const r = liftRow(viewer); return r ? { ...r, relativeRank: null as number | null } : null; })() : null,
-  );
-
-  return { period, viewerHidden, streaks, prs, consistency: consistencyBoard, lift: { exerciseId, exerciseName: exerciseName(exerciseId), options, rows } };
 }

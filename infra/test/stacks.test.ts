@@ -82,8 +82,8 @@ describe("stacks", () => {
       "GET /workouts/gym", "PUT /workouts/gym/entries/{date}/{exerciseId}", "DELETE /workouts/gym/entries/{date}/{exerciseId}",
       "POST /workouts/gym/exercises", "PUT /workouts/gym/exercises/{exerciseId}", "DELETE /workouts/gym/exercises/{exerciseId}",
       "PUT /coach-note/{date}/actions/{index}", "ANY /mcp/{key}", "GET /public/pulse", "POST /public/waitlist",
-      "PUT /me/squad", "PUT /workouts/gym/entries/{date}/{exerciseId}/confirm", "GET /squad/leaderboard", "GET /squad/feed",
-      "PUT /squad/feed/{id}/high-five", "DELETE /squad/feed/{id}/high-five",
+      "PUT /me/squad", "PUT /workouts/gym/entries/{date}/{exerciseId}/confirm", "GET /squad/boards", "GET /squad/hall-of-fame", "GET /squad/feed",
+      "PUT /squad/feed/{id}/reactions/{type}", "DELETE /squad/feed/{id}/reactions/{type}", "PUT /me/targets",
       "POST /integrations/activity", "GET /me/health-sync", "POST /me/health-token", "DELETE /me/health-token", "PUT /me/steps"]) {
       apiT.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: key });
     }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Flame } from "lucide-react";
 import { addDays } from "@calci/shared";
+import { weeksInARow, workoutsThisWeek } from "@/lib/plain";
 import { linkClass } from "./form-bits";
 
 const arrow =
@@ -49,10 +50,8 @@ export function DayNav({
           title={`Weeks with at least ${streak.target} workout days. This week: ${streak.weekDays} of ${streak.target}.`}
         >
           <Flame aria-hidden size={18} strokeWidth={1.75} className={streak.current > 0 ? "text-accent" : "text-muted"} />
-          {streak.current > 0 ? `${streak.current}-week streak` : "No streak yet"}
-          <span className="tabular-nums text-muted">
-            · {streak.weekDays}/{streak.target}
-          </span>
+          {streak.current > 0 ? weeksInARow(streak.current) : "No streak yet"}
+          <span className="tabular-nums text-muted">· {workoutsThisWeek(streak.weekDays, streak.target)}</span>
         </p>
       )}
     </div>

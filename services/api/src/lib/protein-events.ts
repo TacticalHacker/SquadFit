@@ -1,5 +1,6 @@
 import { PROTEIN_STREAK_DAYS, SQUAD_ID, addDays, isProteinRun, localDate, proteinByDay } from "@calci/shared";
 import type { Deps } from "./deps";
+import { NO_REACTIONS } from "./squad-repo";
 import { squadSettingsOf } from "./profile-repo";
 
 const PREFIX = "protein7#";
@@ -13,7 +14,8 @@ const PREFIX = "protein7#";
 export async function refreshProteinEvents(userId: string, deps: Pick<Deps, "profiles" | "food" | "squad" | "now">): Promise<void> {
   const profile = await deps.profiles.get(userId);
   if (!profile) return;
-  const target = profile.dailyProteinTarget;
+  // Feature 013: a target the member never confirmed is not a real target, so it earns no streak.
+  const target = profile.targetsConfirmedAt !== undefined ? profile.dailyProteinTarget : undefined;
   const sharing = squadSettingsOf(profile).nutritionSharing !== "off" && target !== undefined;
   const existing = (await deps.squad.listMemberFeed(userId)).filter((f) => f.eventId.startsWith(PREFIX));
   if (!sharing) {
@@ -41,7 +43,7 @@ export async function refreshProteinEvents(userId: string, deps: Pick<Deps, "pro
       kind: "protein_streak",
       eventDate: today,
       payload: { days: PROTEIN_STREAK_DAYS },
-      hi5Count: 0,
+      reactions: { ...NO_REACTIONS },
       createdAt: now.toISOString(),
     });
   }

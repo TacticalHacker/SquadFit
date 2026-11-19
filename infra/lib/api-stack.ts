@@ -128,15 +128,18 @@ export class ApiStack extends Stack {
     route("gym-exercise-delete", HttpMethod.DELETE, "/workouts/gym/exercises/{exerciseId}", { write: true });
     // Squad leaderboard (feature 010): members-only; the boards and feed only read, settings/high-fives/confirm write.
     route("me-squad-put", HttpMethod.PUT, "/me/squad", { write: true });
+    route("me-targets-put", HttpMethod.PUT, "/me/targets", { write: true });
     route("gym-entry-confirm-put", HttpMethod.PUT, "/workouts/gym/entries/{date}/{exerciseId}/confirm", { write: true });
-    route("squad-leaderboard-get", HttpMethod.GET, "/squad/leaderboard", { avatars: "read" });
+    // Feature 013: boards and Hall of Fame replace /squad/leaderboard; reactions replace high-fives.
+    route("squad-boards-get", HttpMethod.GET, "/squad/boards", { avatars: "read" });
+    route("squad-hall-of-fame-get", HttpMethod.GET, "/squad/hall-of-fame", { avatars: "read" });
     route("squad-feed-get", HttpMethod.GET, "/squad/feed", { avatars: "read" });
     route("squad-member-get", HttpMethod.GET, "/squad/members/{memberId}", { avatars: "read" });
     route("squad-member-timeline-get", HttpMethod.GET, "/squad/members/{memberId}/timeline", { photos: "read" });
     route("squad-member-day-get", HttpMethod.GET, "/squad/members/{memberId}/days/{date}", { photos: "read" });
     route("squad-today-get", HttpMethod.GET, "/squad/today", { avatars: "read" });
-    route("squad-hi5-put", HttpMethod.PUT, "/squad/feed/{id}/high-five", { write: true });
-    route("squad-hi5-delete", HttpMethod.DELETE, "/squad/feed/{id}/high-five", { write: true });
+    route("squad-reaction-put", HttpMethod.PUT, "/squad/feed/{id}/reactions/{type}", { write: true });
+    route("squad-reaction-delete", HttpMethod.DELETE, "/squad/feed/{id}/reactions/{type}", { write: true });
     // Nutrition (feature 003)
     route("food-get", HttpMethod.GET, "/food", { photos: "read" });
     route("food-recent-get", HttpMethod.GET, "/food/recent");

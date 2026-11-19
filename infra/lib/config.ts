@@ -1,5 +1,8 @@
 export type Stage = "dev" | "prod";
 
+/** Every stage lives in Mumbai. Deploys and the operator CLI never guess a region from the environment. */
+export const AWS_REGION = "ap-south-1";
+
 export interface StageConfig {
   stage: Stage;
   /** Keep data on stack deletion. Always true outside dev. */

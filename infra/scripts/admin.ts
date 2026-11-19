@@ -8,10 +8,13 @@
  *   pnpm admin ai-key list [--stage dev|prod]
  *   pnpm admin waitlist list [--stage dev|prod]                    (feature 009: invite requests, newest first)
  *   pnpm admin squad backfill [--stage dev|prod]                   (feature 010: build squad stats from history, no feed items)
+ *   pnpm admin squad timezone <IANA> [--stage dev|prod]            (feature 013: month boundaries for the boards)
+ *   pnpm admin squad migrate-reactions [--stage dev|prod]          (feature 013: high-fives become 💪, safe to re-run)
  *
  * Needs AWS credentials for the target account (AWS_PROFILE etc).
  */
 import { CloudFormationClient, DescribeStacksCommand } from "@aws-sdk/client-cloudformation";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
   AdminCreateUserCommand,
   AdminGetUserCommand,
@@ -20,7 +23,7 @@ import {
   ListUsersCommand,
   type UserType,
 } from "@aws-sdk/client-cognito-identity-provider";
-import { UsernameSchema } from "@calci/shared";
+import { SQUAD_ID, UsernameSchema, isValidTimeZone } from "@calci/shared";
 import { generateToken, hashToken } from "@calci/shared/ai-credential";
 import { DynamoCredentialRepo } from "../../services/api/src/lib/credential-repo";
 import { DynamoProfileRepo } from "../../services/api/src/lib/profile-repo";
@@ -28,6 +31,7 @@ import { DynamoSquadRepo } from "../../services/api/src/lib/squad-repo";
 import { refreshSquadStats } from "../../services/api/src/lib/squad-stats";
 import { DynamoWaitlistRepo } from "../../services/api/src/lib/waitlist-repo";
 import { DynamoWorkoutRepo } from "../../services/api/src/lib/workout-repo";
+import { AWS_REGION } from "../lib/config";
 import { formatSnippets, parseAiKeySubcommand } from "./ai-key";
 import { generateTempPassword } from "./temp-password";
 
@@ -38,7 +42,9 @@ const USAGE = `Usage:
   pnpm admin ai-key issue|revoke <username> [--stage dev|prod]
   pnpm admin ai-key list [--stage dev|prod]
   pnpm admin waitlist list [--stage dev|prod]
-  pnpm admin squad backfill [--stage dev|prod]`;
+  pnpm admin squad backfill [--stage dev|prod]
+  pnpm admin squad timezone <IANA> [--stage dev|prod]
+  pnpm admin squad migrate-reactions [--stage dev|prod]`;
 
 function fail(message: string): never {
   console.error(message);
@@ -58,14 +64,21 @@ function parseArgs(argv: string[]) {
   return { command, username, third, stage };
 }
 
+const ddb = new DynamoDBClient({ region: AWS_REGION });
+
 async function stackOutput(stack: "Auth" | "Data" | "Api", key: string, stage: string, region: string): Promise<string> {
   const cfn = new CloudFormationClient({ region });
   try {
     const { Stacks } = await cfn.send(new DescribeStacksCommand({ StackName: `Calci-${stage}-${stack}` }));
     const value = Stacks?.[0]?.Outputs?.find((o) => o.OutputKey === key)?.OutputValue;
     if (value) return value;
-  } catch {
-    // fall through to the message below
+  } catch (err) {
+    // Say what AWS said: an expired login or wrong profile is far more likely than a missing stack.
+    const name = err instanceof Error ? err.name : "UnknownError";
+    const message = err instanceof Error ? err.message : String(err);
+    if (name !== "ValidationError") {
+      return fail(`AWS refused the request (${name}: ${message}). Profile: ${process.env.AWS_PROFILE ?? "default"}. Try \`aws login --profile ${process.env.AWS_PROFILE ?? "macmini-raj"}\` or check the profile.`);
+    }
   }
   return fail(`Could not find the ${key} output of stack Calci-${stage}-${stack} in ${region}. Is it deployed (pnpm deploy:${stage})?`);
 }
@@ -88,7 +101,7 @@ async function findUserSub(idp: CognitoIdentityProviderClient, userPoolId: strin
 async function aiKey(sub: string | undefined, username: string | undefined, stage: string, region: string, idp: CognitoIdentityProviderClient, userPoolId: string) {
   const action = parseAiKeySubcommand(sub);
   if (!action) return fail(USAGE);
-  const repo = new DynamoCredentialRepo(await stackOutput("Data", "TableName", stage, region));
+  const repo = new DynamoCredentialRepo(await stackOutput("Data", "TableName", stage, region), ddb);
 
   if (action === "list") {
     const users = await listAllUsers(idp, userPoolId);
@@ -142,13 +155,14 @@ function printCredentials(username: string, tempPassword: string) {
 
 async function main() {
   const { command, username, third, stage } = parseArgs(process.argv.slice(2));
-  const region = process.env.CDK_DEFAULT_REGION ?? process.env.AWS_REGION ?? "us-east-1";
+  // Always ap-south-1 (lib/config.ts); every client below is given it explicitly, whatever the profile says.
+  const region = AWS_REGION;
   if (!command) fail(USAGE);
 
   // Feature 009: no Cognito needed.
   if (command === "waitlist") {
     if (username !== "list") fail(USAGE);
-    const rows = await new DynamoWaitlistRepo(await stackOutput("Data", "TableName", stage, region)).list();
+    const rows = await new DynamoWaitlistRepo(await stackOutput("Data", "TableName", stage, region), ddb).list();
     if (rows.length === 0) return void console.log("No invite requests yet.");
     for (const r of rows) console.log(`${r.createdAt}  ${r.primaryGoal.padEnd(15)}  ${r.name} <${r.email}>`);
     return;
@@ -156,9 +170,20 @@ async function main() {
 
   // Feature 010: no Cognito needed. History is trusted, nothing is flagged, and no feed item is created.
   if (command === "squad") {
-    if (username !== "backfill") fail(USAGE);
     const table = await stackOutput("Data", "TableName", stage, region);
-    const deps = { profiles: new DynamoProfileRepo(table), workouts: new DynamoWorkoutRepo(table), squad: new DynamoSquadRepo(table), now: () => new Date() };
+    if (username === "timezone") {
+      const tz = third;
+      if (!tz || !isValidTimeZone(tz)) fail("Give a valid IANA timezone, e.g. Asia/Kolkata");
+      await new DynamoSquadRepo(table, ddb).putSquadSettings(SQUAD_ID, { timezone: tz! }, new Date().toISOString());
+      return void console.log("Squad timezone set");
+    }
+    if (username === "migrate-reactions") {
+      const r = await new DynamoSquadRepo(table, ddb).migrateHighFives();
+      // Counts only (constitution VI).
+      return void console.log(`high-fives converted: ${r.highFives}, feed items updated: ${r.items}`);
+    }
+    if (username !== "backfill") fail(USAGE);
+    const deps = { profiles: new DynamoProfileRepo(table, ddb), workouts: new DynamoWorkoutRepo(table, ddb), squad: new DynamoSquadRepo(table, ddb), now: () => new Date() };
     const members = await deps.profiles.listCommunity();
     let feedBefore = 0;
     let feedAfter = 0;

@@ -8,7 +8,7 @@
     "synth": "cdk synth --all -c stage=dev",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "admin": "tsx scripts/admin.ts"
+    "admin": "AWS_PROFILE=${AWS_PROFILE:-macmini-raj} tsx scripts/admin.ts"
   },
   "dependencies": {
     "aws-cdk-lib": "^2.276.0",

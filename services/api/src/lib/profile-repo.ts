@@ -22,6 +22,9 @@ export interface ProfileItem {
   /** Feature 012; absent = 8,000 / sharing on. */
   dailyStepGoal?: number;
   shareSteps?: boolean;
+  /** Feature 013; absent = the member never confirmed their calorie/protein targets (all members before 013). */
+  targetsConfirmedAt?: string;
+  targetsPromptDismissed?: boolean;
   avatarKey?: string;
   createdAt: string;
   updatedAt: string;
@@ -58,6 +61,8 @@ export interface ProfileRepo {
     targets: { dailyCalorieTarget?: number; dailyProteinTarget?: number | null },
     nowIso: string,
   ): Promise<ProfileItem | null>;
+  /** Feature 013: hide the "Set your daily goals" prompt (targets stay unconfirmed). Returns null if there is no profile. */
+  dismissTargetsPrompt(userId: string, nowIso: string): Promise<ProfileItem | null>;
   /** Feature 010: save the three squad settings. Returns null if there is no profile. */
   setSquadSettings(userId: string, settings: SquadSettingsInput, nowIso: string): Promise<ProfileItem | null>;
   /** Feature 012: save the step goal and "Share my steps". Returns null if there is no profile. */
@@ -86,6 +91,8 @@ function fromItem(item: Record<string, unknown>): ProfileItem {
     ...(typeof item.nutritionPromptSeen === "boolean" ? { nutritionPromptSeen: item.nutritionPromptSeen } : {}),
     ...(typeof item.dailyStepGoal === "number" ? { dailyStepGoal: item.dailyStepGoal } : {}),
     ...(typeof item.shareSteps === "boolean" ? { shareSteps: item.shareSteps } : {}),
+    ...(typeof item.targetsConfirmedAt === "string" ? { targetsConfirmedAt: item.targetsConfirmedAt } : {}),
+    ...(typeof item.targetsPromptDismissed === "boolean" ? { targetsPromptDismissed: item.targetsPromptDismissed } : {}),
     ...(typeof item.avatarKey === "string" ? { avatarKey: item.avatarKey } : {}),
     createdAt: item.createdAt as string,
     updatedAt: item.updatedAt as string,
@@ -120,7 +127,7 @@ export class DynamoProfileRepo implements ProfileRepo {
         TableName: this.tableName,
         Key: { pk: pk(userId), sk: "PROFILE" },
         UpdateExpression:
-          "SET userId = :uid, username = :un, displayName = :dn, #tz = :tz, dailyCalorieTarget = :t, updatedAt = :now, " +
+          "SET userId = :uid, username = :un, displayName = :dn, #tz = :tz, dailyCalorieTarget = :t, updatedAt = :now, targetsConfirmedAt = :now, " +
           "createdAt = if_not_exists(createdAt, :now), gsi1pk = :community, gsi1sk = if_not_exists(gsi1sk, :gsi1sk)" +
           (protein === null ? "" : ", dailyProteinTarget = :pt") +
           (typeof weight === "number" ? ", bodyWeightKg = :bw" : "") +
@@ -149,7 +156,8 @@ export class DynamoProfileRepo implements ProfileRepo {
     targets: { dailyCalorieTarget?: number; dailyProteinTarget?: number | null },
     nowIso: string,
   ) {
-    const sets = ["updatedAt = :now"];
+    // Feature 013: saving targets (prompt, Settings or the AI agent) confirms them.
+    const sets = ["updatedAt = :now", "targetsConfirmedAt = :now"];
     const removes: string[] = [];
     const values: Record<string, unknown> = { ":now": nowIso };
     if (targets.dailyCalorieTarget !== undefined) {
@@ -169,6 +177,25 @@ export class DynamoProfileRepo implements ProfileRepo {
           ConditionExpression: "attribute_exists(pk)",
           UpdateExpression: `SET ${sets.join(", ")}${removes.length ? ` REMOVE ${removes.join(", ")}` : ""}`,
           ExpressionAttributeValues: values,
+          ReturnValues: "ALL_NEW",
+        }),
+      );
+      return fromItem(res.Attributes ?? {});
+    } catch (err) {
+      if (err instanceof Error && err.name === "ConditionalCheckFailedException") return null;
+      throw err;
+    }
+  }
+
+  async dismissTargetsPrompt(userId: string, nowIso: string) {
+    try {
+      const res = await this.doc.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: { pk: pk(userId), sk: "PROFILE" },
+          ConditionExpression: "attribute_exists(pk)",
+          UpdateExpression: "SET targetsPromptDismissed = :t, updatedAt = :now",
+          ExpressionAttributeValues: { ":t": true, ":now": nowIso },
           ReturnValues: "ALL_NEW",
         }),
       );

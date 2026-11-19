@@ -4,7 +4,7 @@ import { getCaller } from "../lib/auth";
 import { getDeps, type Deps } from "../lib/deps";
 import { apiError, ok } from "../lib/http";
 import { resolveMember, stepsVisibleTo } from "../lib/member-access";
-import { dayCard, loadHighFives, stepsFor } from "../lib/member-view";
+import { dayCard, loadReactions, reactionsView, stepsFor } from "../lib/member-view";
 import { feedId } from "../lib/squad-repo";
 import type { EntryItem } from "../lib/workout-repo";
 
@@ -42,18 +42,18 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
   }
   const { page, nextCursor } = pageTimeline(buildDayCards(loaded, {}), cursor);
 
-  const hi5 = await loadHighFives(profile.userId, caller.userId, deps);
+  const rx = await loadReactions(profile.userId, caller.userId, deps);
   const steps = page.length ? await stepsFor(profile, caller.userId, page[page.length - 1]!.date, page[0]!.date, deps) : new Map();
   const cards = await Promise.all(
     page.map(async (c) => {
-      const card = await dayCard({ owner: profile, viewerId: caller.userId, level: access.level, date: c.date, workouts: loaded, stats, hi5, withSets: false, steps, deps });
+      const card = await dayCard({ owner: profile, viewerId: caller.userId, level: access.level, date: c.date, workouts: loaded, stats, rx, withSets: false, steps, deps });
       return card;
     }),
   );
 
   const high = cursor ? addDays(cursor, -1) : "9999-12-31";
   const low = nextCursor === null ? "0000-01-01" : page[page.length - 1]!.date;
-  const milestones = [...hi5.byEvent.values()]
+  const milestones = [...rx.byEvent.values()]
     .filter((f) => MILESTONES.has(f.kind) && f.eventDate >= low && f.eventDate <= high && (f.kind !== "protein_streak" || access.level !== "off") && (f.kind !== "step_streak" || stepsVisibleTo(profile, caller.userId)))
     .map((f) => ({
       type: "milestone" as const,
@@ -61,9 +61,8 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
       kind: f.kind as "streak_week" | "first_workout" | "protein_streak" | "step_streak",
       date: f.eventDate,
       week: f.kind === "streak_week" ? ((f.payload.week as number | undefined) ?? null) : null,
-      highFives: f.hi5Count,
-      highFivedByMe: hi5.mine.has(feedId(profile.userId, f.eventId)),
-      canHighFive: !access.isYou,
+      reactions: reactionsView(f.reactions, rx.mine, profile.userId, f.eventId),
+      canReact: !access.isYou,
     }));
 
   const dayItems = cards.flatMap((c) => (c ? [{ date: c.date, order: 0, item: { type: "day" as const, card: (({ updatedAt: _u, ...rest }) => rest)(c) } }] : []));

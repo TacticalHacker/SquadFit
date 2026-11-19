@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { MeResponseSchema, ProfileInputSchema } from "@calci/shared";
+import { MeResponseSchema, MeTargetsInputSchema, ProfileInputSchema } from "@calci/shared";
 import { ApiRequestError, apiFetch, UnauthorizedError } from "../api";
 import type { ActionState } from "./state";
 
@@ -67,5 +67,32 @@ export async function saveProfile(_prev: ActionState, formData: FormData): Promi
 export async function removeAvatar(): Promise<void> {
   const outcome = await guard(() => apiFetch("/me/avatar", { method: "DELETE", schema: MeResponseSchema }));
   void outcome;
+  revalidatePath("/", "layout");
+}
+
+/** Feature 013: the "Set your daily goals" prompt. Saving confirms the targets so the squad may see them. */
+export async function saveTargets(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const rawProtein = str(formData, "dailyProteinTarget").trim();
+  const parsed = MeTargetsInputSchema.safeParse({
+    dailyCalorieTarget: Number(str(formData, "dailyCalorieTarget").trim() || Number.NaN),
+    dailyProteinTarget: rawProtein === "" ? null : Number(rawProtein),
+  });
+  if (!parsed.success) {
+    const fields: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      const key = issue.path.at(-1);
+      if (typeof key === "string" && key !== "dismiss") fields[key] ??= issue.message;
+    }
+    return { fields: Object.keys(fields).length ? fields : { dailyCalorieTarget: "Enter your daily calorie goal" } };
+  }
+  const outcome = await guard(() => apiFetch("/me/targets", { method: "PUT", body: parsed.data, schema: MeResponseSchema }));
+  if (!("profile" in outcome)) return outcome;
+  revalidatePath("/", "layout");
+  return { message: "Saved" };
+}
+
+/** Hide the prompt without confirming; Settings still shows that the goals are not confirmed. */
+export async function dismissTargetsPrompt(): Promise<void> {
+  await guard(() => apiFetch("/me/targets", { method: "PUT", body: { dismiss: true }, schema: MeResponseSchema }));
   revalidatePath("/", "layout");
 }

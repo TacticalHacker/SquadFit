@@ -5,7 +5,7 @@ import type { Timeline as TimelineData } from "@calci/shared";
 import { loadTimeline } from "@/server/actions/squad";
 import { DayCard } from "./day-card";
 import { cardClass, secondaryButtonClass } from "./form-bits";
-import { HighFiveButton } from "./high-five-button";
+import { Reactions } from "./reactions";
 
 const shortDate = (d: string) =>
   new Intl.DateTimeFormat("en", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${d}T00:00:00Z`));
@@ -13,8 +13,8 @@ const shortDate = (d: string) =>
 type Item = TimelineData["items"][number];
 
 function milestoneText(i: Extract<Item, { type: "milestone" }>) {
-  if (i.kind === "streak_week") return `Week ${i.week} of the streak`;
-  if (i.kind === "protein_streak") return "Hit the protein target 7 days in a row";
+  if (i.kind === "streak_week") return i.week && i.week > 1 ? `Hit the workout goal ${i.week} weeks in a row` : "Hit the workout goal this week";
+  if (i.kind === "protein_streak") return "Hit the protein goal 7 days in a row";
   if (i.kind === "step_streak") return "Hit the step goal 7 days in a row";
   return "First workout";
 }
@@ -64,7 +64,7 @@ export function Timeline({ memberId, initial }: { memberId: string; initial: Tim
                   <p className="text-sm text-ink">{milestoneText(i)}</p>
                   <p className="text-xs text-muted">{shortDate(i.date)}</p>
                 </div>
-                <HighFiveButton id={i.id} count={i.highFives} mine={i.highFivedByMe} canHighFive={i.canHighFive} />
+                <Reactions id={i.id} reactions={i.reactions} canReact={i.canReact} />
               </div>
             )}
           </li>

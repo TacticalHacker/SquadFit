@@ -1,5 +1,6 @@
 import { SQUAD_ID, STEP_STREAK_DAYS, addDays, isStepRun, localDate } from "@calci/shared";
 import type { Deps } from "./deps";
+import { NO_REACTIONS } from "./squad-repo";
 import { stepsShared } from "./member-access";
 import { stepSettingsOf } from "./profile-repo";
 
@@ -43,7 +44,7 @@ export async function refreshStepEvents(userId: string, deps: StepDeps): Promise
       kind: "step_streak",
       eventDate: today,
       payload: { days: STEP_STREAK_DAYS },
-      hi5Count: 0,
+      reactions: { ...NO_REACTIONS },
       createdAt: now.toISOString(),
     });
   }

@@ -5,7 +5,7 @@ import { resolveReadDate } from "../lib/day-context";
 import { getDeps, type Deps } from "../lib/deps";
 import { apiError, ok } from "../lib/http";
 import { sharedLevel } from "../lib/member-access";
-import { dayCard, loadHighFives, stepsFor } from "../lib/member-view";
+import { dayCard, loadReactions, stepsFor } from "../lib/member-view";
 import { squadMember, visibleTo } from "../lib/squad-view";
 
 const MAX_BACK_DAYS = 30;
@@ -26,15 +26,15 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
   const members = (await deps.profiles.listCommunity()).filter((p) => visibleTo(p, caller.userId));
   const built = await Promise.all(
     members.map(async (owner) => {
-      const [workouts, stats, hi5, steps] = await Promise.all([
+      const [workouts, stats, rx, steps] = await Promise.all([
         deps.workouts.listEntriesForDay(owner.userId, day.date),
         deps.squad.getStats(owner.userId),
-        loadHighFives(owner.userId, caller.userId, deps),
+        loadReactions(owner.userId, caller.userId, deps),
         stepsFor(owner, caller.userId, day.date, day.date, deps),
       ]);
       const shared = owner.userId === caller.userId ? "totals" : sharedLevel(owner);
       const level = shared === "meals" ? "totals" : shared;
-      const card = await dayCard({ owner, viewerId: caller.userId, level, date: day.date, workouts, stats, hi5, withSets: false, steps, deps });
+      const card = await dayCard({ owner, viewerId: caller.userId, level, date: day.date, workouts, stats, rx, withSets: false, steps, deps });
       return { owner, card, steps: steps.get(day.date) };
     }),
   );

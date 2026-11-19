@@ -1,45 +1,34 @@
 import type { NutritionMeals, NutritionTotals } from "@calci/shared";
+import { INFO, ate, burned, carbsFat, protein } from "@/lib/plain";
+import { InfoTip } from "./info-tip";
 
 const nf = new Intl.NumberFormat("en", { maximumFractionDigits: 1 });
 
 type Shown = NutritionTotals | NutritionMeals;
 
-/** Calories burned in workouts: always an estimate ("~"), and "adj." when any of it was AI-adjusted (feature 011, FR-029). */
+/** Calories burned in workouts: always an estimate; the (i) explains an AI adjustment when there was one (feature 013). */
 export function Burned({ n }: { n: Shown }) {
   return (
-    <span className="tabular-nums">
-      ~{nf.format(n.burned)} kcal
-      {n.burnedAdjusted ? <span className="ml-1 rounded-full border border-warning/50 px-1.5 py-0.5 text-xs font-medium text-ink">adj.</span> : null}
+    <span className="inline-flex items-center tabular-nums">
+      {burned(n.burned)}
+      {n.burnedAdjusted ? <InfoTip title="Calories burned" text={INFO.burnedAdjusted} /> : null}
     </span>
   );
 }
 
-/** Compact line: protein against the member's own target, calories in, burned. No net, ever. */
+/** Protein against the member's own goal (with a bar when there is one), calories eaten, burned. No net, ever. */
 export function NutritionLine({ n }: { n: Shown }) {
   const pct = n.proteinTarget ? Math.min(100, Math.round((n.protein / n.proteinTarget) * 100)) : null;
   return (
-    <div className="mt-1.5 flex flex-col gap-1 text-xs text-muted">
-      <div className="flex items-baseline justify-between gap-3">
-        <span>Protein</span>
-        <span className="tabular-nums text-ink">
-          {nf.format(n.protein)}
-          {n.proteinTarget ? ` / ${nf.format(n.proteinTarget)}` : ""} g
-        </span>
-      </div>
+    <div className="mt-1.5 flex flex-col gap-1 text-sm text-muted">
+      <p className="tabular-nums text-ink">{protein(n.protein, n.proteinTarget)}</p>
       {pct !== null ? (
-        <div role="img" aria-label={`${pct}% of protein target`} className="h-1 overflow-hidden rounded-full bg-line">
+        <div role="img" aria-label={`${pct}% of the protein goal`} className="h-1 overflow-hidden rounded-full bg-line">
           <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
         </div>
       ) : null}
-      <div className="flex flex-wrap justify-between gap-x-3">
-        <span className="tabular-nums">
-          In {nf.format(n.caloriesIn)}
-          {n.calorieTarget ? ` / ${nf.format(n.calorieTarget)}` : ""} kcal
-        </span>
-        <span>
-          Burned <Burned n={n} />
-        </span>
-      </div>
+      <p className="tabular-nums">{ate(n.caloriesIn, n.calorieTarget)}</p>
+      <Burned n={n} />
     </div>
   );
 }
@@ -49,10 +38,8 @@ export function NutritionDay({ n }: { n: Shown }) {
   const meals = "meals" in n ? n.meals : null;
   return (
     <section aria-label="Nutrition" className="flex flex-col gap-2 rounded-md border border-line bg-surface-2 px-3 py-2">
-      <p className="text-sm tabular-nums text-ink">
-        {nf.format(n.caloriesIn)} kcal in · P {nf.format(n.protein)} · C {nf.format(n.carbs)} · F {nf.format(n.fat)} g
-      </p>
       <NutritionLine n={n} />
+      <p className="text-sm tabular-nums text-muted">{carbsFat(n.carbs, n.fat)}</p>
       {meals && meals.length > 0 ? (
         <details className="group">
           <summary className="min-h-11 cursor-pointer list-none py-2.5 text-sm font-medium text-accent [&::-webkit-details-marker]:hidden">Meals</summary>
@@ -62,7 +49,7 @@ export function NutritionDay({ n }: { n: Shown }) {
                 <p className="flex justify-between text-sm font-medium capitalize text-ink">
                   <span>{m.meal}</span>
                   <span className="tabular-nums text-muted">
-                    {nf.format(m.subtotalCalories)} kcal{m.macros ? ` · P ${nf.format(m.macros.protein)} C ${nf.format(m.macros.carbs)} F ${nf.format(m.macros.fat)}` : ""}
+                    {nf.format(m.subtotalCalories)} calories{m.macros ? ` · protein ${nf.format(m.macros.protein)} g` : ""}
                   </span>
                 </p>
                 <ul className="mt-1 flex flex-col gap-1.5 text-sm text-muted">
@@ -77,7 +64,7 @@ export function NutritionDay({ n }: { n: Shown }) {
                         {it.servings !== 1 ? <span> × {nf.format(it.servings)}</span> : null}
                         {it.caption && it.caption !== it.name ? <span className="block truncate">{it.caption}</span> : null}
                       </span>
-                      <span className="tabular-nums">{nf.format(it.calories)} kcal</span>
+                      <span className="tabular-nums">{nf.format(it.calories)} calories</span>
                     </li>
                   ))}
                 </ul>
