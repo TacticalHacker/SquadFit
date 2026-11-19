@@ -78,6 +78,8 @@ export const BOARD_COPY: {
     empty: string;
     /** Rows exist but nobody qualifies to be ranked yet (e.g. everyone still needs more synced days). */
     emptyUnranked?: string;
+    /** The card fills its top 3 with unranked (greyed) rows when fewer than 3 are ranked. */
+    showUnranked?: boolean;
     value: (r: RowOf<Id>) => string;
     sub: (r: RowOf<Id>) => string;
   };
@@ -94,14 +96,15 @@ export const BOARD_COPY: {
     info: "Weeks in a row you hit your workout goal. Rest days don't break it.",
     empty: "No streaks yet.",
     value: (r) => streakValue(r.weeks),
-    sub: (r) => `${r.weekDays} of ${r.target} this week`,
+    // Shown as progress dots by BoardRow (`weekDots`); this text is their accessible label.
+    sub: (r) => weekDotsLabel(r.weekDays, r.target),
   },
   improved: {
     title: "Lifts improved",
     info: "Times you beat your last session: one more rep or a bit more weight.",
     empty: "No lifts improved yet this month.",
     value: (r) => plural(r.count, "lift"),
-    sub: () => "improved",
+    sub: () => "",
   },
   steps: {
     title: "Steps",
@@ -121,19 +124,22 @@ export const BOARD_COPY: {
   strength: {
     title: "Current strength",
     info: "Your estimated max on bench press, squat and deadlift, added together. Uses your best ever, so it doesn't reset.",
-    empty: "Nobody has logged all three lifts yet.",
-    emptyUnranked: "Nobody has logged all three lifts yet.",
-    value: (r) => (r.big3 === null ? "–" : kg(r.big3)),
-    sub: (r) => (r.big3 === null ? joinHint(r.missing.filter((m) => m !== "Overhead Press")) : "est. bench + squat + deadlift"),
+    empty: "Nobody has logged a bench press, squat or deadlift yet.",
+    value: (r) => kg(r.big3 ?? r.big3Partial),
+    sub: (r) => (r.big3 === null ? `${3 - r.missing.filter((m) => m !== "Overhead Press").length} of 3 lifts` : "est. bench + squat + deadlift"),
+    showUnranked: true,
   },
   protein: {
     title: "Protein days",
     info: "Days this month you hit your own protein goal, out of the days you logged food. Only members who share their nutrition.",
     empty: "No protein goals hit yet this month.",
-    value: (r) => `${r.hitDays} of ${r.loggedDays}`,
-    sub: () => "days at protein goal",
+    value: (r) => plural(r.hitDays, "day"),
+    sub: (r) => `out of ${plural(r.loggedDays, "day")} logged`,
   },
 };
+
+/** "2 of 4 workouts this week": the label of the streak board's progress dots. */
+export const weekDotsLabel = (days: number, target: number) => `${days} of ${target} workouts this week`;
 
 /** Big number for a streak: "Week 1" until a week is completed (ranked by this week's progress), then "N weeks". */
 export const streakValue = (weeks: number) => (weeks === 0 ? "Week 1" : plural(weeks, "week"));
@@ -208,7 +214,7 @@ export function recordValue(id: keyof typeof RECORD_LABEL, value: number, liftNa
 export function feedLine(i: SquadFeedItem): string {
   if (i.kind === "pr" && i.pr) {
     const gain = i.pr.gainKg ? ` (${signedKg(i.pr.gainKg)})` : "";
-    return ` hit a new PR (personal best) on ${i.pr.exerciseName}: ${kg(i.pr.weightKg)} × ${plural(i.pr.reps, "rep")}${gain}`;
+    return ` hit a new PR on ${i.pr.exerciseName}: ${kg(i.pr.weightKg)} × ${plural(i.pr.reps, "rep")}${gain}`;
   }
   if (i.kind === "badge" && i.club) return ` joined the ${CLUB_LABEL[i.club]} 👑`;
   if (i.kind === "streak_week") return i.week && i.week > 1 ? ` hit the workout goal ${i.week} weeks in a row` : " hit the workout goal this week";

@@ -42,7 +42,11 @@ export function BoardRow({ board, row, mode, rank }: { board: SquadBoardView; ro
             </span>
             {row.club ? <ClubBadge club={row.club} /> : null}
           </span>
-          {sub ? <span className="truncate text-xs text-muted">{sub}</span> : null}
+          {board.id === "streak" ? (
+            <WeekDots row={row as Extract<SquadBoardView, { id: "streak" }>["rows"][number]} label={sub} />
+          ) : sub ? (
+            <span className="truncate text-xs text-muted">{sub}</span>
+          ) : null}
         </span>
       </Link>
       <span className="shrink-0 whitespace-nowrap text-right text-base font-semibold tabular-nums text-ink">{value}</span>
@@ -50,11 +54,22 @@ export function BoardRow({ board, row, mode, rank }: { board: SquadBoardView; ro
   );
 }
 
-/** Feature 013 card: title + (i), top 3, and the viewer's own line when they are 4th or lower (FR-003). */
+/** This week's workout days against the member's goal, one dot per goal day (●●○○). */
+function WeekDots({ row, label }: { row: Extract<SquadBoardView, { id: "streak" }>["rows"][number]; label: string }) {
+  return (
+    <span role="img" aria-label={label} className="flex items-center gap-1 py-1">
+      {Array.from({ length: row.target }, (_, i) => (
+        <span key={i} className={`size-1.5 rounded-full ${i < row.weekDays ? "bg-accent" : "bg-line-strong"}`} />
+      ))}
+    </span>
+  );
+}
+
+/** Feature 013 card: title + (i), top 3 (topped up with greyed unranked rows where the board allows), and the viewer's own line when they are 4th or lower (FR-003). */
 export function BoardCard({ board, hidden }: { board: SquadBoardView; hidden: boolean }) {
   const copy = BOARD_COPY[board.id];
   const ranked = board.rows.filter((r) => r.rank !== null);
-  const top = ranked.slice(0, 3);
+  const top = [...ranked, ...(copy.showUnranked ? board.rows.filter((r) => r.rank === null) : [])].slice(0, 3);
   const you = board.rows.find((r) => r.member.isYou);
   const youOutside = you && !top.includes(you);
   return (

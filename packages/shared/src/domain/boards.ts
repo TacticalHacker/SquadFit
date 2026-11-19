@@ -67,7 +67,7 @@ export type SquadBoard =
   | { id: "improved"; rows: Row<{ count: number }>[] }
   | { id: "steps"; rows: Row<{ avgSteps: number; syncedDays: number }>[] }
   | { id: "prJump"; rows: Row<{ kg: number; liftName: string; pct: number; pctRank: number | null; pctLiftName: string; pctKg: number }>[] }
-  | { id: "strength"; rows: Row<{ big3: number | null; big4: number | null; big4Rank: number | null; missing: string[] }>[] }
+  | { id: "strength"; rows: Row<{ big3: number | null; big4: number | null; big4Rank: number | null; big3Partial: number; missing: string[] }>[] }
   | { id: "protein"; rows: Row<{ hitDays: number; loggedDays: number }>[] };
 
 export interface BoardsInput {
@@ -118,14 +118,18 @@ function liftJump(monthBests: Record<string, { e1rm: number }> | undefined, mont
   return kg > 0 ? { kg, pct: Math.round((kg / before) * 100) } : null;
 }
 
-/** Best-ever estimated Big 3 (and Big 4 with overhead press) plus the names of lifts never logged. */
+/**
+ * Best-ever estimated Big 3 (and Big 4 with overhead press) plus the names of lifts never logged. `big3Partial` adds up
+ * whichever Big 3 lifts are logged, so members still missing one can be listed (unranked) with what they have.
+ */
 export function strengthOf(stats: SquadStats | null) {
   const best = (id: string) => stats?.lifts[id]?.bestE1rm?.e1rm;
   const ids = [...BIG3_LIFT_IDS, OHP];
   const missing = ids.filter((id) => best(id) === undefined).map(liftName);
   const big3 = BIG3_LIFT_IDS.every((id) => best(id) !== undefined) ? round1(BIG3_LIFT_IDS.reduce((t, id) => t + best(id)!, 0)) : null;
   const big4 = big3 !== null && best(OHP) !== undefined ? round1(big3 + best(OHP)!) : null;
-  return { big3, big4, missing };
+  const big3Partial = round1(BIG3_LIFT_IDS.reduce((t, id) => t + (best(id) ?? 0), 0));
+  return { big3, big4, big3Partial, missing };
 }
 
 // ---------------------------------------------------------------- boards
@@ -184,13 +188,13 @@ export function buildSquadBoards(input: BoardsInput): SquadBoard[] {
   const pctRanks = new Map(rankRows(prRows.filter((r) => r.rank !== null), (r) => [r.pctBest], name).map((r) => [r.member.userId, r.rank]));
   const prJump = prRows.map(({ pctBest, ...r }) => ({ ...r, pct: pctBest, pctRank: r.rank === null ? null : (pctRanks.get(r.member.userId) ?? null) }));
 
-  // Current strength: members missing a Big 3 lift are listed last, unranked (FR-013).
+  // Current strength: full Big 3 totals are ranked; members with 1–2 of the lifts follow, unranked, by what they have.
   const strengthRows = board(
     (m) => {
       const s = strengthOf(m.stats);
-      return s.big3 === null && s.missing.length === 4 ? null : { ...s, big4Rank: null as number | null };
+      return s.big3Partial === 0 ? null : { ...s, big4Rank: null as number | null };
     },
-    (r) => [r.big3 ?? -1],
+    (r) => [r.big3 ?? -1, r.big3Partial],
   ).map((r) => (r.big3 === null ? { ...r, rank: null } : r));
   const big4Ranks = new Map(rankRows(strengthRows.filter((r) => r.big4 !== null && r.rank !== null), (r) => [r.big4!], name).map((r) => [r.member.userId, r.rank]));
   const strength = strengthRows.map((r) => ({ ...r, big4Rank: big4Ranks.get(r.member.userId) ?? null }));

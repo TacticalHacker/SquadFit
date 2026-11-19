@@ -25,6 +25,8 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
       const author = byId.get(item.userId);
       if (!author || !visibleTo(author, caller.userId)) continue;
       if (item.kind === "workout_day") continue;
+      // PRs on members' own exercises stay on their profile (day cards), not in the squad feed.
+      if (item.kind === "pr" && !item.eventId.startsWith("pr#gx-")) continue;
       if (item.kind === "protein_streak" && sharedLevel(author) === "off") continue;
       if (item.kind === "step_streak" && !stepsShared(author)) continue;
       picked.push(item);

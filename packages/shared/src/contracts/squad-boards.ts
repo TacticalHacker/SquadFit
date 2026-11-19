@@ -32,7 +32,7 @@ export const SquadBoardSchema = z.discriminatedUnion("id", [
   }),
   z.strictObject({
     id: z.literal("strength"),
-    rows: z.array(row({ big3: z.number().nullable(), big4: z.number().nullable(), big4Rank: Rank, missing: z.array(z.string()) })),
+    rows: z.array(row({ big3: z.number().nullable(), big4: z.number().nullable(), big4Rank: Rank, big3Partial: z.number(), missing: z.array(z.string()) })),
   }),
   z.strictObject({ id: z.literal("protein"), rows: z.array(row({ hitDays: int, loggedDays: int })) }),
 ]);

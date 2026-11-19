@@ -13,9 +13,9 @@ const gymEntry = (id: string, name: string, group = "legs"): StoredEntry => ({
 describe("buildGymView", () => {
   it("lists built-ins in catalog order, then own A→Z", () => {
     const v = buildGymView({ ...base, ownExercises: [{ exerciseId: "gc-2", name: "Zercher", group: "legs" }, { exerciseId: "gc-1", name: "Hip Thrust", group: "legs" }], entries: [], last: {} });
-    expect(v.exercises.slice(0, 28).map((e) => e.exerciseId)).toEqual(GYM_EXERCISES.map((e) => e.id));
-    expect(v.exercises.slice(28).map((e) => e.name)).toEqual(["Hip Thrust", "Zercher"]);
-    expect(v.exercises[28]).toMatchObject({ isBuiltIn: false, kind: "strength", group: "legs", entry: null, last: null });
+    expect(v.exercises.slice(0, GYM_EXERCISES.length).map((e) => e.exerciseId)).toEqual(GYM_EXERCISES.map((e) => e.id));
+    expect(v.exercises.slice(GYM_EXERCISES.length).map((e) => e.name)).toEqual(["Hip Thrust", "Zercher"]);
+    expect(v.exercises[GYM_EXERCISES.length]).toMatchObject({ isBuiltIn: false, kind: "strength", group: "legs", entry: null, last: null });
   });
 
   it("attaches the day's entry, `last`, and the whole-day summary", () => {

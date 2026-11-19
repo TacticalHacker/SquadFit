@@ -96,14 +96,18 @@ describe("current strength", () => {
   const all = (u: string, b: number, s: number, d: number, o?: number) =>
     member(u, [lift("2026-11-02", b), lift("2026-11-02", s, "gx-barbell-squat"), lift("2026-11-02", d, "gx-deadlift"), ...(o ? [lift("2026-11-02", o, "gx-overhead-press")] : [])]);
 
-  it("ranks the Big 3, puts members missing a lift last and unranked, and ranks Big 4 separately", () => {
-    const rows = board(boards([all("a", 100, 100, 100), all("b", 90, 90, 90, 60), member("c", [lift("2026-11-02", 200)])]), "strength").rows;
+  it("ranks full Big 3 totals, lists partial members after them by what they have, and ranks Big 4 separately", () => {
+    const partial = member("d", [lift("2026-11-02", 100), lift("2026-11-02", 140, "gx-deadlift")]);
+    const ohpOnly = member("e", [lift("2026-11-02", 60, "gx-overhead-press")]);
+    const rows = board(boards([all("a", 100, 100, 100), all("b", 90, 90, 90, 60), member("c", [lift("2026-11-02", 200)]), partial, ohpOnly]), "strength").rows;
     expect(rows.map((r) => [r.member.userId, r.rank, r.big4Rank])).toEqual([
       ["a", 1, null],
       ["b", 2, 1],
+      ["d", null, null],
       ["c", null, null],
     ]);
-    expect(rows[2]).toMatchObject({ big3: null, missing: ["Barbell Squat", "Deadlift", "Overhead Press"] });
+    expect(rows[2]!.big3Partial).toBeGreaterThan(rows[3]!.big3Partial);
+    expect(rows[3]).toMatchObject({ big3: null, missing: ["Barbell Squat", "Deadlift", "Overhead Press"] });
   });
 });
 
