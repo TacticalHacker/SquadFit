@@ -1,5 +1,5 @@
 import type { APIGatewayProxyEventV2WithJWTAuthorizer, APIGatewayProxyHandlerV2WithJWTAuthorizer } from "aws-lambda";
-import { DEFAULT_LIFT_IDS, MemberProfileSchema, STEPS_CHART_DAYS, addDays, dateRange, heatmapCells, localDate, streakFigures, HEATMAP_WEEKS, weekStart } from "@calci/shared";
+import { DEFAULT_LIFT_IDS, clubsOf, MemberProfileSchema, STEPS_CHART_DAYS, addDays, dateRange, heatmapCells, localDate, streakFigures, HEATMAP_WEEKS, weekStart } from "@calci/shared";
 import { getCaller } from "../lib/auth";
 import { getDeps, type Deps } from "../lib/deps";
 import { apiError, ok } from "../lib/http";
@@ -61,6 +61,7 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
       heatmap: { cells: heatmapCells(entries, today) },
       nutritionLevel: access.level,
       isYou: access.isYou,
+      badges: clubsOf(stats),
       ...(steps ? { steps } : {}),
     }),
   );

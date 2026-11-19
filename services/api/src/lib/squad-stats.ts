@@ -1,5 +1,6 @@
 import { SQUAD_ID, buildMemberStats, isWorkoutEntry, localDate } from "@calci/shared";
 import type { Deps } from "./deps";
+import { NO_REACTIONS } from "./squad-repo";
 import { squadSettingsOf } from "./profile-repo";
 
 /** What the rebuild needs, so the operator backfill can run it without the S3 stores. */
@@ -55,7 +56,7 @@ export async function refreshSquadStats(userId: string, deps: StatsDeps, opts: {
       const have = existing.get(e.id);
       if (!have) {
         if (!opts.seed) {
-          await deps.squad.putFeed({ userId, squadId: SQUAD_ID, eventId: e.id, kind: e.kind, eventDate: e.date, payload: e.payload, hi5Count: 0, createdAt: nowIso });
+          await deps.squad.putFeed({ userId, squadId: SQUAD_ID, eventId: e.id, kind: e.kind, eventDate: e.date, payload: e.payload, reactions: { ...NO_REACTIONS }, createdAt: nowIso });
         }
       } else if (have.eventDate !== e.date || JSON.stringify(have.payload) !== JSON.stringify(e.payload)) {
         await deps.squad.updateFeed(userId, e.id, e.date, e.payload);

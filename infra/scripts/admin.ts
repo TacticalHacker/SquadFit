@@ -8,6 +8,8 @@
  *   pnpm admin ai-key list [--stage dev|prod]
  *   pnpm admin waitlist list [--stage dev|prod]                    (feature 009: invite requests, newest first)
  *   pnpm admin squad backfill [--stage dev|prod]                   (feature 010: build squad stats from history, no feed items)
+ *   pnpm admin squad timezone <IANA> [--stage dev|prod]            (feature 013: month boundaries for the boards)
+ *   pnpm admin squad migrate-reactions [--stage dev|prod]          (feature 013: high-fives become 💪, safe to re-run)
  *
  * Needs AWS credentials for the target account (AWS_PROFILE etc).
  */
@@ -20,7 +22,7 @@ import {
   ListUsersCommand,
   type UserType,
 } from "@aws-sdk/client-cognito-identity-provider";
-import { UsernameSchema } from "@calci/shared";
+import { SQUAD_ID, UsernameSchema, isValidTimeZone } from "@calci/shared";
 import { generateToken, hashToken } from "@calci/shared/ai-credential";
 import { DynamoCredentialRepo } from "../../services/api/src/lib/credential-repo";
 import { DynamoProfileRepo } from "../../services/api/src/lib/profile-repo";
@@ -38,7 +40,9 @@ const USAGE = `Usage:
   pnpm admin ai-key issue|revoke <username> [--stage dev|prod]
   pnpm admin ai-key list [--stage dev|prod]
   pnpm admin waitlist list [--stage dev|prod]
-  pnpm admin squad backfill [--stage dev|prod]`;
+  pnpm admin squad backfill [--stage dev|prod]
+  pnpm admin squad timezone <IANA> [--stage dev|prod]
+  pnpm admin squad migrate-reactions [--stage dev|prod]`;
 
 function fail(message: string): never {
   console.error(message);
@@ -156,8 +160,19 @@ async function main() {
 
   // Feature 010: no Cognito needed. History is trusted, nothing is flagged, and no feed item is created.
   if (command === "squad") {
-    if (username !== "backfill") fail(USAGE);
     const table = await stackOutput("Data", "TableName", stage, region);
+    if (username === "timezone") {
+      const tz = third;
+      if (!tz || !isValidTimeZone(tz)) fail("Give a valid IANA timezone, e.g. Asia/Kolkata");
+      await new DynamoSquadRepo(table).putSquadSettings(SQUAD_ID, { timezone: tz! }, new Date().toISOString());
+      return void console.log("Squad timezone set");
+    }
+    if (username === "migrate-reactions") {
+      const r = await new DynamoSquadRepo(table).migrateHighFives();
+      // Counts only (constitution VI).
+      return void console.log(`high-fives converted: ${r.highFives}, feed items updated: ${r.items}`);
+    }
+    if (username !== "backfill") fail(USAGE);
     const deps = { profiles: new DynamoProfileRepo(table), workouts: new DynamoWorkoutRepo(table), squad: new DynamoSquadRepo(table), now: () => new Date() };
     const members = await deps.profiles.listCommunity();
     let feedBefore = 0;

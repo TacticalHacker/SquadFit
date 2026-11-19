@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { handle as boardGet } from "../src/handlers/squad-leaderboard-get";
+import { handle as boardGet } from "../src/handlers/squad-boards-get";
 import { handle as memberGet } from "../src/handlers/squad-member-get";
 import { handle as squadPut } from "../src/handlers/me-squad-put";
 import { handle as stepsPut } from "../src/handlers/me-steps-put";
@@ -24,12 +24,11 @@ async function setup() {
 describe("steps privacy and the Steps board", () => {
   it("ranks only sharing members with synced days, averaging over synced days", async () => {
     const { deps } = await setup();
-    const r = parse(await boardGet(makeEvent({ sub: "user-1", queryStringParameters: { board: "steps", period: "week" } }), deps));
+    const r = parse(await boardGet(makeEvent({ sub: "user-1" }), deps));
     expect(r.status).toBe(200);
-    expect(r.body.stepsBoard.rows).toEqual([
-      expect.objectContaining({ member: expect.objectContaining({ displayName: "Bob" }), rank: 1, avgSteps: 7000, hitDays: 1, periodDays: 3, syncedDays: 2 }),
+    expect(r.body.boards.find((b: { id: string }) => b.id === "steps").rows).toEqual([
+      expect.objectContaining({ member: expect.objectContaining({ displayName: "Bob" }), rank: 1, avgSteps: 7000, syncedDays: 2 }),
     ]);
-    expect(r.body.stepsToday).toEqual([{ userId: "user-2", steps: 5000, goalHit: false }]);
     expect(JSON.stringify(r.body)).not.toMatch(/20000|30000|activeKcal|distanceKm/);
   });
 

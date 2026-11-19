@@ -1,5 +1,5 @@
 import type { APIGatewayProxyEventV2WithJWTAuthorizer, APIGatewayProxyStructuredResultV2 } from "aws-lambda";
-import type { ActivitySource, ActivityValues, OverallNoteInput, ProfileInput, SquadSettingsInput, SquadStats, StepSettings } from "@calci/shared";
+import type { ActivitySource, ActivityValues, OverallNoteInput, ProfileInput, ReactionType, SquadSettingsInput, SquadStats, StepSettings } from "@calci/shared";
 import { toActivityItem, type ActivityItem, type ActivityRepo } from "../src/lib/activity-repo";
 import type { HealthTokenRepo } from "../src/lib/health-token-repo";
 import type { AvatarStore } from "../src/lib/avatar-store";
@@ -12,7 +12,7 @@ import type { CustomWorkoutItem, EntryItem, WorkoutRepo } from "../src/lib/worko
 import type { GymEntryItem, GymRepo, OwnExerciseItem } from "../src/lib/gym-repo";
 import { ProfileMissingError, type ProfileItem, type ProfileRepo } from "../src/lib/profile-repo";
 import type { WaitlistEntry, WaitlistRepo } from "../src/lib/waitlist-repo";
-import { feedId, type FeedItem, type FeedKey, type SquadRepo } from "../src/lib/squad-repo";
+import { feedId, reactionKey, type FeedItem, type FeedKey, type ReactionCounts, type SquadRepo } from "../src/lib/squad-repo";
 
 export class InMemoryProfileRepo implements ProfileRepo {
   readonly items = new Map<string, ProfileItem>();
@@ -32,6 +32,8 @@ export class InMemoryProfileRepo implements ProfileRepo {
       ...(existing?.nutritionPromptSeen !== undefined ? { nutritionPromptSeen: existing.nutritionPromptSeen } : {}),
       ...(existing?.dailyStepGoal !== undefined ? { dailyStepGoal: existing.dailyStepGoal } : {}),
       ...(existing?.shareSteps !== undefined ? { shareSteps: existing.shareSteps } : {}),
+      ...(existing?.targetsPromptDismissed !== undefined ? { targetsPromptDismissed: existing.targetsPromptDismissed } : {}),
+      targetsConfirmedAt: nowIso,
       userId,
       username,
       displayName: input.displayName,
@@ -57,8 +59,17 @@ export class InMemoryProfileRepo implements ProfileRepo {
       ...rest,
       ...(targets.dailyCalorieTarget !== undefined ? { dailyCalorieTarget: targets.dailyCalorieTarget } : {}),
       ...(protein !== undefined ? { dailyProteinTarget: protein } : {}),
+      targetsConfirmedAt: nowIso,
       updatedAt: nowIso,
     };
+    this.items.set(userId, next);
+    return next;
+  }
+
+  async dismissTargetsPrompt(userId: string, nowIso: string) {
+    const existing = this.items.get(userId);
+    if (!existing) return null;
+    const next = { ...existing, targetsPromptDismissed: true, updatedAt: nowIso };
     this.items.set(userId, next);
     return next;
   }
@@ -477,25 +488,37 @@ export class InMemorySquadRepo implements SquadRepo {
     const items = all.slice(from, from + pageSize).map((f) => structuredClone(f));
     return { items, ...(from + pageSize < all.length ? { lastKey: { offset: from + pageSize } } : {}) };
   }
-  async addHighFive(author: FeedKey, reactorId: string) {
-    const f = this.feed.get(feedId(author.userId, author.eventId));
-    if (!f) return null;
-    const key = `${feedId(author.userId, author.eventId)}~${reactorId}`;
+  private bump(author: FeedKey, type: ReactionType, by: number) {
+    const f = this.feed.get(feedId(author.userId, author.eventId))!;
+    this.feed.set(feedId(author.userId, author.eventId), { ...f, reactions: { ...f.reactions, [type]: Math.max(0, f.reactions[type] + by) } });
+  }
+  async addReaction(author: FeedKey, type: ReactionType, reactorId: string): Promise<ReactionCounts | null> {
+    if (!this.feed.has(feedId(author.userId, author.eventId))) return null;
+    const key = `${feedId(author.userId, author.eventId)}~${type}~${reactorId}`;
     if (!this.reactions.has(key)) {
       this.reactions.add(key);
-      this.feed.set(feedId(author.userId, author.eventId), { ...f, hi5Count: f.hi5Count + 1 });
+      this.bump(author, type, 1);
     }
-    return this.feed.get(feedId(author.userId, author.eventId))!.hi5Count;
+    return structuredClone(this.feed.get(feedId(author.userId, author.eventId))!.reactions);
   }
-  async removeHighFive(author: FeedKey, reactorId: string) {
-    const f = this.feed.get(feedId(author.userId, author.eventId));
-    if (!f) return null;
-    const key = `${feedId(author.userId, author.eventId)}~${reactorId}`;
-    if (this.reactions.delete(key)) this.feed.set(feedId(author.userId, author.eventId), { ...f, hi5Count: Math.max(0, f.hi5Count - 1) });
-    return this.feed.get(feedId(author.userId, author.eventId))!.hi5Count;
+  async removeReaction(author: FeedKey, type: ReactionType, reactorId: string): Promise<ReactionCounts | null> {
+    if (!this.feed.has(feedId(author.userId, author.eventId))) return null;
+    if (this.reactions.delete(`${feedId(author.userId, author.eventId)}~${type}~${reactorId}`)) this.bump(author, type, -1);
+    return structuredClone(this.feed.get(feedId(author.userId, author.eventId))!.reactions);
   }
-  async myHighFives(viewerId: string, items: readonly FeedKey[]) {
-    return new Set(items.map((k) => feedId(k.userId, k.eventId)).filter((id) => this.reactions.has(`${id}~${viewerId}`)));
+  async myReactions(viewerId: string, items: readonly FeedKey[]) {
+    const out = new Set<string>();
+    for (const k of items) for (const type of ["fire", "muscle", "crown"] as const) {
+      if (this.reactions.has(`${feedId(k.userId, k.eventId)}~${type}~${viewerId}`)) out.add(reactionKey(k.userId, k.eventId, type));
+    }
+    return out;
+  }
+  settings = new Map<string, { timezone: string }>();
+  async getSquadSettings(squadId: string) {
+    return this.settings.get(squadId) ?? { timezone: "Asia/Kolkata" };
+  }
+  async putSquadSettings(squadId: string, settings: { timezone: string }) {
+    this.settings.set(squadId, settings);
   }
 }
 

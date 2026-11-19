@@ -27,6 +27,9 @@ export const OwnProfileSchema = z.object({
   steps: StepSettingsSchema.default(DEFAULT_STEP_SETTINGS),
   avatarUrl: z.string().nullable(),
   joinedAt: z.iso.datetime(),
+  /** Feature 013; defaults cover an API deployed before it. */
+  targetsConfirmed: z.boolean().default(true),
+  targetsPromptDismissed: z.boolean().default(false),
 });
 export type OwnProfile = z.infer<typeof OwnProfileSchema>;
 
@@ -35,6 +38,13 @@ export const MeResponseSchema = z.object({
   profile: OwnProfileSchema.nullable(),
 });
 export type MeResponse = z.infer<typeof MeResponseSchema>;
+
+/** Feature 013: PUT /me/targets. Saving confirms the targets; `dismiss` only hides the prompt. */
+export const MeTargetsInputSchema = z.union([
+  z.strictObject({ dismiss: z.literal(true) }),
+  z.strictObject({ dailyCalorieTarget: CalorieTargetSchema, dailyProteinTarget: ProteinTargetSchema.nullable() }),
+]);
+export type MeTargetsInput = z.infer<typeof MeTargetsInputSchema>;
 
 /** 256×256 WebP, already resized in the browser (research R6). */
 export const AvatarUploadSchema = z.object({

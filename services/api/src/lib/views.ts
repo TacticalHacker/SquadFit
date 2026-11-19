@@ -17,6 +17,8 @@ export async function toOwnProfile(item: ProfileItem, avatars: AvatarStore): Pro
     steps: stepSettingsOf(item),
     avatarUrl: await avatarUrl(item, avatars),
     joinedAt: item.createdAt,
+    targetsConfirmed: item.targetsConfirmedAt !== undefined,
+    targetsPromptDismissed: item.targetsPromptDismissed === true,
   };
 }
 
