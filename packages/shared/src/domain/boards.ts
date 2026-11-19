@@ -16,7 +16,7 @@ const OHP = "gx-overhead-press";
 export const BOARD_DEFS = [
   { id: "workouts", group: "grind", monthly: true },
   { id: "streak", group: "grind", monthly: false },
-  { id: "volume", group: "grind", monthly: true },
+  { id: "improved", group: "grind", monthly: true },
   { id: "steps", group: "grind", monthly: true },
   { id: "prJump", group: "strength", monthly: true },
   { id: "strength", group: "strength", monthly: false },
@@ -64,7 +64,7 @@ type Row<T> = { member: PublicMember; rank: number | null; club: ClubId | null }
 export type SquadBoard =
   | { id: "workouts"; rows: Row<{ days: number }>[] }
   | { id: "streak"; rows: Row<{ weeks: number; best: number; weekDays: number; target: number }>[] }
-  | { id: "volume"; rows: Row<{ kg: number }>[] }
+  | { id: "improved"; rows: Row<{ count: number }>[] }
   | { id: "steps"; rows: Row<{ avgSteps: number; syncedDays: number }>[] }
   | { id: "prJump"; rows: Row<{ kg: number; liftName: string; pct: number; pctRank: number | null; pctLiftName: string; pctKg: number }>[] }
   | { id: "strength"; rows: Row<{ big3: number | null; big4: number | null; big4Rank: number | null; missing: string[] }>[] }
@@ -163,7 +163,7 @@ export function buildSquadBoards(input: BoardsInput): SquadBoard[] {
     (r) => [r.weeks, r.best, r.weekDays],
   );
 
-  const volume = board((m) => (monthRec(m)?.volumeKg ? { kg: monthRec(m)!.volumeKg } : null), (r) => [r.kg]);
+  const improved = board((m) => (monthRec(m)?.liftsImproved ? { count: monthRec(m)!.liftsImproved } : null), (r) => [r.count]);
 
   const qualified = (m: SquadBoardMember) => (input.steps.get(m.userId)?.syncedDays ?? 0) >= STEPS_MIN_DAYS;
   const stepsRanked = board((m) => (qualified(m) ? input.steps.get(m.userId)! : null), (r) => [r.avgSteps]);
@@ -199,7 +199,7 @@ export function buildSquadBoards(input: BoardsInput): SquadBoard[] {
   return [
     { id: "workouts", rows: workouts },
     { id: "streak", rows: streak },
-    { id: "volume", rows: volume },
+    { id: "improved", rows: improved },
     { id: "steps", rows: steps },
     { id: "prJump", rows: prJump },
     { id: "strength", rows: strength },
@@ -209,7 +209,7 @@ export function buildSquadBoards(input: BoardsInput): SquadBoard[] {
 
 // ---------------------------------------------------------------- hall of fame
 
-export const RECORD_IDS = ["liftBench", "liftSquat", "liftDeadlift", "liftOhp", "big3", "longestStreak", "monthWorkouts", "monthPrJump", "monthVolume", "monthSteps"] as const;
+export const RECORD_IDS = ["liftBench", "liftSquat", "liftDeadlift", "liftOhp", "big3", "longestStreak", "monthWorkouts", "monthPrJump", "monthImproved", "monthSteps"] as const;
 export type RecordId = (typeof RECORD_IDS)[number];
 const RECORD_LIFTS: Partial<Record<RecordId, string>> = { liftBench: "gx-bench-press", liftSquat: "gx-barbell-squat", liftDeadlift: "gx-deadlift", liftOhp: OHP };
 
@@ -282,7 +282,8 @@ export function buildHallOfFame(input: {
     })),
   };
   found.monthWorkouts = { kind: "month", c: perMonth((m) => Object.fromEntries(Object.entries(m.stats?.months ?? {}).map(([ym, v]) => [ym, v.workoutDays]))) };
-  found.monthVolume = { kind: "month", c: perMonth((m) => Object.fromEntries(Object.entries(m.stats?.months ?? {}).map(([ym, v]) => [ym, v.volumeKg]))) };
+  // Stats built before liftsImproved existed read as 0 until the next rebuild (or backfill).
+  found.monthImproved = { kind: "month", c: perMonth((m) => Object.fromEntries(Object.entries(m.stats?.months ?? {}).map(([ym, v]) => [ym, v.liftsImproved ?? 0]))) };
   found.monthSteps = { kind: "month", c: perMonth((m) => input.stepMonths.get(m.userId) ?? {}) };
   found.monthPrJump = {
     kind: "month",

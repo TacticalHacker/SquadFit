@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isDumbbell, setSummary, weeksInARow } from "./plain";
+import { isDumbbell, setSummary, weekCompare, weeksInARow } from "./plain";
 
 const s = (weightKg: number, reps: number, completed = true) => ({ weightKg, reps, completed });
 
@@ -10,6 +10,13 @@ describe("plain wording", () => {
     expect(setSummary([s(25, 12), s(30, 10), s(35, 8), s(40, 1, false)], false)).toBe("3 sets · 25 kg → 30 kg → 35 kg · 12, 10, 8 reps");
     expect(setSummary([s(15, 12), s(15, 10)], true)).toBe("2 sets at 15 kg per dumbbell · 12, 10 reps");
     expect(setSummary([s(20, 5, false)], false)).toBe("No sets finished");
+  });
+
+  it("compares this week's weight lifted with last week", () => {
+    expect(weekCompare(1080, 1000)).toBe("8% more than last week");
+    expect(weekCompare(500, 1000)).toBe("50% less than last week so far");
+    expect(weekCompare(1000, 1000)).toBe("Same as last week");
+    expect(weekCompare(800, 0)).toBeNull();
   });
 
   it("hides a zero streak and knows dumbbell lifts", () => {

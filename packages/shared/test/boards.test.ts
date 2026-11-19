@@ -23,13 +23,14 @@ const boards = (members: SquadBoardMember[], month = "2026-12", viewerId = "a") 
 const board = <Id extends SquadBoard["id"]>(b: SquadBoard[], id: Id) => b.find((x): x is Extract<SquadBoard, { id: Id }> => x.id === id)!;
 
 describe("monthly boards", () => {
-  const a = member("a", [activity("2026-11-23"), activity("2026-11-30"), activity("2026-12-01"), lift("2026-11-30", 100), lift("2026-12-01", 50)]);
+  const a = member("a", [activity("2026-11-23"), activity("2026-11-30"), activity("2026-12-01"), lift("2026-11-30", 50), lift("2026-12-01", 52.5)]);
   const b = member("b", [activity("2026-11-29"), activity("2026-11-30")]);
 
   it("count only the current month and reset on the 1st", () => {
     const dec = boards([a, b]);
     expect(board(dec, "workouts").rows.map((r) => [r.member.userId, r.days])).toEqual([["a", 1]]);
-    expect(board(dec, "volume").rows.map((r) => r.kg)).toEqual([50]);
+    expect(board(dec, "improved").rows.map((r) => [r.member.userId, r.count])).toEqual([["a", 1]]);
+    expect(board(boards([a, b], "2026-11"), "improved").rows).toEqual([]); // 30 Nov was the first session
     const nov = boards([a, b], "2026-11");
     expect(board(nov, "workouts").rows.map((r) => r.member.userId)).toEqual(["a", "b"]);
   });
@@ -122,5 +123,6 @@ describe("hall of fame", () => {
       month: "2026-10",
       liftName: "Bench Press",
     });
+    expect(buildHallOfFame({ members: [a], viewerId: "a", stepMonths: new Map() }).find((r) => r.id === "monthImproved")).toMatchObject({ value: 1, month: "2026-10" });
   });
 });

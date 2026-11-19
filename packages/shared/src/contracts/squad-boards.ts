@@ -24,7 +24,7 @@ const int = z.number().int().min(0);
 export const SquadBoardSchema = z.discriminatedUnion("id", [
   z.strictObject({ id: z.literal("workouts"), rows: z.array(row({ days: int })) }),
   z.strictObject({ id: z.literal("streak"), rows: z.array(row({ weeks: int, best: int, weekDays: int, target: int })) }),
-  z.strictObject({ id: z.literal("volume"), rows: z.array(row({ kg: z.number().min(0) })) }),
+  z.strictObject({ id: z.literal("improved"), rows: z.array(row({ count: int })) }),
   z.strictObject({ id: z.literal("steps"), rows: z.array(row({ avgSteps: int, syncedDays: int })) }),
   z.strictObject({
     id: z.literal("prJump"),

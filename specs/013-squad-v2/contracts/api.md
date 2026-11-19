@@ -18,7 +18,7 @@ Row<T> = { member: Member, rank: number | null, club: Club | null } & T   // ran
 Board =
  | { id: "workouts", rows: Row<{ days: number }>[] }
  | { id: "streak",   rows: Row<{ weeks: number, best: number, weekDays: number, target: number }>[] }
- | { id: "volume",   rows: Row<{ kg: number }>[] }
+ | { id: "improved", rows: Row<{ count: number }>[] }
  | { id: "steps",    rows: Row<{ avgSteps: number, syncedDays: number }>[] }
  | { id: "prJump",   rows: Row<{ kg: number, liftName: string, pct: number, pctRank: number | null,
                                  pctLiftName: string, pctKg: number }>[] }   // pct* = the member's best % jump
@@ -40,7 +40,7 @@ Rows are the full ranked list, best first. Hidden members never appear; a hidden
              month: string | null }[] }  // YYYY-MM for month* records
 ```
 
-`holder: null` = "No record yet". RecordId order: `liftBench, liftSquat, liftDeadlift, liftOhp, big3, longestStreak, monthWorkouts, monthPrJump, monthVolume, monthSteps`.
+`holder: null` = "No record yet". RecordId order: `liftBench, liftSquat, liftDeadlift, liftOhp, big3, longestStreak, monthWorkouts, monthPrJump, monthImproved, monthSteps`.
 
 ## GET /squad/feed (changed)
 
@@ -68,7 +68,7 @@ Rows are the full ranked list, best first. Hidden members never appear; a hidden
 
 ## GET /squad/members/{id} (changed)
 
-Adds `badges: { club: Club, date: string }[]` (all held, lowest first).
+Adds `badges: { club: Club, date: string }[]` (all held, lowest first) and `weightLifted: { thisWeek, lastWeek }` (kg, Monday–Sunday in the member's timezone).
 
 ## PUT /me/targets (new)
 

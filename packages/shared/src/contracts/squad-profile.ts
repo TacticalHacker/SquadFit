@@ -96,6 +96,8 @@ export const MemberProfileSchema = z.strictObject({
   heatmap: z.strictObject({ cells: z.array(z.strictObject({ date: DateSchema, level: z.number().int().min(0).max(4) })) }),
   nutritionLevel: NutritionLevelSchema,
   isYou: z.boolean(),
+  /** Feature 013: total weight lifted (reps × weight) this week so far and all of last week; profile only, never ranked. */
+  weightLifted: z.strictObject({ thisWeek: z.number().min(0), lastWeek: z.number().min(0) }),
   /** Feature 013: club badges held, lowest first. */
   badges: z.array(z.strictObject({ club: ClubSchema, date: DateSchema })),
   /**

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Settings } from "lucide-react";
 import type { MemberProfile as Profile } from "@calci/shared";
-import { INFO, bestWeeks, estMax, heaviestLift, weeksInARow, workoutsThisWeek } from "@/lib/plain";
+import { INFO, bestWeeks, estMax, heaviestLift, kg, weekCompare, weeksInARow, workoutsThisWeek } from "@/lib/plain";
 import { Avatar } from "./avatar";
 import { ClubBadge } from "./club-badge";
 import { InfoTip } from "./info-tip";
@@ -37,6 +37,18 @@ export function MemberProfileView({ profile }: { profile: Profile }) {
           {profile.streak.current > 0 ? <Stat label="Streak" value={weeksInARow(profile.streak.current)} /> : null}
           {profile.streak.best > 0 ? <Stat label="Longest streak" value={bestWeeks(profile.streak.best).replace("Best: ", "")} /> : null}
         </dl>
+        {profile.weightLifted.thisWeek > 0 || profile.weightLifted.lastWeek > 0 ? (
+          <div className="flex flex-col">
+            <p className="flex items-center gap-0.5 text-xs text-muted">
+              Total weight lifted this week
+              <InfoTip title="Total weight lifted" text={INFO.totalLifted} />
+            </p>
+            <p className="text-lg font-semibold tabular-nums text-ink">{kg(profile.weightLifted.thisWeek)}</p>
+            <p className="text-sm text-muted">
+              {weekCompare(profile.weightLifted.thisWeek, profile.weightLifted.lastWeek) ?? "Nothing lifted last week to compare with"}
+            </p>
+          </div>
+        ) : null}
         {profile.badges.length > 0 ? (
           <ul aria-label="Club badges" className="flex flex-wrap gap-1.5">
             {profile.badges.map((b) => (

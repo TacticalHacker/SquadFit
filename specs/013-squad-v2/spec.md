@@ -31,7 +31,7 @@ A member opens Squad. Under the title there is one row of controls ("This month"
 
 ### User Story 2 - Monthly boards that reset on the 1st (Priority: P1)
 
-The "This month" cards are, in order. Grind: **Most workouts**, **Active streak**, **Total weight lifted**, **Steps**. Strength: **Biggest PR jump**, **Current strength (Big 3)**. Nutrition: **Protein days** (only if at least one member qualifies). All monthly boards count the current calendar month in the squad's timezone, so everyone resets at the same moment. Active streak is not monthly.
+The "This month" cards are, in order. Grind: **Most workouts**, **Active streak**, **Lifts improved**, **Steps**. Strength: **Biggest PR jump**, **Current strength (Big 3)**. Nutrition: **Protein days** (only if at least one member qualifies). All monthly boards count the current calendar month in the squad's timezone, so everyone resets at the same moment. Active streak is not monthly.
 
 **Why this priority**: The boards are the content of the page; monthly resets keep it winnable.
 
@@ -41,7 +41,7 @@ The "This month" cards are, in order. Grind: **Most workouts**, **Active streak*
 
 1. **Most workouts**: big number = workout days this month ("6 workouts"). A workout day is the existing definition (gym strength with a completed set, gym cardio, or any activity entry); two sessions on one day count once.
 2. **Active streak**: big number = the existing weekly-target streak in weeks ("3 weeks in a row"); muted line "Best: 5 weeks"; members at 0 who have at least one workout day ever are listed in the full list with "2 of 4 workouts this week" instead of a streak and are ranked below everyone with a streak; members who have never trained are absent.
-3. **Total weight lifted**: big number = sum of reps × weight over working sets this month ("42,500 kg").
+3. **Lifts improved** (owner change 2026-11-19, replaces Total weight lifted): big number = strength sessions this month whose top set beat the previous session of the same exercise: more weight at the same or more reps, or more reps at the same weight ("12 lifts improved"; (i): "Times you beat your last session: one more rep or a bit more weight."). First-ever sessions of an exercise and cardio never count; flagged unusual jumps are excluded. Total weight lifted moves to the member's profile as this week vs last week ("8% more than last week").
 4. **Steps**: big number = average daily steps this month over days with synced steps ("9,210 steps a day"); only members whose steps are visible to the viewer (feature 012 gate); members with no synced day this month are absent.
 5. **Biggest PR jump**: for each member and each eligible lift (bench press, barbell squat, deadlift, overhead press, barbell row, pull-ups with added weight), jump = best estimated max this month − best estimated max before this month; the member's value is their largest jump. Shown as "+7.5 kg · Squat" with the percentage ("+8%") muted. Ranked by kg; the full list has a "kg | %" switch that re-ranks by percentage. A lift with no history before this month gives no jump; a jump of 0 or less is not listed.
 6. **Current strength (Big 3)**: big number = best-ever estimated max on bench press + barbell squat + deadlift ("about 380 kg"), labelled "Current strength". The full list has a "Big 3 | Big 4" switch that adds overhead press. Members missing any of the lifts are not ranked; in the full list they appear muted at the bottom with "missing: Deadlift" (all missing lifts named). The card shows ranked members only. This board does not reset monthly (it uses best-ever figures), and says so in its (i) text.
@@ -78,7 +78,7 @@ The top of Squad shows the latest 5 feed items in plain words ("Nikhil hit a new
 
 **Acceptance Scenarios**:
 
-1. Records: heaviest estimated max on Bench Press, Barbell Squat, Deadlift and Overhead Press; best Big 3 total; longest streak ever (weeks); most workouts in one calendar month; biggest PR jump in one calendar month; most total weight lifted in one calendar month; highest monthly step average (sharing members only).
+1. Records: heaviest estimated max on Bench Press, Barbell Squat, Deadlift and Overhead Press; best Big 3 total; longest streak ever (weeks); most workouts in one calendar month; biggest PR jump in one calendar month; most lifts improved in one calendar month; highest monthly step average (sharing members only).
 2. **Given** a tie, **Then** the member who reached it first holds the record.
 3. **Given** a record with no qualifying data, **Then** its row shows "No record yet".
 4. **Given** a record holder hides from the leaderboard, **Then** the next qualifying visible member holds it for everyone else.
@@ -148,7 +148,7 @@ Every screen in the squad area (boards, full lists, feed, Today's workouts, day 
 ### Edge Cases
 
 - A member who joined mid-month competes with what they logged; Protein days uses days elapsed since the 1st, not since joining.
-- A member with no workouts this month is absent from Most workouts and Total weight lifted (not shown as 0).
+- A member with no workouts this month is absent from Most workouts and Lifts improved (not shown as 0).
 - A flagged "unusual jump" set (feature 010 jump rule) never counts towards PR jump, Current strength, Hall of Fame or badges until confirmed.
 - Built-in exercises only: own exercises never count towards PR jump, Big 3, Hall of Fame lift records or badges.
 - Pull-ups count for PR jump only for sets with added weight above 0 kg.
@@ -178,7 +178,7 @@ Every screen in the squad area (boards, full lists, feed, Today's workouts, day 
 
 - **FR-008**: Most workouts MUST rank by workout days this month.
 - **FR-009**: Active streak MUST rank by current weekly streak, then best streak, then workout days this week, and MUST NOT reset monthly.
-- **FR-010**: Total weight lifted MUST rank by the sum of reps × weight of working sets this month (working set as defined in feature 010).
+- **FR-010**: Lifts improved MUST rank by the number of strength sessions this month whose top set (heaviest working set, then most reps) beat the previous session's top set of the same exercise (more weight at ≥ reps, or more reps at the same weight); first sessions and cardio never count. Member profiles MUST show total weight lifted this week against last week; it is never ranked.
 - **FR-011**: Steps MUST rank by average steps over synced days this month, only for members passing the feature 012 steps gate.
 - **FR-012**: Biggest PR jump MUST rank by the largest positive (best estimated max this month − best estimated max before this month) over the eligible lifts, show kg and %, and offer a % ranking in the full list. Lifts first logged this month MUST NOT give a jump.
 - **FR-013**: Current strength MUST rank by the sum of best-ever estimated max over bench press, barbell squat and deadlift (Big 4 adds overhead press when chosen); members missing a lift MUST NOT be ranked and MUST appear only in the full list, muted, with the missing lift names.
@@ -221,7 +221,7 @@ Every screen in the squad area (boards, full lists, feed, Today's workouts, day 
 ### Key Entities
 
 - **Squad settings**: one per squad; the timezone used for month boundaries.
-- **Member squad stats** (existing, extended): adds per-month workout days and total weight lifted, and per-lift best estimated max per month, so monthly boards, PR jumps and monthly records come from stored figures.
+- **Member squad stats** (existing, extended): adds per-month workout days and lifts improved, and per-lift best estimated max per month, so monthly boards, PR jumps and monthly records come from stored figures.
 - **Board**: a definition (id, group, title, one-sentence explanation, whether monthly) plus its ranking rule.
 - **Record**: a Hall of Fame entry: record type, holder, value, date or month.
 - **Badge**: club id and threshold; held by a member while their estimated Big 3 meets it; posts one feed item when earned.

@@ -14,6 +14,15 @@ export const signedKg = (n: number) => `${n >= 0 ? "+" : "−"}${kg(Math.abs(n))
 export const minutes = (n: number) => `${Math.round(n)} min`;
 export const stepsADay = (n: number) => `${nf.format(Math.round(n))} steps a day`;
 export const workouts = (n: number) => plural(n, "workout");
+export const liftsImproved = (n: number) => `${plural(n, "lift")} improved`;
+
+/** Profile: "8% more than last week", "8% less than last week so far", "Same as last week"; null without last week. */
+export function weekCompare(thisWeek: number, lastWeek: number): string | null {
+  if (lastWeek <= 0) return null;
+  const pct = Math.round(((thisWeek - lastWeek) / lastWeek) * 100);
+  if (pct === 0) return "Same as last week";
+  return pct > 0 ? `${pct}% more than last week` : `${-pct}% less than last week so far`;
+}
 
 /** Empty at 0 (FR-027): a zero streak is never shown. */
 export const weeksInARow = (n: number) => (n > 0 ? `${plural(n, "week")} in a row` : "");
@@ -55,7 +64,7 @@ type BoardId = SquadBoardView["id"];
 type RowOf<Id extends BoardId> = Extract<SquadBoardView, { id: Id }>["rows"][number];
 
 export const BOARD_GROUPS = [
-  { id: "grind", title: "Effort", boards: ["workouts", "streak", "volume", "steps"] },
+  { id: "grind", title: "Effort", boards: ["workouts", "streak", "improved", "steps"] },
   { id: "strength", title: "Strength", boards: ["prJump", "strength"] },
   { id: "nutrition", title: "Nutrition", boards: ["protein"] },
 ] as const satisfies readonly { id: string; title: string; boards: readonly BoardId[] }[];
@@ -76,11 +85,11 @@ export const BOARD_COPY: { [Id in BoardId]: { title: string; info: string; empty
     value: (r) => streakValue(r.weeks),
     sub: (r) => `${r.weekDays} of ${r.target} this week`,
   },
-  volume: {
-    title: "Total weight lifted",
-    info: "Every rep's weight added together, for this month.",
-    empty: "No weights lifted yet this month.",
-    value: (r) => kg(r.kg),
+  improved: {
+    title: "Lifts improved",
+    info: "Times you beat your last session: one more rep or a bit more weight.",
+    empty: "No lifts improved yet this month.",
+    value: (r) => liftsImproved(r.count),
     sub: () => "",
   },
   steps: {
@@ -149,7 +158,7 @@ export const RECORD_LABEL = {
   longestStreak: "Longest streak",
   monthWorkouts: "Most workouts in a month",
   monthPrJump: "Biggest PR jump in a month",
-  monthVolume: "Most weight lifted in a month",
+  monthImproved: "Most lifts improved in a month",
   monthSteps: "Highest monthly step average",
 } as const;
 
@@ -163,7 +172,7 @@ export const RECORD_SHORT: Record<keyof typeof RECORD_LABEL, string> = {
   longestStreak: "longest streak",
   monthWorkouts: "most workouts in a month",
   monthPrJump: "biggest PR jump",
-  monthVolume: "most weight in a month",
+  monthImproved: "most lifts improved in a month",
   monthSteps: "best step month",
 };
 export const upForGrabs = (ids: readonly (keyof typeof RECORD_LABEL)[]) => {
@@ -176,7 +185,7 @@ export function recordValue(id: keyof typeof RECORD_LABEL, value: number, liftNa
   if (id === "monthWorkouts") return workouts(value);
   if (id === "monthSteps") return stepsADay(value);
   if (id === "monthPrJump") return `${signedKg(value)}${liftName ? ` · ${liftName}` : ""}`;
-  if (id === "monthVolume") return kg(value);
+  if (id === "monthImproved") return liftsImproved(value);
   return aboutKg(value);
 }
 

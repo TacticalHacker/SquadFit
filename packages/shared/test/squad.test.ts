@@ -3,6 +3,7 @@ import { addDays } from "../src/domain/day";
 import {
   buildMemberStats,
   e1rm,
+  weekVolumes,
   rankRows,
   streakFigures,
   type SquadEntry,
@@ -151,10 +152,22 @@ describe("feed events", () => {
 });
 
 describe("months", () => {
-  it("buckets workout days and total weight lifted by the month of the entry date", () => {
-    const { stats } = build([lift("2026-10-31", [[100, 5]]), lift("2026-11-01", [[100, 5], [50, 10]]), activity("2026-11-01"), activity("2026-11-02")]);
-    expect(stats.months).toEqual({ "2026-10": { workoutDays: 1, volumeKg: 500 }, "2026-11": { workoutDays: 2, volumeKg: 1000 } });
+  it("buckets workout days and lifts improved by the month of the entry date", () => {
+    const { stats } = build([lift("2026-10-31", [[100, 5]]), lift("2026-11-01", [[100, 6], [50, 10]]), activity("2026-11-01"), activity("2026-11-02")]);
+    expect(stats.months).toEqual({ "2026-10": { workoutDays: 1, liftsImproved: 0 }, "2026-11": { workoutDays: 2, liftsImproved: 1 } });
     expect("dayVolumeKg" in stats).toBe(false);
+  });
+
+  it("counts a session that beats the previous one: more weight at the same or more reps, or more reps at the same weight", () => {
+    const sessions = (top: [number, number][], id = "gx-bench-press") => top.map(([w, r], i) => lift(`2026-11-0${i + 1}`, [[w, r]], id));
+    const improved = (top: [number, number][]) => build(sessions(top)).stats.months["2026-11"]?.liftsImproved;
+    expect(improved([[60, 8], [62.5, 8], [62.5, 9], [65, 10]])).toBe(3); // first session is a baseline
+    expect(improved([[60, 8], [62.5, 6]])).toBe(0); // more weight but fewer reps
+    expect(improved([[60, 8], [60, 8]])).toBe(0); // same session again
+    expect(improved([[60, 8], [55, 12], [57.5, 12]])).toBe(1); // compares with the previous session, not the best ever
+    // Cardio and other exercises never count, and each exercise compares only with itself.
+    const cardio: SquadEntry = { date: "2026-11-02", workoutId: "gx-stairmaster", name: "Stairmaster", kind: "gym", exerciseKind: "cardio" };
+    expect(build([...sessions([[60, 8]]), lift("2026-11-02", [[100, 5]], "gx-deadlift"), cardio]).stats.months["2026-11"]?.liftsImproved).toBe(0);
   });
 
   it("keeps each lift's best estimate per month, without flagged sets", () => {
@@ -168,6 +181,14 @@ describe("months", () => {
   it("puts the gain over the previous best on PR events", () => {
     const { events } = build([lift("2026-11-02", [[100, 1]]), lift("2026-11-09", [[110, 1]])]);
     expect(events.find((e) => e.id === "pr#gx-bench-press#2026-11-09")?.payload.gainKg).toBe(10.4);
+  });
+});
+
+describe("weekVolumes", () => {
+  it("sums working sets this week (Mon–today) and all of last week", () => {
+    // TODAY is Wednesday 18 Nov: this week = 16–18 Nov, last week = 9–15 Nov.
+    const v = weekVolumes([lift("2026-11-08", [[100, 5]]), lift("2026-11-09", [[100, 5]]), lift("2026-11-15", [[50, 10, false]]), lift("2026-11-16", [[60, 10]])], TODAY);
+    expect(v).toEqual({ thisWeek: 600, lastWeek: 500 });
   });
 });
 

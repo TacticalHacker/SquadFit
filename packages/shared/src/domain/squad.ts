@@ -64,7 +64,8 @@ export interface LiftStats {
 }
 export interface MonthRecord {
   workoutDays: number;
-  volumeKg: number;
+  /** Strength sessions that beat the previous session of the same exercise (feature 013, "Lifts improved"). */
+  liftsImproved: number;
 }
 export interface WeekRecord {
   days: number;
@@ -130,6 +131,9 @@ interface SetView {
   e1rm: number | null;
 }
 
+/** More weight at the same or more reps, or more reps at the same weight (top set against top set). */
+const beats = (now: SetView, prev: SetView) => (now.weightKg > prev.weightKg && now.reps >= prev.reps) || (now.weightKg === prev.weightKg && now.reps > prev.reps);
+
 /** Walk one exercise's days in date order, producing PRs, bests and flags. */
 function walkLift(entries: readonly SquadEntry[], trustedBefore: string | undefined, today: string) {
   const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
@@ -140,6 +144,9 @@ function walkLift(entries: readonly SquadEntry[], trustedBefore: string | undefi
   const monthBests: LiftStats["monthBests"] = {};
   /** Each date the best estimate rose (badges). */
   const bestSteps: { date: string; e1rm: number }[] = [];
+  /** Dates whose top set beat the previous session's top set ("Lifts improved"). */
+  const improved: string[] = [];
+  let prevTop: SetView | null = null;
   const flagged: string[] = [];
   const windowStart = addDays(today, -(DAY_BEST_DAYS - 1));
 
@@ -156,6 +163,8 @@ function walkLift(entries: readonly SquadEntry[], trustedBefore: string | undefi
     if (eligible.length === 0) continue;
 
     const heaviest: SetView = eligible.reduce((a: SetView, b: SetView) => (b.weightKg > a.weightKg || (b.weightKg === a.weightKg && b.reps > a.reps) ? b : a));
+    if (prevTop !== null && beats(heaviest, prevTop)) improved.push(entry.date);
+    prevTop = heaviest;
     const withE: SetView[] = eligible.filter((s) => s.e1rm !== null);
     const topE: SetView | null = withE.length ? withE.reduce((a: SetView, b: SetView) => (b.e1rm! > a.e1rm! ? b : a)) : null;
 
@@ -177,7 +186,7 @@ function walkLift(entries: readonly SquadEntry[], trustedBefore: string | undefi
     const ym = entry.date.slice(0, 7);
     if (topE && (!monthBests[ym] || topE.e1rm! > monthBests[ym]!.e1rm)) monthBests[ym] = { e1rm: topE.e1rm!, date: entry.date };
   }
-  return { best, bestE, prDays, dayBests, monthBests, bestSteps, flagged };
+  return { best, bestE, prDays, dayBests, monthBests, bestSteps, improved, flagged };
 }
 
 /** Feature 013: the first date the running best estimates of all three Big 3 lifts summed to each club's threshold. */
@@ -226,16 +235,10 @@ export function buildMemberStats(
   }
   const firstWorkoutDate = dayset.size ? [...dayset].sort()[0]! : null;
 
-  // Months (feature 013): workout days and total weight lifted (working sets) per month of the entry date.
+  // Months (feature 013): workout days per month of the entry date; lifts improved are added below.
   const months: Record<string, MonthRecord> = {};
-  const month = (ym: string) => (months[ym] ??= { workoutDays: 0, volumeKg: 0 });
+  const month = (ym: string) => (months[ym] ??= { workoutDays: 0, liftsImproved: 0 });
   for (const d of [...dayset].sort()) month(d.slice(0, 7)).workoutDays++;
-  const tenths: Record<string, number> = {};
-  for (const e of entries) {
-    if (!isGymStrength(e)) continue;
-    for (const s of (e.sets ?? []).filter(isWorkingSet)) tenths[e.date.slice(0, 7)] = (tenths[e.date.slice(0, 7)] ?? 0) + s.reps * Math.round(s.weightKg * 10);
-  }
-  for (const [ym, t] of Object.entries(tenths)) month(ym).volumeKg = t / 10;
 
   // Lifts.
   const byExercise = new Map<string, SquadEntry[]>();
@@ -258,6 +261,7 @@ export function buildMemberStats(
       monthBests: walked.monthBests,
     };
     steps.set(exerciseId, walked.bestSteps);
+    for (const d of walked.improved) month(d.slice(0, 7)).liftsImproved++;
     for (const date of walked.flagged) flags.push({ date, exerciseId });
     for (const pr of walked.prDays) {
       events.push({
@@ -333,6 +337,24 @@ export function streakFigures(weeks: Record<string, WeekRecord>, today: string, 
   let streak = 0;
   for (let ws = hit(current) ? current : addDays(current, -7); hit(ws); ws = addDays(ws, -7)) streak++;
   return { current: streak, best, weekDays: weeks[current]?.days ?? 0, target: weeklyTarget };
+}
+
+/**
+ * Feature 013 (profile): total weight lifted (reps × weight of working sets) this week so far and all of last week,
+ * Monday–Sunday on the member's local dates.
+ */
+export function weekVolumes(entries: readonly SquadEntry[], today: string): { thisWeek: number; lastWeek: number } {
+  const thisStart = weekStart(today);
+  const lastStart = addDays(thisStart, -7);
+  let thisT = 0;
+  let lastT = 0;
+  for (const e of entries) {
+    if (!isGymStrength(e) || e.date < lastStart || e.date > today) continue;
+    const t = (e.sets ?? []).filter(isWorkingSet).reduce((sum, s) => sum + s.reps * Math.round(s.weightKg * 10), 0);
+    if (e.date >= thisStart) thisT += t;
+    else lastT += t;
+  }
+  return { thisWeek: thisT / 10, lastWeek: lastT / 10 };
 }
 
 // ---------------------------------------------------------------- ranking
