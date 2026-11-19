@@ -52,7 +52,7 @@ The "This month" cards are, in order. Grind: **Most workouts**, **Active streak*
 
 ### User Story 3 - Feed with three reactions (Priority: P1)
 
-The top of Squad shows the latest 5 feed items in plain words ("Nikhil hit a new PR (personal best) on Bench Press: about 95 kg (+2.5 kg)", "Swathi hit her workout goal 4 weeks in a row"), with "See all" opening the full feed and "See today's workouts →" under it. Every feed item and every workout-day card has three reactions, 🔥 💪 👑, each with a count. A member can give each reaction at most once per item and tap again to take it back. Existing high-fives become 💪.
+The top of Squad shows the latest 5 feed items in plain words ("Nikhil hit a new PR (personal best) on Bench Press: about 95 kg (+2.5 kg)", "Swathi hit the workout goal 4 weeks in a row"), with "See all" opening the full feed and "See today's workouts →" under it. Every feed item and every workout-day card has three reactions, 🔥 💪 👑, each with a count. A member can give each reaction at most once per item and tap again to take it back. Existing high-fives become 💪.
 
 **Why this priority**: The feed is the social core and must replace the old high-five without losing anyone's reactions.
 
@@ -116,7 +116,7 @@ Members whose calorie and protein targets were never confirmed (all existing mem
 1. **Given** an unconfirmed member shares nutrition, **When** another member views their day, **Then** calories, protein, carbs, fat and burned are shown but no target.
 2. **Given** the member confirms (saves the prompt or saves targets in Settings), **Then** targets are shown to others and the member can appear on Protein days.
 3. **Given** a new member completes their profile (targets are entered there), **Then** their targets count as confirmed.
-4. **Given** the member dismisses the prompt, **Then** it stays hidden for that member until they next open Settings, and their targets stay unconfirmed.
+4. **Given** the member dismisses the prompt, **Then** it no longer appears on Squad or Food; Settings keeps showing "Not confirmed yet: save to share your goals", and their targets stay unconfirmed.
 5. The member always sees their own targets regardless.
 
 ---
@@ -205,7 +205,8 @@ Every screen in the squad area (boards, full lists, feed, Today's workouts, day 
 **Targets**
 
 - **FR-024**: The profile MUST record whether the member has confirmed their calorie and protein targets. Completing a new profile and saving targets (prompt or Settings) MUST confirm them; existing members start unconfirmed.
-- **FR-025**: Unconfirmed members MUST see a dismissible "Set your daily goals" prompt (on Squad and Food) with current values filled in.
+- **FR-025**: Unconfirmed members MUST see a dismissible "Set your daily goals" prompt (on Squad and Food) with current values filled in; after dismissing, Settings still marks the targets as not confirmed.
+- **FR-025a**: Unconfirmed members MUST NOT earn protein-goal streak feed items (a streak needs a real target).
 - **FR-026**: Other members MUST NOT receive an unconfirmed member's calorie or protein targets in any response; the member always sees their own.
 
 **Wording**
