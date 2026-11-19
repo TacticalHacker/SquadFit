@@ -3,9 +3,10 @@ import { Suspense } from "react";
 import { ArrowRight } from "lucide-react";
 import { HallOfFameSchema, SquadBoardsSchema, SquadFeedSchema } from "@calci/shared";
 import { BoardCard } from "@/components/board-card";
-import { linkClass, noticeWarnClass, segmentClass, segmentGroupClass } from "@/components/form-bits";
+import { linkClass, noticeWarnClass } from "@/components/form-bits";
 import { HallOfFame } from "@/components/hall-of-fame";
 import { NutritionCard } from "@/components/nutrition-card";
+import { SegmentLinks } from "@/components/segment-links";
 import { SquadFeed } from "@/components/squad-feed";
 import { TargetsPrompt } from "@/components/targets-prompt";
 import { BOARD_GROUPS, monthName } from "@/lib/plain";
@@ -62,14 +63,13 @@ async function SquadContent({ searchParams }: { searchParams: PageProps<"/squad"
         </Link>
       </section>
 
-      <nav aria-label="Boards view" className={`${segmentGroupClass} grid-cols-2`}>
-        <Link href="/squad" aria-current={fame ? undefined : "page"} className={segmentClass(!fame)}>
-          This month
-        </Link>
-        <Link href="/squad?view=fame" aria-current={fame ? "page" : undefined} className={segmentClass(fame)}>
-          Hall of Fame
-        </Link>
-      </nav>
+      <SegmentLinks
+        label="Boards view"
+        options={[
+          { label: "This month", href: "/squad", current: !fame },
+          { label: "Hall of Fame", href: "/squad?view=fame", current: fame },
+        ]}
+      />
 
       {fame && records ? (
         <HallOfFame data={records} />
@@ -84,7 +84,7 @@ async function SquadContent({ searchParams }: { searchParams: PageProps<"/squad"
                 <h2 id={`group-${g.id}`} className="text-xl font-semibold">
                   {g.title}
                 </h2>
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   {boards.map((b) => (
                     <BoardCard key={b.id} board={b} hidden={data.viewer.hidden} />
                   ))}

@@ -1,4 +1,4 @@
-import type { Club, SquadBoardView, SquadFeedItem } from "@calci/shared";
+import { STEPS_MIN_DAYS, type Club, type SquadBoardView, type SquadFeedItem } from "@calci/shared";
 
 /**
  * Feature 013: every squad-area phrase in one place, written for someone who has never been to a gym. Always with
@@ -60,6 +60,7 @@ export const BOARD_GROUPS = [
   { id: "nutrition", title: "Nutrition", boards: ["protein"] },
 ] as const satisfies readonly { id: string; title: string; boards: readonly BoardId[] }[];
 
+/** Big numbers stay short so names never get squeezed; detail goes in the one muted line under the name. */
 export const BOARD_COPY: { [Id in BoardId]: { title: string; info: string; empty: string; value: (r: RowOf<Id>) => string; sub: (r: RowOf<Id>) => string } } = {
   workouts: {
     title: "Most workouts",
@@ -72,8 +73,8 @@ export const BOARD_COPY: { [Id in BoardId]: { title: string; info: string; empty
     title: "Active streak",
     info: "Weeks in a row you hit your workout goal. Rest days don't break it.",
     empty: "No streaks yet.",
-    value: (r) => (r.weeks > 0 ? weeksInARow(r.weeks) : workoutsThisWeek(r.weekDays, r.target)),
-    sub: (r) => (r.weeks > 0 ? bestWeeks(r.best) : ""),
+    value: (r) => streakValue(r.weeks),
+    sub: (r) => `${r.weekDays} of ${r.target} this week`,
   },
   volume: {
     title: "Total weight lifted",
@@ -84,39 +85,57 @@ export const BOARD_COPY: { [Id in BoardId]: { title: string; info: string; empty
   },
   steps: {
     title: "Steps",
-    info: "Average steps a day this month, on days your phone synced. Only members who share their steps.",
+    info: `Average steps a day this month, on days your phone synced. You need ${STEPS_MIN_DAYS} synced days to be ranked. Only members who share their steps.`,
     empty: "No steps synced yet this month.",
-    value: (r) => stepsADay(r.avgSteps),
-    sub: (r) => `${plural(r.syncedDays, "day")} synced`,
+    value: (r) => `${nf.format(Math.round(r.avgSteps))} a day`,
+    sub: (r) => `from ${plural(r.syncedDays, "day")}`,
   },
   prJump: {
     title: "Biggest PR jump",
     info: "How much your estimated max on a main lift went up this month, compared with your best before this month.",
     empty: "No new personal bests on the main lifts yet this month.",
-    value: (r) => `${signedKg(r.kg)} · ${r.liftName}`,
-    sub: (r) => `+${r.pct}%`,
+    value: (r) => signedKg(r.kg),
+    sub: (r) => `${r.liftName} · +${r.pct}%`,
   },
   strength: {
     title: "Current strength",
     info: "Your estimated max on bench press, squat and deadlift, added together. Uses your best ever, so it doesn't reset.",
     empty: "Nobody has logged all three lifts yet.",
-    value: (r) => (r.big3 === null ? "Not ranked" : aboutKg(r.big3)),
-    sub: (r) => (r.big3 === null ? `missing: ${r.missing.filter((m) => m !== "Overhead Press").join(", ")}` : "Bench, squat and deadlift"),
+    value: (r) => (r.big3 === null ? "–" : kg(r.big3)),
+    sub: (r) => (r.big3 === null ? joinHint(r.missing.filter((m) => m !== "Overhead Press")) : "est. bench + squat + deadlift"),
   },
   protein: {
     title: "Protein days",
     info: "Days this month you hit your own protein goal. Only members who share their nutrition.",
     empty: "Nobody is sharing protein yet.",
-    value: (r) => `${r.hitDays} of ${plural(r.periodDays, "day")}`,
-    sub: () => "hit the protein goal",
+    value: (r) => `${r.hitDays} of ${r.periodDays}`,
+    sub: () => "days at protein goal",
   },
 };
 
+/** Big number for a streak: "Week 1" in the first week, then "3 weeks"; nothing yet = "–". */
+export const streakValue = (weeks: number) => (weeks === 0 ? "–" : weeks === 1 ? "Week 1" : `${weeks} weeks`);
+
+const LIFT_WORD: Record<string, string> = { "Bench Press": "bench press", "Barbell Squat": "squat", Deadlift: "deadlift", "Overhead Press": "overhead press" };
+const andList = (xs: readonly string[]) => (xs.length <= 1 ? (xs[0] ?? "") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`);
+/** "Log a squat and deadlift to join" (Current strength, FR-013). */
+export const joinHint = (missing: readonly string[]) => `Log a ${andList(missing.map((m) => LIFT_WORD[m] ?? m.toLowerCase()))} to join`;
+
+/** The "You · …" line when the viewer is not ranked on a board: what to do about it, not "not ranked". */
+export function unrankedYou(board: SquadBoardView, row: SquadBoardView["rows"][number], hidden: boolean): string {
+  if (board.id === "strength" && (row as RowOf<"strength">).big3 === null) return joinHint((row as RowOf<"strength">).missing.filter((m) => m !== "Overhead Press"));
+  if (board.id === "steps") {
+    const left = STEPS_MIN_DAYS - (row as RowOf<"steps">).syncedDays;
+    if (left > 0) return `Sync steps on ${plural(left, "more day")} to join`;
+  }
+  return hidden ? "Not ranked while you're hidden" : "Not ranked yet";
+}
+
 /** The "kg | %" view of Biggest PR jump and the "Big 4" view of Current strength. */
-export const prJumpPct = (r: RowOf<"prJump">) => ({ value: `+${r.pct}% · ${r.pctLiftName}`, sub: signedKg(r.pctKg) });
+export const prJumpPct = (r: RowOf<"prJump">) => ({ value: `+${r.pct}%`, sub: `${r.pctLiftName} · ${signedKg(r.pctKg)}` });
 export const strengthBig4 = (r: RowOf<"strength">) => ({
-  value: r.big4 === null ? "Not ranked" : aboutKg(r.big4),
-  sub: r.big4 === null ? `missing: ${r.missing.join(", ")}` : "Bench, squat, deadlift and overhead press",
+  value: r.big4 === null ? "–" : kg(r.big4),
+  sub: r.big4 === null ? joinHint(r.missing) : "est. bench + squat + deadlift + overhead press",
 });
 
 // ---------------------------------------------------------------- hall of fame
@@ -133,6 +152,24 @@ export const RECORD_LABEL = {
   monthVolume: "Most weight lifted in a month",
   monthSteps: "Highest monthly step average",
 } as const;
+
+/** Short names for the "Up for grabs" line. */
+export const RECORD_SHORT: Record<keyof typeof RECORD_LABEL, string> = {
+  liftBench: "bench press",
+  liftSquat: "squat",
+  liftDeadlift: "deadlift",
+  liftOhp: "overhead press",
+  big3: "Big 3 total",
+  longestStreak: "longest streak",
+  monthWorkouts: "most workouts in a month",
+  monthPrJump: "biggest PR jump",
+  monthVolume: "most weight in a month",
+  monthSteps: "best step month",
+};
+export const upForGrabs = (ids: readonly (keyof typeof RECORD_LABEL)[]) => {
+  const list = andList(ids.map((id) => RECORD_SHORT[id]));
+  return `Up for grabs: ${list.charAt(0).toUpperCase()}${list.slice(1)}`;
+};
 
 export function recordValue(id: keyof typeof RECORD_LABEL, value: number, liftName: string | null): string {
   if (id === "longestStreak") return weeksInARow(value);

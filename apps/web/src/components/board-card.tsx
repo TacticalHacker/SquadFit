@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import type { SquadBoardView } from "@calci/shared";
-import { BOARD_COPY, prJumpPct, strengthBig4 } from "@/lib/plain";
+import { BOARD_COPY, prJumpPct, strengthBig4, unrankedYou } from "@/lib/plain";
 import { Avatar } from "./avatar";
 import { ClubBadge } from "./club-badge";
 import { cardClass } from "./form-bits";
@@ -35,16 +35,17 @@ export function BoardRow({ board, row, mode, rank }: { board: SquadBoardView; ro
       <Link href={`/squad/${row.member.userId}`} className="relative z-10 flex min-h-11 min-w-0 flex-1 items-center gap-2">
         <Avatar displayName={row.member.displayName} avatarUrl={row.member.avatarUrl} size={32} />
         <span className="flex min-w-0 flex-col">
-          <span className="flex min-w-0 items-center gap-1.5">
-            <span className={`truncate text-sm ${row.member.isYou ? "font-semibold text-ink" : "font-medium text-ink"}`}>
+          {/* Names wrap rather than truncate (never cut to initials); values stay short instead. */}
+          <span className="flex min-w-0 flex-wrap items-center gap-x-1.5">
+            <span className={`break-words text-sm ${row.member.isYou ? "font-semibold text-ink" : "font-medium text-ink"}`}>
               {row.member.isYou ? `${row.member.displayName} (you)` : row.member.displayName}
             </span>
             {row.club ? <ClubBadge club={row.club} /> : null}
           </span>
-          {sub ? <span className="truncate text-xs text-muted">{sub}</span> : null}
+          {sub ? <span className="text-xs text-muted">{sub}</span> : null}
         </span>
       </Link>
-      <span className="shrink-0 text-right text-base font-semibold tabular-nums text-ink">{value}</span>
+      <span className="shrink-0 whitespace-nowrap text-right text-base font-semibold tabular-nums text-ink">{value}</span>
     </div>
   );
 }
@@ -57,7 +58,7 @@ export function BoardCard({ board, hidden }: { board: SquadBoardView; hidden: bo
   const you = board.rows.find((r) => r.member.isYou);
   const youOutside = you && !top.includes(you);
   return (
-    <section aria-labelledby={`board-${board.id}`} className={`${cardClass} relative flex flex-col px-3 pt-1 pb-2`}>
+    <section aria-labelledby={`board-${board.id}`} className={`${cardClass} relative flex min-w-0 flex-col px-3 pt-1 pb-2`}>
       <header className="flex items-center gap-1">
         <h3 id={`board-${board.id}`} className="min-w-0 flex-1 text-base font-semibold">
           {/* Stretched link: the whole card opens the full list; names and (i) sit above it. */}
@@ -85,9 +86,7 @@ export function BoardCard({ board, hidden }: { board: SquadBoardView; hidden: bo
         <p className="border-t border-line pt-2 text-sm text-muted">
           <span className="font-medium text-ink">You</span>
           {" · "}
-          {you.rank === null ? (hidden ? "not ranked (hidden)" : "not ranked") : `#${you.rank}`}
-          {" · "}
-          {rowText(board, you).value}
+          {you.rank === null ? unrankedYou(board, you, hidden) : `#${you.rank} · ${rowText(board, you).value}`}
         </p>
       ) : null}
     </section>

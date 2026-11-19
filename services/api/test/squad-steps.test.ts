@@ -22,12 +22,13 @@ async function setup() {
 }
 
 describe("steps privacy and the Steps board", () => {
-  it("ranks only sharing members with synced days, averaging over synced days", async () => {
+  it("lists only sharing members with synced days, averaging over synced days", async () => {
     const { deps } = await setup();
     const r = parse(await boardGet(makeEvent({ sub: "user-1" }), deps));
     expect(r.status).toBe(200);
     expect(r.body.boards.find((b: { id: string }) => b.id === "steps").rows).toEqual([
-      expect.objectContaining({ member: expect.objectContaining({ displayName: "Bob" }), rank: 1, avgSteps: 7000, syncedDays: 2 }),
+      // Bob synced only 2 days this month: listed, but unranked until 3 (feature 013).
+      expect.objectContaining({ member: expect.objectContaining({ displayName: "Bob" }), rank: null, avgSteps: 7000, syncedDays: 2 }),
     ]);
     expect(JSON.stringify(r.body)).not.toMatch(/20000|30000|activeKcal|distanceKm/);
   });

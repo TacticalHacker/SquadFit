@@ -47,6 +47,17 @@ describe("monthly boards", () => {
   });
 });
 
+describe("steps", () => {
+  it("ranks only members with 3+ synced days this month; the rest are listed unranked", () => {
+    const a = member("a", []);
+    const b = member("b", []);
+    const c = member("c", []);
+    const steps = new Map([["a", { avgSteps: 5000, syncedDays: 3 }], ["b", { avgSteps: 20000, syncedDays: 2 }], ["c", { avgSteps: 8000, syncedDays: 9 }]]);
+    const rows = board(buildSquadBoards({ members: [a, b, c], viewerId: "a", month: "2026-12", steps, protein: new Map() }), "steps").rows;
+    expect(rows.map((r) => [r.member.userId, r.rank])).toEqual([["c", 1], ["a", 2], ["b", null]]);
+  });
+});
+
 describe("biggest PR jump", () => {
   it("compares this month's best with the best before it, and ignores lifts first logged this month", () => {
     const a = member("a", [lift("2026-10-05", 100), lift("2026-11-05", 110), lift("2026-12-01", 115), lift("2026-12-01", 60, "gx-barbell-row")]);

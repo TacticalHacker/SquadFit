@@ -8,6 +8,8 @@ import { BIG3_LIFT_IDS, CLUBS, rankRows, streakFigures, type ClubId, type SquadS
  */
 
 export const SQUAD_DEFAULT_TIMEZONE = "Asia/Kolkata";
+/** A member needs this many synced days this month to be ranked on Steps (one lucky day is not an average). */
+export const STEPS_MIN_DAYS = 3;
 export const PR_JUMP_LIFTS = ["gx-bench-press", "gx-barbell-squat", "gx-deadlift", "gx-overhead-press", "gx-barbell-row", "gx-pull-ups"] as const;
 const OHP = "gx-overhead-press";
 
@@ -163,7 +165,13 @@ export function buildSquadBoards(input: BoardsInput): SquadBoard[] {
 
   const volume = board((m) => (monthRec(m)?.volumeKg ? { kg: monthRec(m)!.volumeKg } : null), (r) => [r.kg]);
 
-  const steps = board((m) => input.steps.get(m.userId) ?? null, (r) => [r.avgSteps]);
+  const qualified = (m: SquadBoardMember) => (input.steps.get(m.userId)?.syncedDays ?? 0) >= STEPS_MIN_DAYS;
+  const stepsRanked = board((m) => (qualified(m) ? input.steps.get(m.userId)! : null), (r) => [r.avgSteps]);
+  // "Needs more days": synced this month but fewer than STEPS_MIN_DAYS, listed unranked after everyone ranked.
+  const needsMore = (viewerHidden ? [...ranked, viewer!] : ranked)
+    .filter((m) => input.steps.has(m.userId) && !qualified(m))
+    .map((m) => ({ member: pub(m), club: clubOf(m.stats), rank: null, ...input.steps.get(m.userId)! }));
+  const steps = [...stepsRanked, ...needsMore];
 
   const prRows = board(
     (m) => {
