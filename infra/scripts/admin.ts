@@ -72,8 +72,13 @@ async function stackOutput(stack: "Auth" | "Data" | "Api", key: string, stage: s
     const { Stacks } = await cfn.send(new DescribeStacksCommand({ StackName: `Calci-${stage}-${stack}` }));
     const value = Stacks?.[0]?.Outputs?.find((o) => o.OutputKey === key)?.OutputValue;
     if (value) return value;
-  } catch {
-    // fall through to the message below
+  } catch (err) {
+    // Say what AWS said: an expired login or wrong profile is far more likely than a missing stack.
+    const name = err instanceof Error ? err.name : "UnknownError";
+    const message = err instanceof Error ? err.message : String(err);
+    if (name !== "ValidationError") {
+      return fail(`AWS refused the request (${name}: ${message}). Profile: ${process.env.AWS_PROFILE ?? "default"}. Try \`aws login --profile ${process.env.AWS_PROFILE ?? "macmini-raj"}\` or check the profile.`);
+    }
   }
   return fail(`Could not find the ${key} output of stack Calci-${stage}-${stack} in ${region}. Is it deployed (pnpm deploy:${stage})?`);
 }

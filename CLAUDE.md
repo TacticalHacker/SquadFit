@@ -35,7 +35,7 @@ pnpm synth          # cdk synth for stage=dev
 pnpm deploy:dev     # deploy Data + Api stacks to AWS (needs AWS creds)
 ```
 
-AWS runs only in **ap-south-1** (`AWS_REGION` in `infra/lib/config.ts`): CDK stacks and every operator CLI client use it explicitly, never a region from the environment. Use `AWS_PROFILE=macmini-raj`.
+AWS runs only in **ap-south-1** (`AWS_REGION` in `infra/lib/config.ts`): CDK stacks and every operator CLI client use it explicitly, never a region from the environment. `pnpm admin` defaults to `AWS_PROFILE=macmini-raj` when none is set and prints AWS's own error (e.g. an expired login) instead of guessing.
 
 ## Auth model (feature 001)
 
