@@ -63,15 +63,15 @@ export function SessionList({ sessions, detailed }: { sessions: Sessions; detail
   );
 }
 
-/** "PR (personal best)" the first time on the card, then "PR" (FR-027). */
+/** One "PR" badge per new personal best. */
 export function PrBadges({ badges }: { badges: DayCardData["prBadges"] }) {
   if (badges.length === 0) return null;
   return (
     <ul className="flex flex-wrap gap-1.5" aria-label="Personal bests">
-      {badges.map((b, n) => (
+      {badges.map((b) => (
         <li key={`${b.exerciseName}-${b.weightKg}`} className={`${badgeClass} border-accent/40 text-accent`}>
           <Trophy aria-hidden size={12} strokeWidth={1.75} />
-          {n === 0 ? "PR (personal best)" : "PR"} · {b.exerciseName} {kg(b.weightKg)} × {b.reps} {b.reps === 1 ? "rep" : "reps"}
+          PR · {b.exerciseName} {kg(b.weightKg)} × {b.reps} {b.reps === 1 ? "rep" : "reps"}
         </li>
       ))}
     </ul>

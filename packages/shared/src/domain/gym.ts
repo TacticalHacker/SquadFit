@@ -56,6 +56,7 @@ export const GYM_EXERCISES: readonly GymExerciseDef[] = [
   strength("cable-flyes", "Cable Flyes", "chest"),
   strength("chest-dips", "Chest Dips", "chest"),
   strength("machine-chest-press", "Machine Chest Press", "chest"),
+  strength("machine-pec-fly", "Machine Pec Fly", "chest"),
   strength("deadlift", "Deadlift", "back"),
   strength("lat-pulldown", "Lat Pulldown", "back"),
   strength("barbell-row", "Barbell Row", "back"),
@@ -77,6 +78,7 @@ export const GYM_EXERCISES: readonly GymExerciseDef[] = [
   strength("skullcrushers", "Skullcrushers", "arms"),
   strength("hanging-leg-raises", "Hanging Leg Raises", "core"),
   strength("cable-crunch", "Cable Crunch", "core"),
+  strength("sit-ups", "Sit-Ups", "core"),
   { id: "gx-incline-treadmill-walk", name: "Incline Treadmill Walk", group: "cardio", kind: "cardio", rateMinutes: 20, rateCalories: 140 },
   { id: "gx-stairmaster", name: "Stairmaster", group: "cardio", kind: "cardio", rateMinutes: 20, rateCalories: 180 },
 ];

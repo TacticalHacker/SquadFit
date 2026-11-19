@@ -42,11 +42,26 @@ export function BoardRow({ board, row, mode, rank }: { board: SquadBoardView; ro
             </span>
             {row.club ? <ClubBadge club={row.club} /> : null}
           </span>
-          {sub ? <span className="truncate text-xs text-muted">{sub}</span> : null}
+          {board.id === "streak" ? (
+            <WeekDots row={row as Extract<SquadBoardView, { id: "streak" }>["rows"][number]} label={sub} />
+          ) : sub ? (
+            <span className="truncate text-xs text-muted">{sub}</span>
+          ) : null}
         </span>
       </Link>
       <span className="shrink-0 whitespace-nowrap text-right text-base font-semibold tabular-nums text-ink">{value}</span>
     </div>
+  );
+}
+
+/** This week's workout days against the member's goal, one dot per goal day (●●○○). */
+function WeekDots({ row, label }: { row: Extract<SquadBoardView, { id: "streak" }>["rows"][number]; label: string }) {
+  return (
+    <span role="img" aria-label={label} className="flex items-center gap-1 py-1">
+      {Array.from({ length: row.target }, (_, i) => (
+        <span key={i} className={`size-1.5 rounded-full ${i < row.weekDays ? "bg-accent" : "bg-line-strong"}`} />
+      ))}
+    </span>
   );
 }
 

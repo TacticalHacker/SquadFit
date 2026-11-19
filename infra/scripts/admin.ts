@@ -10,6 +10,7 @@
  *   pnpm admin squad backfill [--stage dev|prod]                   (feature 010: build squad stats from history, no feed items)
  *   pnpm admin squad timezone <IANA> [--stage dev|prod]            (feature 013: month boundaries for the boards)
  *   pnpm admin squad migrate-reactions [--stage dev|prod]          (feature 013: high-fives become 💪, safe to re-run)
+ *   pnpm admin gym merge <gx-id> <gc-id>... [--dry-run] [--stage dev|prod]  (members' own exercises → a built-in, history kept)
  *
  * Needs AWS credentials for the target account (AWS_PROFILE etc).
  */
@@ -33,6 +34,7 @@ import { DynamoWaitlistRepo } from "../../services/api/src/lib/waitlist-repo";
 import { DynamoWorkoutRepo } from "../../services/api/src/lib/workout-repo";
 import { AWS_REGION } from "../lib/config";
 import { formatSnippets, parseAiKeySubcommand } from "./ai-key";
+import { mergeOwnExercises } from "./gym-merge";
 import { generateTempPassword } from "./temp-password";
 
 const USAGE = `Usage:
@@ -44,7 +46,8 @@ const USAGE = `Usage:
   pnpm admin waitlist list [--stage dev|prod]
   pnpm admin squad backfill [--stage dev|prod]
   pnpm admin squad timezone <IANA> [--stage dev|prod]
-  pnpm admin squad migrate-reactions [--stage dev|prod]`;
+  pnpm admin squad migrate-reactions [--stage dev|prod]
+  pnpm admin gym merge <gx-id> <gc-id>... [--dry-run] [--stage dev|prod]`;
 
 function fail(message: string): never {
   console.error(message);
@@ -60,8 +63,8 @@ function parseArgs(argv: string[]) {
     args.splice(stageIdx, 2);
   }
   if (stage !== "dev" && stage !== "prod") fail(`Unknown stage "${stage}". Use dev or prod.`);
-  const [command, username, third] = args;
-  return { command, username, third, stage };
+  const [command, username, third, ...rest] = args;
+  return { command, username, third, stage, rest };
 }
 
 const ddb = new DynamoDBClient({ region: AWS_REGION });
@@ -154,7 +157,7 @@ function printCredentials(username: string, tempPassword: string) {
 }
 
 async function main() {
-  const { command, username, third, stage } = parseArgs(process.argv.slice(2));
+  const { command, username, third, stage, rest } = parseArgs(process.argv.slice(2));
   // Always ap-south-1 (lib/config.ts); every client below is given it explicitly, whatever the profile says.
   const region = AWS_REGION;
   if (!command) fail(USAGE);
@@ -165,6 +168,22 @@ async function main() {
     const rows = await new DynamoWaitlistRepo(await stackOutput("Data", "TableName", stage, region), ddb).list();
     if (rows.length === 0) return void console.log("No invite requests yet.");
     for (const r of rows) console.log(`${r.createdAt}  ${r.primaryGoal.padEnd(15)}  ${r.name} <${r.email}>`);
+    return;
+  }
+
+  // Own exercises folded into a built-in; squad stats are rebuilt like the backfill (no new feed items).
+  if (command === "gym") {
+    if (username !== "merge" || !third) fail(USAGE);
+    const dryRun = rest.includes("--dry-run");
+    const sources = rest.filter((a) => a !== "--dry-run");
+    const table = await stackOutput("Data", "TableName", stage, region);
+    const r = await mergeOwnExercises(ddb, table, third!, sources, dryRun);
+    if (!dryRun) {
+      const deps = { profiles: new DynamoProfileRepo(table, ddb), workouts: new DynamoWorkoutRepo(table, ddb), squad: new DynamoSquadRepo(table, ddb), now: () => new Date() };
+      for (const userId of r.members) await refreshSquadStats(userId, deps, { seed: true });
+    }
+    // Counts only: never names or sets (constitution VI).
+    console.log(`${dryRun ? "[dry run] " : ""}members: ${r.members.size}, days moved: ${r.moved}, days left (already logged the built-in): ${r.conflicts}, own exercises retired: ${r.removed}${r.missing.length ? `, not found: ${r.missing.join(" ")}` : ""}`);
     return;
   }
 

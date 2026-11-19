@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { GYM_EXERCISES } from "@calci/shared";
 import { makeDeps, seedProfile } from "./fakes";
 import { exercise, gymGet, gymPut, sets } from "./gym-helpers";
 
@@ -16,13 +17,13 @@ describe("GET /workouts/gym", () => {
     expect((await gymGet(d2, "2026-11-12")).status).toBe(400);
   });
 
-  it("lists 28 built-ins plus own exercises for today, nothing logged", async () => {
+  it("lists the built-ins plus own exercises for today, nothing logged", async () => {
     const { deps, gym } = await setup();
     await gym.putOwnExercise("user-1", { exerciseId: "gc-1", name: "Hip Thrust", group: "legs", createdAt: "t", updatedAt: "t" });
     const r = await gymGet(deps);
     expect(r.status).toBe(200);
     expect(r.body).toMatchObject({ date: "2026-11-11", today: "2026-11-11", editable: true, summary: { totalMinutes: 0, totalCalories: 0 } });
-    expect(r.body.exercises).toHaveLength(29);
+    expect(r.body.exercises).toHaveLength(GYM_EXERCISES.length + 1);
     expect(r.body.exercises.every((e: { entry: unknown; last: unknown }) => e.entry === null && e.last === null)).toBe(true);
   });
 
