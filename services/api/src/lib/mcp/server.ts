@@ -3,10 +3,21 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import { TOOLS } from "./tools";
 import type { ToolContext } from "./types";
 
+/** Sent to the agent on initialize, so it acts through the tools instead of inventing app features. */
+export function mcpInstructions(today: string): string {
+  return (
+    "SquadFit is a web app for friend groups (gym, activities, food, steps). There is no native iPhone app and no Apple Health switch inside SquadFit. " +
+    `Today in the member's own timezone is ${today}; use their local calendar dates. ` +
+    "You act as the member through these tools. If you can see their Apple Health or other health data, save the daily steps (and active kcal/distance if available) yourself with upsert_daily_activity; don't send them to app settings. " +
+    "For hands-free daily sync without you, members create a Health sync token in SquadFit Settings and use it with an iPhone Shortcut or Health Auto Export. " +
+    "Use get_full_context for a daily review. Never invent SquadFit features or menus."
+  );
+}
+
 export function buildMcpServer(ctx: ToolContext): McpServer {
-  const server = new McpServer({ name: "SquadFit", version: "1.0.0" });
+  const server = new McpServer({ name: "SquadFit", version: "1.0.0" }, { instructions: mcpInstructions(ctx.today) });
   for (const tool of TOOLS) {
-    server.registerTool(tool.name, { description: tool.description, inputSchema: tool.shape }, async (args: unknown) => {
+    server.registerTool(tool.name, { description: tool.description, inputSchema: tool.shape, ...(tool.annotations ? { annotations: tool.annotations } : {}) }, async (args: unknown) => {
       const result = await tool.run(args, ctx);
       return {
         content: [

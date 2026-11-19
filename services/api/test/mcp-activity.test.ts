@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { makeDeps, seedProfile } from "./fakes";
-import { callTool, seedKey, toolText } from "./mcp-helpers";
+import { callTool, rpc, seedKey, toolText } from "./mcp-helpers";
 
 describe("MCP daily activity tools", () => {
   it("saves as the key's member with source mcp, reports the goal, and overwrites a Shortcut day", async () => {
@@ -15,6 +15,16 @@ describe("MCP daily activity tools", () => {
 
     const read = JSON.parse(toolText(await callTool(deps, token, "get_daily_activity", { startDate: "2026-11-11", endDate: "2026-11-18" })).text);
     expect(read.days).toEqual([expect.objectContaining({ date: "2026-11-17", steps: 9100, source: "mcp", goalHit: true })]);
+  });
+
+  it("advertises the steps tool as a safe write and tells the agent the member's today", async () => {
+    const { deps, profiles } = makeDeps("2026-11-18T10:00:00.000Z");
+    await seedProfile(profiles);
+    const token = await seedKey(deps);
+    const init = await rpc(deps, token, "initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "t", version: "1" } });
+    expect(init.json.result.instructions).toContain("Today in the member's own timezone is 2026-11-18");
+    const tools = (await rpc(deps, token, "tools/list")).json.result.tools;
+    expect(tools.find((t: { name: string }) => t.name === "upsert_daily_activity").annotations).toMatchObject({ readOnlyHint: false, destructiveHint: false, idempotentHint: true });
   });
 
   it("saves nothing when any day is invalid", async () => {
