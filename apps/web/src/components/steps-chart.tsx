@@ -91,7 +91,7 @@ export function StepsChart({ days, goal }: { days: readonly StepsChartDay[]; goa
       {kcal.length || dist.length ? (
         <p className="text-xs text-muted">
           From Apple Health, {dayLabel(latest.date)}:{" "}
-          {latest.activeKcal !== null ? <span className="tabular-nums">{nf.format(latest.activeKcal)} active kcal</span> : null}
+          {latest.activeKcal !== null ? <span className="tabular-nums">{nf.format(latest.activeKcal)} active calories</span> : null}
           {latest.activeKcal !== null && latest.distanceKm !== null ? " · " : null}
           {latest.distanceKm !== null ? <span className="tabular-nums">{nf1.format(latest.distanceKm)} km</span> : null}
           {latest.activeKcal === null && latest.distanceKm === null ? "steps only" : null}

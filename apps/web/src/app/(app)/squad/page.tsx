@@ -1,108 +1,99 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { DateSchema, PeriodSchema, SquadFeedSchema, SquadLeaderboardFullSchema, TodaySchema, addDays } from "@calci/shared";
-import { noticeWarnClass, linkClass, segmentClass, segmentGroupClass } from "@/components/form-bits";
+import { ArrowRight } from "lucide-react";
+import { HallOfFameSchema, SquadBoardsSchema, SquadFeedSchema } from "@calci/shared";
+import { BoardCard } from "@/components/board-card";
+import { linkClass, noticeWarnClass, segmentClass, segmentGroupClass } from "@/components/form-bits";
+import { HallOfFame } from "@/components/hall-of-fame";
 import { NutritionCard } from "@/components/nutrition-card";
-import { BOARDS, Board, BoardTabs, PeriodToggle, squadHref, type BoardId, type BoardQuery } from "@/components/squad-boards";
 import { SquadFeed } from "@/components/squad-feed";
-import { TodayWorkouts } from "@/components/today-workouts";
+import { TargetsPrompt } from "@/components/targets-prompt";
+import { BOARD_GROUPS, monthName } from "@/lib/plain";
 import { apiFetch } from "@/server/api";
 import { requireProfile } from "@/server/session";
 
 export const metadata = { title: "Squad · SquadFit" };
 
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
-const dayName = (d: string) => new Intl.DateTimeFormat("en", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${d}T00:00:00Z`));
 
+/**
+ * Feature 013: feed first, then one control ("This month | Hall of Fame"), then scannable board cards. No date picker,
+ * period row, tab row or explanation paragraphs; Today's workouts and the full feed have their own pages.
+ */
 async function SquadContent({ searchParams }: { searchParams: PageProps<"/squad">["searchParams"] }) {
-  await requireProfile();
-  const params = await searchParams;
-  const boardRaw = first(params.board);
-  const dateRaw = DateSchema.safeParse(first(params.date));
-  const query: BoardQuery = {
-    board: (BOARDS as readonly string[]).includes(boardRaw ?? "") ? (boardRaw as BoardId) : "streaks",
-    period: PeriodSchema.catch("week").parse(first(params.period)),
-    exercise: first(params.exercise),
-    relative: first(params.rel) === "1",
-    view: first(params.view) === "today" ? "today" : "boards",
-    date: dateRaw.success ? dateRaw.data : undefined,
-  };
-  // Nutrition and Steps have no all-time view; show "This week" selected instead of nothing.
-  if ((query.board === "nutrition" || query.board === "steps") && query.period === "all") query.period = "week";
-  const q = new URLSearchParams({ period: query.period });
-  if (query.exercise) q.set("exercise", query.exercise);
-  if (query.date) q.set("date", query.date);
+  const { profile } = await requireProfile();
+  const fame = first((await searchParams).view) === "fame";
 
-  const [data, feed, today] = await Promise.all([
-    apiFetch(`/squad/leaderboard?${q}`, { schema: SquadLeaderboardFullSchema }),
+  const [data, feed, records] = await Promise.all([
+    apiFetch("/squad/boards", { schema: SquadBoardsSchema }),
     // The feed is secondary: a failed fetch must not take the boards down.
-    apiFetch("/squad/feed", { schema: SquadFeedSchema }).catch(() => null),
-    query.view === "today" ? apiFetch(`/squad/today${query.date ? `?date=${query.date}` : ""}`, { schema: TodaySchema }) : Promise.resolve(null),
+    apiFetch("/squad/feed?limit=5", { schema: SquadFeedSchema }).catch(() => null),
+    fame ? apiFetch("/squad/hall-of-fame", { schema: HallOfFameSchema }) : Promise.resolve(null),
   ]);
-
-  const selected = data.date;
-  const prev = addDays(selected, -1);
-  const canNext = selected < data.today;
-  const canPrev = selected > addDays(data.today, -30);
-  const link = (date: string) => squadHref(query, { date: date === data.today ? undefined : date });
 
   return (
     <div className="flex flex-col gap-5">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-[-0.02em]">Squad</h1>
-        <p className="text-sm text-muted">Friendly competition. Weeks, not days.</p>
-      </div>
+      <h1 className="text-3xl font-semibold tracking-[-0.02em]">Squad</h1>
+      {data.viewer.targetsPrompt ? <TargetsPrompt calories={profile.dailyCalorieTarget} protein={profile.dailyProteinTarget} /> : null}
       {data.viewer.nutritionPrompt ? <NutritionCard /> : null}
-      {data.viewerHidden ? (
+      {data.viewer.hidden ? (
         <p className={noticeWarnClass}>
           You&apos;re hidden from the squad, so others can&apos;t see you. Change it in{" "}
-          <Link href="/settings" className={linkClass}>
+          <Link href="/settings#squad" className={linkClass}>
             Settings
           </Link>
           .
         </p>
       ) : null}
-      <nav aria-label="View" className={`${segmentGroupClass} grid-cols-2`}>
-        <Link href={squadHref(query, { view: "boards" })} aria-current={query.view === "boards" ? "page" : undefined} className={segmentClass(query.view === "boards")}>
-          Boards
-        </Link>
-        <Link href={squadHref(query, { view: "today" })} aria-current={query.view === "today" ? "page" : undefined} className={segmentClass(query.view === "today")}>
-          Today&apos;s workouts
-        </Link>
-      </nav>
-      <nav aria-label="Day" className="flex items-center justify-between gap-2">
-        {canPrev ? (
-          <Link href={link(prev)} aria-label="Previous day" className="grid min-h-11 min-w-11 place-items-center rounded-md bg-surface-2 text-ink active:bg-line">
-            <ChevronLeft aria-hidden size={18} strokeWidth={1.75} />
+
+      <section aria-labelledby="activity-heading" className="flex flex-col gap-2">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 id="activity-heading" className="text-xl font-semibold">
+            Latest
+          </h2>
+          <Link href="/squad/feed" className={`${linkClass} text-sm`}>
+            See all
           </Link>
-        ) : (
-          <span className="min-w-11" />
-        )}
-        <p className="text-sm font-medium tabular-nums text-ink">{selected === data.today ? `Today · ${dayName(selected)}` : dayName(selected)}</p>
-        {canNext ? (
-          <Link href={link(addDays(selected, 1))} aria-label="Next day" className="grid min-h-11 min-w-11 place-items-center rounded-md bg-surface-2 text-ink active:bg-line">
-            <ChevronRight aria-hidden size={18} strokeWidth={1.75} />
-          </Link>
-        ) : (
-          <span className="min-w-11" />
-        )}
-      </nav>
-      {query.view === "today" && today ? (
-        <TodayWorkouts data={today} />
-      ) : (
-        <>
-          <PeriodToggle query={query} />
-          <BoardTabs query={query} />
-          <Board data={data} query={query} />
-        </>
-      )}
-      <section aria-labelledby="activity-heading" className="flex flex-col gap-3">
-        <h2 id="activity-heading" className="text-xl font-semibold">
-          Activity
-        </h2>
+        </div>
         {feed ? <SquadFeed items={feed.items} /> : <p className="text-sm text-muted">Activity is unavailable right now.</p>}
+        <Link href="/squad/today" className={`${linkClass} inline-flex min-h-11 items-center gap-1.5 self-start text-sm`}>
+          See today&apos;s workouts
+          <ArrowRight aria-hidden size={16} strokeWidth={1.75} />
+        </Link>
       </section>
+
+      <nav aria-label="Boards view" className={`${segmentGroupClass} grid-cols-2`}>
+        <Link href="/squad" aria-current={fame ? undefined : "page"} className={segmentClass(!fame)}>
+          This month
+        </Link>
+        <Link href="/squad?view=fame" aria-current={fame ? "page" : undefined} className={segmentClass(fame)}>
+          Hall of Fame
+        </Link>
+      </nav>
+
+      {fame && records ? (
+        <HallOfFame data={records} />
+      ) : (
+        <div className="flex flex-col gap-5">
+          <p className="text-sm text-muted">{monthName(data.month)} · resets on the 1st</p>
+          {BOARD_GROUPS.map((g) => {
+            const boards = data.boards.filter((b) => (g.boards as readonly string[]).includes(b.id));
+            if (boards.length === 0) return null;
+            return (
+              <section key={g.id} aria-labelledby={`group-${g.id}`} className="flex flex-col gap-3">
+                <h2 id={`group-${g.id}`} className="text-xl font-semibold">
+                  {g.title}
+                </h2>
+                <div className="grid gap-3 md:grid-cols-2">
+                  {boards.map((b) => (
+                    <BoardCard key={b.id} board={b} hidden={data.viewer.hidden} />
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

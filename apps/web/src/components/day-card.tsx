@@ -7,52 +7,55 @@ import type { DayCard as DayCardData, DayLog } from "@calci/shared";
 import { loadDay } from "@/server/actions/squad";
 import { Avatar } from "./avatar";
 import { cardClass, badgeClass } from "./form-bits";
-import { HighFiveButton } from "./high-five-button";
+import { INFO, bestSet, cardioLine, heaviestLift, isDumbbell, kg, minutes, sessionLine, setSummary } from "@/lib/plain";
+import { InfoTip } from "./info-tip";
+import { Reactions } from "./reactions";
 import { NutritionDay } from "./nutrition-view";
 import { StepsLine } from "./steps-chart";
 
-const nf = new Intl.NumberFormat("en", { maximumFractionDigits: 1 });
 const dayLabel = (d: string) =>
   new Intl.DateTimeFormat("en", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${d}T00:00:00Z`));
 
 type Sessions = DayCardData["sessions"];
 
-/** Every session of a day listed separately; with `detailed`, each exercise shows its sets as weight × reps. */
+/**
+ * Every session of a day in plain words (feature 013): the gym summary once, then each exercise. With `detailed`,
+ * strength exercises show their sets ("3 sets of 10 reps at 15 kg"); otherwise their best set.
+ */
 export function SessionList({ sessions, detailed }: { sessions: Sessions; detailed: boolean }) {
   return (
     <ul className="flex flex-col gap-2">
       {sessions.map((s, i) =>
         s.kind === "gym" ? (
           <li key={i} className="flex flex-col gap-1.5">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted">
-              Gym · {nf.format(s.volumeKg)} kg · {Math.round(s.minutes)} min
+            <p className="flex items-center gap-0.5 text-sm text-muted">
+              <span className="tabular-nums">{sessionLine(s.minutes, s.exercises.length, s.volumeKg)}</span>
+              {s.volumeKg > 0 ? <InfoTip title="Total weight lifted" text={INFO.totalLifted} /> : null}
             </p>
             <ul className="flex flex-col gap-1.5">
-              {s.exercises.map((e) => (
-                <li key={e.exerciseId} className="text-sm">
-                  <p className="flex justify-between gap-3">
-                    <span className="min-w-0 truncate text-ink">{e.exerciseName}</span>
-                    <span className="shrink-0 tabular-nums text-muted">
-                      {e.kind === "cardio" ? `${Math.round(e.minutes)} min` : e.topSet ? `top ${nf.format(e.topSet.weightKg)} × ${e.topSet.reps}` : "no sets"}
+              {s.exercises.map((e) =>
+                e.kind === "cardio" ? (
+                  <li key={e.exerciseId} className="text-sm text-ink">
+                    {cardioLine(e.exerciseName, e.minutes)}
+                  </li>
+                ) : (
+                  <li key={e.exerciseId} className="flex flex-col text-sm">
+                    <span className="text-ink">{e.exerciseName}</span>
+                    <span className="tabular-nums text-muted">
+                      {detailed && e.sets
+                        ? setSummary(e.sets, isDumbbell(e.exerciseId, e.exerciseName))
+                        : e.topSet
+                          ? bestSet(e.topSet.weightKg, e.topSet.reps, isDumbbell(e.exerciseId, e.exerciseName))
+                          : "No sets finished"}
                     </span>
-                  </p>
-                  {detailed && e.sets && e.sets.length > 0 ? (
-                    <ol className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs tabular-nums text-muted">
-                      {e.sets.map((set, n) => (
-                        <li key={n} className={set.completed ? undefined : "text-faint line-through"}>
-                          {n + 1}. {nf.format(set.weightKg)} × {set.reps}
-                        </li>
-                      ))}
-                    </ol>
-                  ) : null}
-                </li>
-              ))}
+                  </li>
+                ),
+              )}
             </ul>
           </li>
         ) : (
-          <li key={i} className="flex justify-between gap-3 text-sm">
-            <span className="text-ink">{s.name}</span>
-            <span className="tabular-nums text-muted">{Math.round(s.minutes)} min</span>
+          <li key={i} className="text-sm text-ink">
+            {cardioLine(s.name, s.minutes)}
           </li>
         ),
       )}
@@ -60,14 +63,15 @@ export function SessionList({ sessions, detailed }: { sessions: Sessions; detail
   );
 }
 
+/** "PR (personal best)" the first time on the card, then "PR" (FR-027). */
 export function PrBadges({ badges }: { badges: DayCardData["prBadges"] }) {
   if (badges.length === 0) return null;
   return (
-    <ul className="flex flex-wrap gap-1.5" aria-label="Personal records">
-      {badges.map((b) => (
+    <ul className="flex flex-wrap gap-1.5" aria-label="Personal bests">
+      {badges.map((b, n) => (
         <li key={`${b.exerciseName}-${b.weightKg}`} className={`${badgeClass} border-accent/40 text-accent`}>
           <Trophy aria-hidden size={12} strokeWidth={1.75} />
-          PR · {b.exerciseName} {nf.format(b.weightKg)} × {b.reps}
+          {n === 0 ? "PR (personal best)" : "PR"} · {b.exerciseName} {kg(b.weightKg)} × {b.reps} {b.reps === 1 ? "rep" : "reps"}
         </li>
       ))}
     </ul>
@@ -75,7 +79,7 @@ export function PrBadges({ badges }: { badges: DayCardData["prBadges"] }) {
 }
 
 /**
- * One workout day (feature 011): sessions, volume, top set, PR badges, high-five, nutrition per the member's level.
+ * One workout day (feature 011; wording and reactions 013): sessions, PR badges, reactions, nutrition per the member's level.
  * Tapping the header expands the full set-by-set log, fetched on first expand.
  */
 export function DayCard({ card, memberId, member }: { card: DayCardData; memberId: string; member?: { displayName: string; avatarUrl: string | null; userId: string } }) {
@@ -105,9 +109,7 @@ export function DayCard({ card, memberId, member }: { card: DayCardData; memberI
         <span>
           <span className="block text-sm font-semibold text-ink">{dayLabel(card.date)}</span>
           <span className="block text-xs tabular-nums text-muted">
-            {card.volumeKg > 0 ? `${nf.format(card.volumeKg)} kg · ` : ""}
-            {Math.round(card.durationMin)} min
-            {card.topSet ? ` · top ${nf.format(card.topSet.weightKg)} × ${card.topSet.reps}` : ""}
+            {card.topSet ? heaviestLift(card.topSet.exerciseName, card.topSet.weightKg, card.topSet.reps) : minutes(card.durationMin)}
           </span>
         </span>
         <ChevronDown aria-hidden size={16} strokeWidth={1.75} className={`shrink-0 text-muted transition-transform duration-150 ${open ? "rotate-180" : ""}`} />
@@ -123,7 +125,7 @@ export function DayCard({ card, memberId, member }: { card: DayCardData; memberI
       {card.steps ? <StepsLine steps={card.steps.steps} goalHit={card.steps.goalHit} /> : null}
       {card.nutrition ? <NutritionDay n={card.nutrition} /> : null}
       <div className="flex justify-end">
-        <HighFiveButton id={card.id} count={card.highFives} mine={card.highFivedByMe} canHighFive={card.canHighFive} />
+        <Reactions id={card.id} reactions={card.reactions} canReact={card.canReact} />
       </div>
     </article>
   );

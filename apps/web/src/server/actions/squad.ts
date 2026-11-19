@@ -5,12 +5,14 @@ import { redirect } from "next/navigation";
 import {
   DayLogSchema,
   DateSchema,
-  HighFiveResultSchema,
   NutritionSharingSchema,
+  ReactionResultSchema,
+  ReactionTypeSchema,
   SquadSettingsSchema,
   TimelineSchema,
   type DayLog,
-  type HighFiveResult,
+  type ReactionType,
+  type Reactions,
   type Timeline,
 } from "@calci/shared";
 import { requireProfile } from "../session";
@@ -52,17 +54,15 @@ export async function saveSquadSettings(_prev: ActionState, formData: FormData):
   return { message: "Saved" };
 }
 
-export type HighFiveActionResult = ({ ok: true } & HighFiveResult) | { ok: false; error: string };
-
-/** Add or take back the caller's high-five on a feed item. */
-export async function toggleHighFive(id: string, on: boolean): Promise<HighFiveActionResult> {
-  if (!z.string().min(3).max(300).safeParse(id).success) return { ok: false, error: GENERIC };
+/** Add or take back one of the caller's reactions on a feed item or workout day (feature 013). */
+export async function toggleReaction(id: string, type: ReactionType, on: boolean): Promise<{ ok: true; reactions: Reactions } | { ok: false; error: string }> {
+  if (!z.string().min(3).max(300).safeParse(id).success || !ReactionTypeSchema.safeParse(type).success) return { ok: false, error: GENERIC };
   const r = await call(() =>
-    apiFetch(`/squad/feed/${encodeURIComponent(id)}/high-five`, { method: on ? "PUT" : "DELETE", schema: HighFiveResultSchema }),
+    apiFetch(`/squad/feed/${encodeURIComponent(id)}/reactions/${type}`, { method: on ? "PUT" : "DELETE", schema: ReactionResultSchema }),
   );
   if (!r.ok) return r;
-  revalidatePath("/squad");
-  return { ok: true, ...r.value };
+  revalidatePath("/squad", "layout");
+  return { ok: true, reactions: r.value.reactions };
 }
 
 const ID_RE = /^g[xc]-[A-Za-z0-9-]+$/;

@@ -5,13 +5,14 @@ import { DateSchema, FoodDayViewSchema, OwnFoodsResponseSchema, RecentFoodsRespo
 import { DayNav } from "@/components/day-nav";
 import { FoodScreen } from "@/components/food-screen";
 import { linkClass } from "@/components/form-bits";
+import { TargetsPrompt } from "@/components/targets-prompt";
 import { ApiRequestError, apiFetch } from "@/server/api";
 import { requireProfile } from "@/server/session";
 
 export const metadata = { title: "Food · SquadFit" };
 
 async function FoodContent({ searchParams }: { searchParams: PageProps<"/food">["searchParams"] }) {
-  await requireProfile();
+  const { profile } = await requireProfile();
   const params = await searchParams;
   const raw = Array.isArray(params.date) ? params.date[0] : params.date;
   if (raw !== undefined && !DateSchema.safeParse(raw).success) redirect("/food");
@@ -32,6 +33,9 @@ async function FoodContent({ searchParams }: { searchParams: PageProps<"/food">[
 
   return (
     <div className="flex flex-col gap-6">
+      {!profile.targetsConfirmed && !profile.targetsPromptDismissed ? (
+        <TargetsPrompt calories={profile.dailyCalorieTarget} protein={profile.dailyProteinTarget} />
+      ) : null}
       <DayNav date={view.date} today={view.today} basePath="/food" />
       <FoodScreen initialView={view} own={own.foods} recent={recent.foods} />
       <p className="text-sm">

@@ -1,19 +1,21 @@
 import Link from "next/link";
 import { Settings } from "lucide-react";
 import type { MemberProfile as Profile } from "@calci/shared";
+import { INFO, bestWeeks, estMax, heaviestLift, weeksInARow, workoutsThisWeek } from "@/lib/plain";
 import { Avatar } from "./avatar";
+import { ClubBadge } from "./club-badge";
+import { InfoTip } from "./info-tip";
 import { cardClass, linkClass } from "./form-bits";
 import { Heatmap } from "./heatmap";
 import { StepsChart } from "./steps-chart";
 
-const nf = new Intl.NumberFormat("en", { maximumFractionDigits: 1 });
 const shortDate = (d: string) =>
   new Intl.DateTimeFormat("en", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${d}T00:00:00Z`));
 
 const Stat = ({ label, value }: { label: string; value: string }) => (
   <div className="flex flex-col">
     <dt className="text-xs text-muted">{label}</dt>
-    <dd className="text-xl font-semibold tabular-nums text-ink">{value}</dd>
+    <dd className="text-lg font-semibold tabular-nums text-ink">{value}</dd>
   </div>
 );
 
@@ -30,12 +32,20 @@ export function MemberProfileView({ profile }: { profile: Profile }) {
             <p className="text-sm text-muted">Member since {shortDate(profile.memberSince)}</p>
           </div>
         </div>
-        <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <Stat label="Current streak" value={`${profile.streak.current} wk`} />
-          <Stat label="Best streak" value={`${profile.streak.best} wk`} />
-          <Stat label="Weekly target" value={`${profile.weeklyTarget} days`} />
-          <Stat label="This week" value={`${profile.week.days} / ${profile.week.target}`} />
+        <dl className="grid grid-cols-2 gap-4">
+          <Stat label="This week" value={workoutsThisWeek(profile.week.days, profile.week.target)} />
+          {profile.streak.current > 0 ? <Stat label="Streak" value={weeksInARow(profile.streak.current)} /> : null}
+          {profile.streak.best > 0 ? <Stat label="Longest streak" value={bestWeeks(profile.streak.best).replace("Best: ", "")} /> : null}
         </dl>
+        {profile.badges.length > 0 ? (
+          <ul aria-label="Club badges" className="flex flex-wrap gap-1.5">
+            {profile.badges.map((b) => (
+              <li key={b.club}>
+                <ClubBadge club={b.club} full />
+              </li>
+            ))}
+          </ul>
+        ) : null}
         {profile.isYou ? (
           <Link href="/settings#squad" className={`${linkClass} inline-flex min-h-11 items-center gap-1.5 text-sm`}>
             <Settings aria-hidden size={16} strokeWidth={1.75} />
@@ -45,9 +55,12 @@ export function MemberProfileView({ profile }: { profile: Profile }) {
       </header>
 
       <section aria-labelledby="pr-heading" className="flex flex-col gap-2">
-        <h2 id="pr-heading" className="text-xl font-semibold">
-          Personal records
-        </h2>
+        <div className="flex items-center gap-1">
+          <h2 id="pr-heading" className="text-xl font-semibold">
+            PRs (personal bests)
+          </h2>
+          <InfoTip title="Estimated max" text={INFO.estMax} />
+        </div>
         {profile.prs.length === 0 ? (
           <p className="text-sm text-muted">No lifts logged yet.</p>
         ) : (
@@ -55,15 +68,15 @@ export function MemberProfileView({ profile }: { profile: Profile }) {
             {profile.prs.map((p) => (
               <li key={p.exerciseId} className="flex flex-col gap-0.5 px-3 py-2.5 text-sm">
                 <span className="font-medium text-ink">{p.exerciseName}</span>
-                <span className="flex flex-wrap justify-between gap-x-3 tabular-nums text-muted">
+                <span className="flex flex-col tabular-nums text-muted">
                   {p.bestE1rm ? (
                     <span>
-                      Best e1RM {nf.format(p.bestE1rm.e1rm ?? 0)} kg · {shortDate(p.bestE1rm.date)}
+                      {estMax(p.bestE1rm.e1rm ?? 0)} · {shortDate(p.bestE1rm.date)}
                     </span>
                   ) : null}
                   {p.best ? (
                     <span>
-                      Heaviest {nf.format(p.best.weightKg)} kg × {p.best.reps} · {shortDate(p.best.date)}
+                      {heaviestLift(null, p.best.weightKg, p.best.reps)} · {shortDate(p.best.date)}
                     </span>
                   ) : null}
                 </span>
