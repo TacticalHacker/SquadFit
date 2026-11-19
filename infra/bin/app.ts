@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { App, Tags } from "aws-cdk-lib";
-import { getStageConfig } from "../lib/config";
+import { AWS_REGION, getStageConfig } from "../lib/config";
 import { DataStack } from "../lib/data-stack";
 import { ApiStack } from "../lib/api-stack";
 import { AuthStack } from "../lib/auth-stack";
@@ -9,7 +9,7 @@ const app = new App();
 const config = getStageConfig(app.node.tryGetContext("stage"));
 const env = {
   account: process.env.CDK_DEFAULT_ACCOUNT,
-  region: process.env.CDK_DEFAULT_REGION ?? "us-east-1",
+  region: AWS_REGION,
 };
 
 const prefix = `Calci-${config.stage}`;

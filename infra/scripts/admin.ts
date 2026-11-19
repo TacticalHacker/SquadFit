@@ -14,6 +14,7 @@
  * Needs AWS credentials for the target account (AWS_PROFILE etc).
  */
 import { CloudFormationClient, DescribeStacksCommand } from "@aws-sdk/client-cloudformation";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
   AdminCreateUserCommand,
   AdminGetUserCommand,
@@ -30,6 +31,7 @@ import { DynamoSquadRepo } from "../../services/api/src/lib/squad-repo";
 import { refreshSquadStats } from "../../services/api/src/lib/squad-stats";
 import { DynamoWaitlistRepo } from "../../services/api/src/lib/waitlist-repo";
 import { DynamoWorkoutRepo } from "../../services/api/src/lib/workout-repo";
+import { AWS_REGION } from "../lib/config";
 import { formatSnippets, parseAiKeySubcommand } from "./ai-key";
 import { generateTempPassword } from "./temp-password";
 
@@ -62,6 +64,8 @@ function parseArgs(argv: string[]) {
   return { command, username, third, stage };
 }
 
+const ddb = new DynamoDBClient({ region: AWS_REGION });
+
 async function stackOutput(stack: "Auth" | "Data" | "Api", key: string, stage: string, region: string): Promise<string> {
   const cfn = new CloudFormationClient({ region });
   try {
@@ -92,7 +96,7 @@ async function findUserSub(idp: CognitoIdentityProviderClient, userPoolId: strin
 async function aiKey(sub: string | undefined, username: string | undefined, stage: string, region: string, idp: CognitoIdentityProviderClient, userPoolId: string) {
   const action = parseAiKeySubcommand(sub);
   if (!action) return fail(USAGE);
-  const repo = new DynamoCredentialRepo(await stackOutput("Data", "TableName", stage, region));
+  const repo = new DynamoCredentialRepo(await stackOutput("Data", "TableName", stage, region), ddb);
 
   if (action === "list") {
     const users = await listAllUsers(idp, userPoolId);
@@ -146,19 +150,14 @@ function printCredentials(username: string, tempPassword: string) {
 
 async function main() {
   const { command, username, third, stage } = parseArgs(process.argv.slice(2));
-  // Env first, then the region of the active AWS profile (the SDK's own lookup), then us-east-1. The DynamoDB repos
-  // already resolve the profile region themselves, so this keeps CloudFormation and Cognito in the same region.
-  const region =
-    process.env.CDK_DEFAULT_REGION ??
-    process.env.AWS_REGION ??
-    (await new CloudFormationClient({}).config.region().catch(() => undefined)) ??
-    "us-east-1";
+  // Always ap-south-1 (lib/config.ts); every client below is given it explicitly, whatever the profile says.
+  const region = AWS_REGION;
   if (!command) fail(USAGE);
 
   // Feature 009: no Cognito needed.
   if (command === "waitlist") {
     if (username !== "list") fail(USAGE);
-    const rows = await new DynamoWaitlistRepo(await stackOutput("Data", "TableName", stage, region)).list();
+    const rows = await new DynamoWaitlistRepo(await stackOutput("Data", "TableName", stage, region), ddb).list();
     if (rows.length === 0) return void console.log("No invite requests yet.");
     for (const r of rows) console.log(`${r.createdAt}  ${r.primaryGoal.padEnd(15)}  ${r.name} <${r.email}>`);
     return;
@@ -170,16 +169,16 @@ async function main() {
     if (username === "timezone") {
       const tz = third;
       if (!tz || !isValidTimeZone(tz)) fail("Give a valid IANA timezone, e.g. Asia/Kolkata");
-      await new DynamoSquadRepo(table).putSquadSettings(SQUAD_ID, { timezone: tz! }, new Date().toISOString());
+      await new DynamoSquadRepo(table, ddb).putSquadSettings(SQUAD_ID, { timezone: tz! }, new Date().toISOString());
       return void console.log("Squad timezone set");
     }
     if (username === "migrate-reactions") {
-      const r = await new DynamoSquadRepo(table).migrateHighFives();
+      const r = await new DynamoSquadRepo(table, ddb).migrateHighFives();
       // Counts only (constitution VI).
       return void console.log(`high-fives converted: ${r.highFives}, feed items updated: ${r.items}`);
     }
     if (username !== "backfill") fail(USAGE);
-    const deps = { profiles: new DynamoProfileRepo(table), workouts: new DynamoWorkoutRepo(table), squad: new DynamoSquadRepo(table), now: () => new Date() };
+    const deps = { profiles: new DynamoProfileRepo(table, ddb), workouts: new DynamoWorkoutRepo(table, ddb), squad: new DynamoSquadRepo(table, ddb), now: () => new Date() };
     const members = await deps.profiles.listCommunity();
     let feedBefore = 0;
     let feedAfter = 0;
