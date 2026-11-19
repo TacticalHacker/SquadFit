@@ -31,7 +31,7 @@ export function BoardList({ board, mode }: { board: SquadBoardView; mode: BoardM
       </div>
       {toggle ? <SegmentLinks label={toggle.label} options={toggle.options} /> : null}
       {main.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-line-strong px-4 py-6 text-center text-sm text-muted">{copy.empty}</p>
+        <p className="rounded-lg border border-dashed border-line-strong px-4 py-6 text-center text-sm text-muted">{needsMore.length > 0 && copy.emptyUnranked ? copy.emptyUnranked : copy.empty}</p>
       ) : (
         <ol className={`${cardClass} divide-y divide-line px-3`}>
           {main.map((r) => (

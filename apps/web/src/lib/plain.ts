@@ -70,7 +70,18 @@ export const BOARD_GROUPS = [
 ] as const satisfies readonly { id: string; title: string; boards: readonly BoardId[] }[];
 
 /** Big numbers stay short so names never get squeezed; detail goes in the one muted line under the name. */
-export const BOARD_COPY: { [Id in BoardId]: { title: string; info: string; empty: string; value: (r: RowOf<Id>) => string; sub: (r: RowOf<Id>) => string } } = {
+export const BOARD_COPY: {
+  [Id in BoardId]: {
+    title: string;
+    info: string;
+    /** No rows at all. */
+    empty: string;
+    /** Rows exist but nobody qualifies to be ranked yet (e.g. everyone still needs more synced days). */
+    emptyUnranked?: string;
+    value: (r: RowOf<Id>) => string;
+    sub: (r: RowOf<Id>) => string;
+  };
+} = {
   workouts: {
     title: "Most workouts",
     info: "Days you worked out this month. Two workouts on the same day count as one.",
@@ -89,15 +100,16 @@ export const BOARD_COPY: { [Id in BoardId]: { title: string; info: string; empty
     title: "Lifts improved",
     info: "Times you beat your last session: one more rep or a bit more weight.",
     empty: "No lifts improved yet this month.",
-    value: (r) => liftsImproved(r.count),
-    sub: () => "",
+    value: (r) => plural(r.count, "lift"),
+    sub: () => "improved",
   },
   steps: {
     title: "Steps",
     info: `Average steps a day this month, on days your phone synced. You need ${STEPS_MIN_DAYS} synced days to be ranked. Only members who share their steps.`,
     empty: "No steps synced yet this month.",
-    value: (r) => `${nf.format(Math.round(r.avgSteps))} a day`,
-    sub: (r) => `from ${plural(r.syncedDays, "day")}`,
+    emptyUnranked: `Nobody has synced ${STEPS_MIN_DAYS} days yet this month.`,
+    value: (r) => nf.format(Math.round(r.avgSteps)),
+    sub: (r) => `a day · from ${plural(r.syncedDays, "day")}`,
   },
   prJump: {
     title: "Biggest PR jump",
@@ -110,34 +122,35 @@ export const BOARD_COPY: { [Id in BoardId]: { title: string; info: string; empty
     title: "Current strength",
     info: "Your estimated max on bench press, squat and deadlift, added together. Uses your best ever, so it doesn't reset.",
     empty: "Nobody has logged all three lifts yet.",
+    emptyUnranked: "Nobody has logged all three lifts yet.",
     value: (r) => (r.big3 === null ? "–" : kg(r.big3)),
     sub: (r) => (r.big3 === null ? joinHint(r.missing.filter((m) => m !== "Overhead Press")) : "est. bench + squat + deadlift"),
   },
   protein: {
     title: "Protein days",
-    info: "Days this month you hit your own protein goal. Only members who share their nutrition.",
-    empty: "Nobody is sharing protein yet.",
-    value: (r) => `${r.hitDays} of ${r.periodDays}`,
+    info: "Days this month you hit your own protein goal, out of the days you logged food. Only members who share their nutrition.",
+    empty: "No protein goals hit yet this month.",
+    value: (r) => `${r.hitDays} of ${r.loggedDays}`,
     sub: () => "days at protein goal",
   },
 };
 
-/** Big number for a streak: "Week 1" in the first week, then "3 weeks"; nothing yet = "–". */
-export const streakValue = (weeks: number) => (weeks === 0 ? "–" : weeks === 1 ? "Week 1" : `${weeks} weeks`);
+/** Big number for a streak: "Week 1" until a week is completed (ranked by this week's progress), then "N weeks". */
+export const streakValue = (weeks: number) => (weeks === 0 ? "Week 1" : plural(weeks, "week"));
 
 const LIFT_WORD: Record<string, string> = { "Bench Press": "bench press", "Barbell Squat": "squat", Deadlift: "deadlift", "Overhead Press": "overhead press" };
 const andList = (xs: readonly string[]) => (xs.length <= 1 ? (xs[0] ?? "") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`);
 /** "Log a squat and deadlift to join" (Current strength, FR-013). */
 export const joinHint = (missing: readonly string[]) => `Log a ${andList(missing.map((m) => LIFT_WORD[m] ?? m.toLowerCase()))} to join`;
 
-/** The "You · …" line when the viewer is not ranked on a board: what to do about it, not "not ranked". */
+/** The viewer's line when they are not ranked on a board: one sentence saying what to do about it. */
 export function unrankedYou(board: SquadBoardView, row: SquadBoardView["rows"][number], hidden: boolean): string {
-  if (board.id === "strength" && (row as RowOf<"strength">).big3 === null) return joinHint((row as RowOf<"strength">).missing.filter((m) => m !== "Overhead Press"));
+  if (board.id === "strength" && (row as RowOf<"strength">).big3 === null) return `${joinHint((row as RowOf<"strength">).missing.filter((m) => m !== "Overhead Press"))}.`;
   if (board.id === "steps") {
-    const left = STEPS_MIN_DAYS - (row as RowOf<"steps">).syncedDays;
-    if (left > 0) return `Sync steps on ${plural(left, "more day")} to join`;
+    const synced = (row as RowOf<"steps">).syncedDays;
+    if (synced < STEPS_MIN_DAYS) return `You've synced ${plural(synced, "day")}. Sync ${STEPS_MIN_DAYS - synced} more to join.`;
   }
-  return hidden ? "Not ranked while you're hidden" : "Not ranked yet";
+  return hidden ? "You're not ranked while you're hidden." : "You're not ranked yet.";
 }
 
 /** The "kg | %" view of Biggest PR jump and the "Big 4" view of Current strength. */

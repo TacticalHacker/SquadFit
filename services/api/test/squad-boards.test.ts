@@ -77,7 +77,7 @@ describe("protein days and confirmed targets", () => {
     profiles.items.set("user-2", bob);
 
     const protein = await board(deps, "user-1", "protein");
-    expect(protein.rows.map((r: { member: { userId: string }; hitDays: number; periodDays: number }) => [r.member.userId, r.hitDays, r.periodDays])).toEqual([["user-1", 1, 11]]);
+    expect(protein.rows.map((r: { member: { userId: string }; hitDays: number; loggedDays: number }) => [r.member.userId, r.hitDays, r.loggedDays])).toEqual([["user-1", 1, 1]]);
 
     const day = (sub: string) => dayGet(makeEvent({ sub, pathParameters: { memberId: "user-2", date: "2026-11-10" } }), deps).then(parse);
     expect((await day("user-1")).body.nutrition).toMatchObject({ protein: 120, proteinTarget: null, calorieTarget: null });
@@ -88,6 +88,15 @@ describe("protein days and confirmed targets", () => {
     expect((await day("user-1")).body.nutrition).toMatchObject({ proteinTarget: 100, calorieTarget: 2000 });
     expect(ids(await board(deps, "user-1", "protein"))).toEqual(["user-1", "user-2"]);
     expect((await boards(deps, "user-2")).body.viewer.targetsPrompt).toBe(false);
+  });
+
+  it("shows an empty protein board while nobody has hit their goal, and no board when nobody shares", async () => {
+    const { deps } = await setup();
+    expect(await board(deps, "user-1", "protein")).toBeUndefined();
+    await targetsPut(makeEvent({ sub: "user-1", body: { dailyCalorieTarget: 2000, dailyProteinTarget: 100 } }), deps);
+    await share(deps, "user-1", "totals");
+    await addFood(deps, "user-1", "2026-11-10", 40); // logged, but a miss
+    expect((await board(deps, "user-2", "protein")).rows).toEqual([]);
   });
 
   it("lets a member dismiss the prompt without confirming", async () => {

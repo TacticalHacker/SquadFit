@@ -68,7 +68,7 @@ export type SquadBoard =
   | { id: "steps"; rows: Row<{ avgSteps: number; syncedDays: number }>[] }
   | { id: "prJump"; rows: Row<{ kg: number; liftName: string; pct: number; pctRank: number | null; pctLiftName: string; pctKg: number }>[] }
   | { id: "strength"; rows: Row<{ big3: number | null; big4: number | null; big4Rank: number | null; missing: string[] }>[] }
-  | { id: "protein"; rows: Row<{ hitDays: number; periodDays: number }>[] };
+  | { id: "protein"; rows: Row<{ hitDays: number; loggedDays: number }>[] };
 
 export interface BoardsInput {
   members: readonly SquadBoardMember[];
@@ -76,8 +76,8 @@ export interface BoardsInput {
   month: string;
   /** Already gated (feature 012): only members whose steps the viewer may see, with ≥ 1 synced day this month. */
   steps: ReadonlyMap<string, { avgSteps: number; syncedDays: number }>;
-  /** Already gated (feature 011 + 013): sharing, visible, confirmed target. */
-  protein: ReadonlyMap<string, { hitDays: number; periodDays: number }>;
+  /** Already gated (feature 011 + 013): sharing, visible, confirmed target. `loggedDays` = days with food logged this month. */
+  protein: ReadonlyMap<string, { hitDays: number; loggedDays: number }>;
 }
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
@@ -160,7 +160,8 @@ export function buildSquadBoards(input: BoardsInput): SquadBoard[] {
       const f = streakFigures(m.stats.weeks, m.today, m.weeklyTarget);
       return { weeks: f.current, best: f.best, weekDays: f.weekDays, target: f.target };
     },
-    (r) => [r.weeks, r.best, r.weekDays],
+    // With no current streak, a past best doesn't count: this week's progress decides.
+    (r) => [r.weeks, r.weeks > 0 ? r.best : 0, r.weekDays],
   );
 
   const improved = board((m) => (monthRec(m)?.liftsImproved ? { count: monthRec(m)!.liftsImproved } : null), (r) => [r.count]);
@@ -194,7 +195,8 @@ export function buildSquadBoards(input: BoardsInput): SquadBoard[] {
   const big4Ranks = new Map(rankRows(strengthRows.filter((r) => r.big4 !== null && r.rank !== null), (r) => [r.big4!], name).map((r) => [r.member.userId, r.rank]));
   const strength = strengthRows.map((r) => ({ ...r, big4Rank: big4Ranks.get(r.member.userId) ?? null }));
 
-  const protein = board((m) => input.protein.get(m.userId) ?? null, (r) => [r.hitDays]);
+  // Members who have not hit their goal yet this month are not ranked (the card shows an empty state instead).
+  const protein = board((m) => ((input.protein.get(m.userId)?.hitDays ?? 0) > 0 ? input.protein.get(m.userId)! : null), (r) => [r.hitDays]);
 
   return [
     { id: "workouts", rows: workouts },

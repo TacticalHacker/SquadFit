@@ -35,14 +35,14 @@ export function BoardRow({ board, row, mode, rank }: { board: SquadBoardView; ro
       <Link href={`/squad/${row.member.userId}`} className="relative z-10 flex min-h-11 min-w-0 flex-1 items-center gap-2">
         <Avatar displayName={row.member.displayName} avatarUrl={row.member.avatarUrl} size={32} />
         <span className="flex min-w-0 flex-col">
-          {/* Names wrap rather than truncate (never cut to initials); values stay short instead. */}
-          <span className="flex min-w-0 flex-wrap items-center gap-x-1.5">
-            <span className={`break-words text-sm ${row.member.isYou ? "font-semibold text-ink" : "font-medium text-ink"}`}>
+          {/* Names stay on one line: values are kept short so they fit; the ellipsis is only a last resort. */}
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className={`min-w-0 truncate whitespace-nowrap text-sm ${row.member.isYou ? "font-semibold text-ink" : "font-medium text-ink"}`}>
               {row.member.isYou ? `${row.member.displayName} (you)` : row.member.displayName}
             </span>
             {row.club ? <ClubBadge club={row.club} /> : null}
           </span>
-          {sub ? <span className="text-xs text-muted">{sub}</span> : null}
+          {sub ? <span className="truncate text-xs text-muted">{sub}</span> : null}
         </span>
       </Link>
       <span className="shrink-0 whitespace-nowrap text-right text-base font-semibold tabular-nums text-ink">{value}</span>
@@ -72,7 +72,7 @@ export function BoardCard({ board, hidden }: { board: SquadBoardView; hidden: bo
         <ChevronRight aria-hidden size={18} strokeWidth={1.75} className="shrink-0 text-muted" />
       </header>
       {top.length === 0 ? (
-        <p className="py-2 text-sm text-muted">{copy.empty}</p>
+        <p className="py-2 text-sm text-muted">{board.rows.length > 0 && copy.emptyUnranked ? copy.emptyUnranked : copy.empty}</p>
       ) : (
         <ol className="divide-y divide-line">
           {top.map((r) => (
@@ -84,9 +84,13 @@ export function BoardCard({ board, hidden }: { board: SquadBoardView; hidden: bo
       )}
       {youOutside ? (
         <p className="border-t border-line pt-2 text-sm text-muted">
-          <span className="font-medium text-ink">You</span>
-          {" · "}
-          {you.rank === null ? unrankedYou(board, you, hidden) : `#${you.rank} · ${rowText(board, you).value}`}
+          {you.rank === null ? (
+            unrankedYou(board, you, hidden)
+          ) : (
+            <>
+              <span className="font-medium text-ink">You</span> · #{you.rank} · {rowText(board, you).value}
+            </>
+          )}
         </p>
       ) : null}
     </section>

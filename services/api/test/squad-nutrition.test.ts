@@ -98,7 +98,7 @@ describe("protein days board", () => {
 
     const nut = (await board(deps, "user-1")).body.boards.find((b: { id: string }) => b.id === "protein");
     expect(nut.rows.map((r: { member: { userId: string }; rank: number; hitDays: number }) => [r.member.userId, r.rank, r.hitDays])).toEqual([["user-1", 1, 2], ["user-2", 1, 2]]);
-    expect(nut.rows[0]).toMatchObject({ periodDays: 11 });
+    expect(nut.rows[0]).toMatchObject({ hitDays: 2, loggedDays: 3 }); // 9, 10 and 11 Nov logged
     expect(JSON.stringify(nut)).not.toMatch(/calor|burn|kcal/i);
   });
 });

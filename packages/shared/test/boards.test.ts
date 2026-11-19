@@ -40,6 +40,20 @@ describe("monthly boards", () => {
     expect(rows.find((r) => r.member.userId === "a")).toMatchObject({ weeks: 2, rank: 1 });
   });
 
+  it("ranks members without a completed week by this week's progress", () => {
+    // Weekly target 3, so one or two days this week is not a completed week yet.
+    const c = member("c", [activity("2026-12-01")], "2026-12-02", { weeklyTarget: 3 });
+    const d = member("d", [activity("2026-12-01"), activity("2026-12-02")], "2026-12-02", { weeklyTarget: 3 });
+    const rows = board(boards([c, d]), "streak").rows;
+    expect(rows.map((r) => [r.member.userId, r.weeks, r.weekDays, r.rank])).toEqual([["d", 0, 2, 1], ["c", 0, 1, 2]]);
+  });
+
+  it("ranks protein days only for members who hit their goal at least once", () => {
+    const protein = new Map([["a", { hitDays: 3, loggedDays: 5 }], ["b", { hitDays: 0, loggedDays: 4 }]]);
+    const rows = board(buildSquadBoards({ members: [a, b], viewerId: "a", month: "2026-12", steps: new Map(), protein }), "protein").rows;
+    expect(rows.map((r) => [r.member.userId, r.hitDays, r.loggedDays, r.rank])).toEqual([["a", 3, 5, 1]]);
+  });
+
   it("drops hidden members and gives a hidden viewer an unranked row", () => {
     const hidden = { ...b, visible: false };
     expect(board(boards([a, hidden]), "streak").rows.map((r) => r.member.userId)).toEqual(["a"]);

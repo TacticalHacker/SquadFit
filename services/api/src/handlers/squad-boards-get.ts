@@ -33,20 +33,24 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
   );
 
   // Protein days (feature 011 gate + 013): sharing, visible, with a confirmed protein target. Never calories.
-  const protein = new Map<string, { hitDays: number; periodDays: number }>();
+  const protein = new Map<string, { hitDays: number; loggedDays: number }>();
+  const proteinCandidates = members.filter(
+    (m) => m.visible && sharedLevel(m.profile) !== "off" && m.profile.dailyProteinTarget !== undefined && m.profile.targetsConfirmedAt !== undefined,
+  );
   await Promise.all(
-    members
-      .filter((m) => sharedLevel(m.profile) !== "off" && m.profile.dailyProteinTarget !== undefined && m.profile.targetsConfirmedAt !== undefined)
+    proteinCandidates
       .map(async (m) => {
         const dates = monthDates(month, m.today);
         if (dates.length === 0) return;
         const byDay = proteinByDay(await deps.food.listEntriesInRange(m.userId, dates[0]!, dates.at(-1)!));
         const { hit, logged } = hitDays(byDay, dates, m.profile.dailyProteinTarget!);
-        if (logged > 0) protein.set(m.userId, { hitDays: hit, periodDays: dates.length });
+        // "3 of 5 days": hits out of the days food was actually logged.
+        if (logged > 0) protein.set(m.userId, { hitDays: hit, loggedDays: logged });
       }),
   );
 
-  const boards = buildSquadBoards({ members, viewerId: caller.userId, month, steps, protein }).filter((b) => b.id !== "protein" || b.rows.length > 0);
+  // The protein card shows (with an empty state if needed) as soon as anyone shares protein with a confirmed goal.
+  const boards = buildSquadBoards({ members, viewerId: caller.userId, month, steps, protein }).filter((b) => b.id !== "protein" || proteinCandidates.length > 0);
   return ok(
     SquadBoardsSchema.parse({
       month,
