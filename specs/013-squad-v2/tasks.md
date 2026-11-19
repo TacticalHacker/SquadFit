@@ -124,8 +124,8 @@ description: "Task list for feature 013 Squad v2"
 
 - [ ] T048 Hide the body-weight-ratio switch in `apps/web/src/components/squad-settings-form.tsx` (feature 014 brings it back); keep the stored value
 - [ ] T049 Update `CLAUDE.md`: replace the feature 010/011 leaderboard routes that changed and add a "Squad v2 (feature 013)" section (boards endpoint, registry, months/squad timezone, reactions + migration, badges, targets confirmed, `plain.ts`, rollout commands)
-- [ ] T050 Run `pnpm check` and fix every failure
-- [ ] T051 Capture "after" screenshots at 390 px and 1280 px to `specs/013-squad-v2/screenshots/after-mobile.png` and `after-desktop.png`, and run the manual checks in `quickstart.md`
+- [ ] T050 Run `pnpm check` and fix every failure; grep the new/changed handlers for `console.` and confirm only error names are logged (FR-029)
+- [ ] T051 On dev: deploy, `pnpm admin squad migrate-reactions`, `pnpm admin squad backfill`; then capture "after" screenshots at 390 px and 1280 px to `specs/013-squad-v2/screenshots/after-mobile.png` and `after-desktop.png`, and run the manual checks in `quickstart.md`
 
 ---
 

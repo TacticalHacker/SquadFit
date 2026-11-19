@@ -40,7 +40,7 @@ The "This month" cards are, in order. Grind: **Most workouts**, **Active streak*
 **Acceptance Scenarios**:
 
 1. **Most workouts**: big number = workout days this month ("6 workouts"). A workout day is the existing definition (gym strength with a completed set, gym cardio, or any activity entry); two sessions on one day count once.
-2. **Active streak**: big number = the existing weekly-target streak in weeks ("3 weeks in a row"); muted line "Best: 5 weeks"; members at 0 are listed in the full list with "2 of 4 workouts this week" instead of a streak and are ranked below everyone with a streak.
+2. **Active streak**: big number = the existing weekly-target streak in weeks ("3 weeks in a row"); muted line "Best: 5 weeks"; members at 0 who have at least one workout day ever are listed in the full list with "2 of 4 workouts this week" instead of a streak and are ranked below everyone with a streak; members who have never trained are absent.
 3. **Total weight lifted**: big number = sum of reps × weight over working sets this month ("42,500 kg").
 4. **Steps**: big number = average daily steps this month over days with synced steps ("9,210 steps a day"); only members whose steps are visible to the viewer (feature 012 gate); members with no synced day this month are absent.
 5. **Biggest PR jump**: for each member and each eligible lift (bench press, barbell squat, deadlift, overhead press, barbell row, pull-ups with added weight), jump = best estimated max this month − best estimated max before this month; the member's value is their largest jump. Shown as "+7.5 kg · Squat" with the percentage ("+8%") muted. Ranked by kg; the full list has a "kg | %" switch that re-ranks by percentage. A lift with no history before this month gives no jump; a jump of 0 or less is not listed.
@@ -204,7 +204,7 @@ Every screen in the squad area (boards, full lists, feed, Today's workouts, day 
 
 **Targets**
 
-- **FR-024**: The profile MUST record whether the member has confirmed their calorie and protein targets. Completing a new profile and saving targets (prompt or Settings) MUST confirm them; existing members start unconfirmed.
+- **FR-024**: The profile MUST record whether the member has confirmed their calorie and protein targets. Completing a new profile and saving targets (prompt, Settings, or through the member's AI agent) MUST confirm them; existing members start unconfirmed.
 - **FR-025**: Unconfirmed members MUST see a dismissible "Set your daily goals" prompt (on Squad and Food) with current values filled in; after dismissing, Settings still marks the targets as not confirmed.
 - **FR-025a**: Unconfirmed members MUST NOT earn protein-goal streak feed items (a streak needs a real target).
 - **FR-026**: Other members MUST NOT receive an unconfirmed member's calorie or protein targets in any response; the member always sees their own.

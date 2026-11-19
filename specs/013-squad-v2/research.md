@@ -55,7 +55,7 @@ All decisions below resolve the Technical Context; none are open.
 
 ## R10. Plain wording
 
-- **Decision**: `apps/web/src/lib/plain.ts` holds every phrase and formatter (`kg`, `steps`, `weeksInARow`, `setSummary`, `bestSet`, `estMax`, `feedLine`, board titles and info sentences, `perDumbbell`). Dumbbell detection: name contains "Dumbbell", or id in `gx-hammer-curl`, `gx-lateral-raises`. All squad-area components import from it; a lint-free grep for "e1RM" in `apps/web/src` must find only identifiers, never JSX text. The `(i)` control is one small component (`InfoTip`) that opens a `BottomSheet` on phones and a popover on wider screens.
+- **Decision**: `apps/web/src/lib/plain.ts` holds every phrase and formatter (`kg`, `steps`, `weeksInARow`, `setSummary`, `bestSet`, `estMax`, `feedLine`, board titles and info sentences, `perDumbbell`). Dumbbell detection: name contains "Dumbbell", or id in `gx-hammer-curl`, `gx-lateral-raises`. All squad-area components import from it; a lint-free grep for "e1RM" in `apps/web/src` must find only identifiers, never JSX text. The `(i)` control is one small component (`InfoTip`) that opens a `BottomSheet` (all widths, one component).
 - **Rationale**: One file to tweak (owner request); formatting stays on the client because it is presentation only.
 
 ## R11. Removed
