@@ -146,7 +146,13 @@ function printCredentials(username: string, tempPassword: string) {
 
 async function main() {
   const { command, username, third, stage } = parseArgs(process.argv.slice(2));
-  const region = process.env.CDK_DEFAULT_REGION ?? process.env.AWS_REGION ?? "us-east-1";
+  // Env first, then the region of the active AWS profile (the SDK's own lookup), then us-east-1. The DynamoDB repos
+  // already resolve the profile region themselves, so this keeps CloudFormation and Cognito in the same region.
+  const region =
+    process.env.CDK_DEFAULT_REGION ??
+    process.env.AWS_REGION ??
+    (await new CloudFormationClient({}).config.region().catch(() => undefined)) ??
+    "us-east-1";
   if (!command) fail(USAGE);
 
   // Feature 009: no Cognito needed.
