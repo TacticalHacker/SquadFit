@@ -25,6 +25,8 @@ export interface Tool {
   description: string;
   /** Raw zod shape the SDK registers and advertises through tools/list. */
   shape: z.ZodRawShape;
+  /** MCP tool annotations; ChatGPT uses them to decide how freely it may call a tool. */
+  annotations?: { title?: string; readOnlyHint?: boolean; destructiveHint?: boolean; idempotentHint?: boolean; openWorldHint?: boolean };
   run(args: unknown, ctx: ToolContext): Promise<ToolResult>;
 }
 
