@@ -19,7 +19,7 @@ describe("buildGymView", () => {
   });
 
   it("attaches the day's entry, `last`, and the whole-day summary", () => {
-    const last = { date: "2026-11-09", sets: [{ setNumber: 1, reps: 8, weightKg: 80, completed: true }], minutes: 3, top: { weightKg: 80, reps: 8 } };
+    const last = { date: "2026-11-09", sets: [{ setNumber: 1, reps: 8, weightKg: 80, completed: true }], minutes: 3, inclinePct: null, speedKmh: null, top: { weightKg: 80, reps: 8 } };
     const v = buildGymView({
       ...base, ownExercises: [],
       entries: [gymEntry("gx-barbell-squat", "Barbell Squat"), { workoutId: "std-running", name: "Running", rateMinutes: 30, rateCalories: 300, minutes: 30, calories: 300 }],

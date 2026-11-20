@@ -1,5 +1,12 @@
 import {
   GYM_CARDIO_STEP,
+  GYM_DEFAULT_INCLINE,
+  GYM_DEFAULT_SPEED,
+  GYM_INCLINE_STEP,
+  GYM_MAX_INCLINE,
+  GYM_MAX_SPEED,
+  GYM_MIN_SPEED,
+  GYM_SPEED_STEP,
   GYM_DEFAULT_CARDIO_MINUTES,
   GYM_DEFAULT_REPS,
   GYM_DEFAULT_SETS,
@@ -9,8 +16,10 @@ import {
   GYM_WEIGHT_STEP,
   cardioTotals,
   gymTotals,
+  parseIncline,
   parseMinutes,
   parseReps,
+  parseSpeed,
   parseWeight,
   type ExerciseKind,
   type GymSet,
@@ -35,6 +44,9 @@ export interface DrawerState {
   defaultReps: number;
   rows: DrawerRow[];
   minutes: number;
+  /** Treadmill details; null = not logged. Optional so drafts saved before them still load. */
+  inclinePct?: number | null;
+  speedKmh?: number | null;
   /** True once anything changed since the drawer opened. */
   dirty: boolean;
 }
@@ -50,7 +62,11 @@ export type DrawerAction =
   | { type: "setReps"; index: number; value: number }
   | { type: "toggleDone"; index: number }
   | { type: "minutes"; delta: number }
-  | { type: "setMinutes"; value: number };
+  | { type: "setMinutes"; value: number }
+  | { type: "incline"; delta: number }
+  | { type: "setIncline"; value: number | null }
+  | { type: "speed"; delta: number }
+  | { type: "setSpeed"; value: number | null };
 
 export interface DrawerExercise {
   kind: ExerciseKind;
@@ -58,19 +74,30 @@ export interface DrawerExercise {
   rateCalories?: number | null;
 }
 
-type Source = { sets?: readonly GymSet[] | null; minutes?: number };
+type Source = { sets?: readonly GymSet[] | null; minutes?: number; inclinePct?: number | null; speedKmh?: number | null };
 
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
 const clampWeight = (n: number) => clamp(Math.round(n * 2) / 2, 0, GYM_MAX_WEIGHT);
 const clampReps = (n: number) => clamp(Math.round(n), 1, GYM_MAX_REPS);
 const clampMinutes = (n: number) => clamp(Math.round(n), 1, 600);
+const clampIncline = (n: number) => clamp(Math.round(n * 2) / 2, 0, GYM_MAX_INCLINE);
+const clampSpeed = (n: number) => clamp(Math.round(n * 10) / 10, GYM_MIN_SPEED, GYM_MAX_SPEED);
 
 /** Starting state: draft → saved entry → last earlier entry → defaults (data-model "Drawer state"). */
 export function initDrawer(input: { exercise: DrawerExercise; draft?: DrawerState | null; entry?: Source | null; last?: Source | null }): DrawerState {
   if (input.draft) return input.draft;
   const from = input.entry ?? input.last ?? null;
   if (input.exercise.kind === "cardio") {
-    return { mode: "cardio", defaultReps: GYM_DEFAULT_REPS, rows: [], minutes: from?.minutes ?? GYM_DEFAULT_CARDIO_MINUTES, dirty: false };
+    return {
+      mode: "cardio",
+      defaultReps: GYM_DEFAULT_REPS,
+      rows: [],
+      minutes: from?.minutes ?? GYM_DEFAULT_CARDIO_MINUTES,
+      // Prefilled from the saved entry or last time; nothing is logged until the member sets a value.
+      inclinePct: from?.inclinePct ?? null,
+      speedKmh: from?.speedKmh ?? null,
+      dirty: false,
+    };
   }
   const keepTicks = Boolean(input.entry);
   const sets = from?.sets ?? [];
@@ -121,6 +148,15 @@ function reduce(state: DrawerState, action: DrawerAction): DrawerState {
       return { ...state, minutes: clampMinutes(state.minutes + action.delta * GYM_CARDIO_STEP) };
     case "setMinutes":
       return { ...state, minutes: clampMinutes(action.value) };
+    // The first tap on an unset value starts at a sensible default instead of 0.
+    case "incline":
+      return { ...state, inclinePct: state.inclinePct == null ? GYM_DEFAULT_INCLINE : clampIncline(state.inclinePct + action.delta * GYM_INCLINE_STEP) };
+    case "setIncline":
+      return { ...state, inclinePct: action.value === null ? null : clampIncline(action.value) };
+    case "speed":
+      return { ...state, speedKmh: state.speedKmh == null ? GYM_DEFAULT_SPEED : clampSpeed(state.speedKmh + action.delta * GYM_SPEED_STEP) };
+    case "setSpeed":
+      return { ...state, speedKmh: action.value === null ? null : clampSpeed(action.value) };
   }
 }
 
@@ -131,15 +167,23 @@ export function drawerReducer(state: DrawerState, action: DrawerAction): DrawerS
 }
 
 /** Validates a typed value before it becomes a `set*` action (FR-011, US2-6). */
-export function commitTyped(field: "weight" | "reps" | "minutes", raw: string): ParseResult {
+export function commitTyped(field: "weight" | "reps" | "minutes" | "incline" | "speed", raw: string): ParseResult {
   if (field === "weight") return parseWeight(raw);
   if (field === "reps") return parseReps(raw);
+  if (field === "incline") return parseIncline(raw);
+  if (field === "speed") return parseSpeed(raw);
   return parseMinutes(raw);
 }
 
 /** The PUT body: never includes totals (FR-014). */
-export function drawerToBody(state: DrawerState): { sets: GymSet[] } | { minutes: number } {
-  if (state.mode === "cardio") return { minutes: state.minutes };
+export function drawerToBody(state: DrawerState): { sets: GymSet[] } | { minutes: number; inclinePct?: number; speedKmh?: number } {
+  if (state.mode === "cardio") {
+    return {
+      minutes: state.minutes,
+      ...(state.inclinePct != null ? { inclinePct: state.inclinePct } : {}),
+      ...(state.speedKmh != null ? { speedKmh: state.speedKmh } : {}),
+    };
+  }
   return { sets: state.rows.map((r, i) => ({ setNumber: i + 1, reps: r.reps, weightKg: r.weightKg, completed: r.completed })) };
 }
 

@@ -29,6 +29,8 @@ export interface GymExerciseDef {
   /** Cardio only: calories per this many minutes (research R4). */
   rateMinutes?: number;
   rateCalories?: number;
+  /** Treadmill cardio: entries may also log incline (%) and speed (km/h). */
+  treadmill?: true;
   /** Feature 015: added by an admin at runtime (not in code). */
   source?: "catalog";
 }
@@ -111,7 +113,7 @@ export const GYM_EXERCISES: readonly GymExerciseDef[] = [
   strength("bird-dog", "Bird Dog", "core"),
   strength("dead-bug", "Dead Bug", "core"),
   strength("v-up", "V-Up", "core"),
-  { id: "gx-incline-treadmill-walk", name: "Incline Treadmill Walk", group: "cardio", kind: "cardio", rateMinutes: 20, rateCalories: 140 },
+  { id: "gx-incline-treadmill-walk", name: "Incline Treadmill Walk", group: "cardio", kind: "cardio", rateMinutes: 20, rateCalories: 140, treadmill: true },
   { id: "gx-stairmaster", name: "Stairmaster", group: "cardio", kind: "cardio", rateMinutes: 20, rateCalories: 180 },
 ];
 
@@ -207,6 +209,29 @@ const wholeIn = (min: number, max: number, message: string) => (raw: string): Pa
 };
 
 export const parseReps = wholeIn(1, GYM_MAX_REPS, REPS_MESSAGE);
+
+// Treadmill details (optional, Incline Treadmill Walk only). Informational: calories still follow the minutes.
+export const GYM_MAX_INCLINE = 15;
+export const GYM_INCLINE_STEP = 0.5;
+export const GYM_MIN_SPEED = 0.5;
+export const GYM_MAX_SPEED = 25;
+export const GYM_SPEED_STEP = 0.5;
+export const GYM_DEFAULT_INCLINE = 10;
+export const GYM_DEFAULT_SPEED = 5;
+export const INCLINE_MESSAGE = `Incline must be 0–${GYM_MAX_INCLINE}% in 0.5% steps`;
+export const SPEED_MESSAGE = `Speed must be ${GYM_MIN_SPEED}–${GYM_MAX_SPEED} km/h with at most one decimal`;
+
+export function parseIncline(raw: string): ParseResult {
+  const n = toNumber(raw);
+  if (n === null || n > GYM_MAX_INCLINE || !Number.isInteger(n * 2)) return { ok: false, message: INCLINE_MESSAGE };
+  return { ok: true, value: n };
+}
+
+export function parseSpeed(raw: string): ParseResult {
+  const n = toNumber(raw);
+  if (n === null || n < GYM_MIN_SPEED || n > GYM_MAX_SPEED || Math.abs(n * 10 - Math.round(n * 10)) > 1e-9) return { ok: false, message: SPEED_MESSAGE };
+  return { ok: true, value: Math.round(n * 10) / 10 };
+}
 export const parseMinutes = wholeIn(1, 600, GYM_MINUTES_MESSAGE);
 
 // ---------------------------------------------------------------- own exercises
@@ -286,6 +311,9 @@ export interface GymEntryView {
   aiNote: string | null;
   /** Feature 010: an unusual jump awaiting "Looks right"; set by the server from the member's squad stats. */
   jumpFlag: boolean;
+  /** Treadmill details, null when not logged. */
+  inclinePct: number | null;
+  speedKmh: number | null;
   updatedAt: string;
 }
 
@@ -293,6 +321,8 @@ export interface GymLast {
   date: string;
   sets: GymSet[] | null;
   minutes: number;
+  inclinePct: number | null;
+  speedKmh: number | null;
   top: { weightKg: number; reps: number } | null;
 }
 
@@ -302,6 +332,8 @@ export interface GymExerciseView {
   group: MuscleGroup;
   kind: ExerciseKind;
   isBuiltIn: boolean;
+  /** Logs incline and speed too (Incline Treadmill Walk). */
+  treadmill: boolean;
   /** Cardio rate (built-in cardio only). */
   rateMinutes: number | null;
   rateCalories: number | null;
@@ -339,6 +371,8 @@ export function toGymEntryView(e: StoredEntry): GymEntryView {
     calories: e.calories,
     aiNote: e.aiNote ?? null,
     jumpFlag: false,
+    inclinePct: e.inclinePct ?? null,
+    speedKmh: e.speedKmh ?? null,
     updatedAt: e.updatedAt ?? "",
   };
 }
@@ -346,7 +380,7 @@ export function toGymEntryView(e: StoredEntry): GymEntryView {
 export function toGymLast(e: StoredEntry & { date: string }): GymLast {
   const v = toGymEntryView(e);
   const top = v.sets ? topSet(v.sets) : null;
-  return { date: e.date, sets: v.sets, minutes: v.minutes, top: top ? { weightKg: top.weightKg, reps: top.reps } : null };
+  return { date: e.date, sets: v.sets, minutes: v.minutes, inclinePct: v.inclinePct, speedKmh: v.speedKmh, top: top ? { weightKg: top.weightKg, reps: top.reps } : null };
 }
 
 export function buildGymView(input: {
@@ -373,6 +407,7 @@ export function buildGymView(input: {
       group: d.group,
       kind: d.kind,
       isBuiltIn: true,
+      treadmill: d.treadmill === true,
       rateMinutes: d.rateMinutes ?? null,
       rateCalories: d.rateCalories ?? null,
     }),
@@ -380,7 +415,7 @@ export function buildGymView(input: {
   const own = [...input.ownExercises].sort((a, b) => a.name.localeCompare(b.name, "en"));
   for (const o of own) {
     exercises.push(
-      view({ exerciseId: o.exerciseId, name: o.name, group: o.group, kind: "strength", isBuiltIn: false, rateMinutes: null, rateCalories: null }),
+      view({ exerciseId: o.exerciseId, name: o.name, group: o.group, kind: "strength", isBuiltIn: false, treadmill: false, rateMinutes: null, rateCalories: null }),
     );
   }
   const shown = new Set(exercises.map((e) => e.exerciseId));
@@ -393,6 +428,7 @@ export function buildGymView(input: {
       group: v.muscleGroup,
       kind: v.exerciseKind,
       isBuiltIn: false,
+      treadmill: false,
       rateMinutes: e.rateMinutes,
       rateCalories: e.rateCalories,
       entry: v,

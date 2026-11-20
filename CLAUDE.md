@@ -98,6 +98,7 @@ AWS runs only in **ap-south-1** (`AWS_REGION` in `infra/lib/config.ts`): CDK sta
 - `gymTotals` / `cardioTotals` in `packages/shared/src/domain/gym.ts` are the only gym math (2.5 min/set, 15 kcal/set, every set counts); the server recomputes and rejects client totals. `drawerReducer` (`gym-drawer.ts`) drives the steppers.
 - Save/remove return `GymSaveResult` (no per-exercise "last" fan-out); the client keeps its `last` values.
 - Unsaved drawer values are drafts in `localStorage` (`sf:gymdraft:v1:<username>:<date>:<id>`, `lib/gym-draft.ts`), read via `useSyncExternalStore`, never sent to the server.
+- Treadmill details: built-ins with `treadmill: true` (Incline Treadmill Walk) accept optional `inclinePct` (0–15, 0.5 steps) and `speedKmh` (0.5–25, 1 decimal) on the cardio PUT and MCP `upsert_workout_log`; stored flat on the entry, shown in the drawer and "last time". Informational only: calories still follow minutes × rate. Other exercises get 400.
 - Never log sets, weights or exercise names.
 
 ## AI Coach v2 (feature 007)

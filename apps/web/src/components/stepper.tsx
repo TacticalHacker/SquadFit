@@ -50,15 +50,18 @@ export function NumberField({
   label,
   disabled,
   widthClass = "w-12",
+  unset = false,
   onCommit,
   onError,
 }: {
   value: number;
   display: string;
-  field: "weight" | "reps" | "minutes";
+  field: "weight" | "reps" | "minutes" | "incline" | "speed";
   label: string;
   disabled?: boolean;
   widthClass?: string;
+  /** No value logged yet: `value` is only the suggested start, so confirming it still commits. */
+  unset?: boolean;
   onCommit: (value: number) => void;
   onError: (message: string | null) => void;
 }) {
@@ -67,7 +70,7 @@ export function NumberField({
 
   const commit = () => {
     setEditing(false);
-    if (text.trim() === "" || text.trim() === String(value)) return;
+    if (text.trim() === "" || (!unset && text.trim() === String(value))) return;
     const r = commitTyped(field, text);
     if (r.ok) {
       onError(null);
@@ -81,7 +84,7 @@ export function NumberField({
     return (
       <input
         type="text"
-        inputMode={field === "weight" ? "decimal" : "numeric"}
+        inputMode={field === "reps" || field === "minutes" ? "numeric" : "decimal"}
         enterKeyHint="done"
         autoComplete="off"
         aria-label={label}

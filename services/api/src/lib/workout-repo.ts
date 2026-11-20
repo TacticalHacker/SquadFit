@@ -25,6 +25,8 @@ export function gymFields(i: Record<string, unknown>): Partial<StoredEntry> {
     exerciseKind: i.exerciseKind as NonNullable<StoredEntry["exerciseKind"]>,
     ...(Array.isArray(i.sets) ? { sets: i.sets as NonNullable<StoredEntry["sets"]> } : {}),
     ...(typeof i.volumeKg === "number" ? { volumeKg: i.volumeKg } : {}),
+    ...(typeof i.inclinePct === "number" ? { inclinePct: i.inclinePct } : {}),
+    ...(typeof i.speedKmh === "number" ? { speedKmh: i.speedKmh } : {}),
   };
 }
 

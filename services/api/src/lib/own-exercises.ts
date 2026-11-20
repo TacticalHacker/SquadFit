@@ -25,6 +25,7 @@ export function toExerciseResponse(e: Pick<OwnExerciseItem, "exerciseId" | "name
       group: e.group,
       kind: "strength",
       isBuiltIn: false,
+      treadmill: false,
       rateMinutes: null,
       rateCalories: null,
       entry: null,

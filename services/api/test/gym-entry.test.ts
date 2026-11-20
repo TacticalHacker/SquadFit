@@ -44,7 +44,7 @@ describe("PUT gym entry", () => {
 
   it("logs cardio as minutes with the exercise rate", async () => {
     const { deps } = await setup();
-    const r = await gymPut(deps, "2026-11-11", "gx-incline-treadmill-walk", { minutes: 25 });
+    const r = await gymPut(deps, "2026-11-10", "gx-incline-treadmill-walk", { minutes: 25 });
     expect(r.body.entry).toMatchObject({ exerciseKind: "cardio", sets: null, volumeKg: null, minutes: 25, calories: 175 });
   });
 
@@ -185,5 +185,15 @@ describe("PUT gym entry confirm (unusual jump, feature 010)", () => {
     await seedProfile(profiles, "user-2", "Asia/Kolkata", "bob");
     await gymPut(deps, "2026-11-11", "gx-bench-press", { sets: sets(1, 60, 8, true) });
     expect((await confirm(deps, "user-2", "2026-11-11T10:00:00.000Z")).status).toBe(404);
+  });
+});
+
+describe("treadmill incline and speed", () => {
+  it("stores them on Incline Treadmill Walk (calories still follow minutes) and refuses them elsewhere", async () => {
+    const { deps } = await setup();
+    const r = await gymPut(deps, "2026-11-10", "gx-incline-treadmill-walk", { minutes: 20, inclinePct: 12, speedKmh: 5.5 });
+    expect(r.body.entry).toMatchObject({ minutes: 20, calories: 140, inclinePct: 12, speedKmh: 5.5 });
+    expect(exercise(await gymGet(deps, "2026-11-11"), "gx-incline-treadmill-walk")?.last).toMatchObject({ inclinePct: 12, speedKmh: 5.5 });
+    expect((await gymPut(deps, "2026-11-11", "gx-stairmaster", { minutes: 20, inclinePct: 5 })).status).toBe(400);
   });
 });

@@ -35,6 +35,16 @@ describe("initDrawer", () => {
     expect(s).toBe(draft);
   });
 
+  it("treadmill: incline and speed come from last time, start at a default on first tap, and go in the body only when set", () => {
+    const s = initDrawer({ exercise: cardio, last: { minutes: 30, inclinePct: 12, speedKmh: 5.5 } });
+    expect(drawerToBody(s)).toEqual({ minutes: 30, inclinePct: 12, speedKmh: 5.5 });
+    const fresh = initDrawer({ exercise: cardio });
+    expect(drawerToBody(fresh)).toEqual({ minutes: 20 });
+    expect(drawerReducer(fresh, { type: "incline", delta: 1 }).inclinePct).toBe(10);
+    expect(drawerReducer(s, { type: "incline", delta: 1 }).inclinePct).toBe(12.5);
+    expect(drawerReducer(s, { type: "setIncline", value: 40 }).inclinePct).toBe(15);
+  });
+
   it("cardio starts at 20 minutes or last time's minutes", () => {
     expect(initDrawer({ exercise: cardio }).minutes).toBe(20);
     expect(initDrawer({ exercise: cardio, last: { minutes: 35 } }).minutes).toBe(35);
