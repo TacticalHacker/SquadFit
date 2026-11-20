@@ -6,6 +6,7 @@ import { DynamoWorkoutRepo, type WorkoutRepo } from "./workout-repo";
 import { DynamoCoachRepo, type CoachRepo } from "./coach-repo";
 import { DynamoCredentialRepo, type CredentialRepo } from "./credential-repo";
 import { S3PhotoStore, type PhotoStore } from "./photo-store";
+import { S3SharePhotoStore, type SharePhotoStore } from "./share-photo-store";
 import { DynamoProfileRepo, type ProfileRepo } from "./profile-repo";
 import { DynamoWaitlistRepo, type WaitlistRepo } from "./waitlist-repo";
 import { DynamoSquadRepo, type SquadRepo } from "./squad-repo";
@@ -23,6 +24,8 @@ export interface Deps {
   credentials: CredentialRepo;
   avatars: AvatarStore;
   photos: PhotoStore;
+  /** Feature 016: photos posted with a workout day (`share-photos/`). */
+  sharePhotos: SharePhotoStore;
   waitlist: WaitlistRepo;
   squad: SquadRepo;
   activity: ActivityRepo;
@@ -47,6 +50,7 @@ export function getDeps(): Deps {
     credentials: new DynamoCredentialRepo(requireEnv("TABLE_NAME")),
     avatars: new S3AvatarStore(requireEnv("AVATAR_BUCKET")),
     photos: new S3PhotoStore(requireEnv("AVATAR_BUCKET")),
+    sharePhotos: new S3SharePhotoStore(requireEnv("AVATAR_BUCKET")),
     waitlist: new DynamoWaitlistRepo(requireEnv("TABLE_NAME")),
     squad: new DynamoSquadRepo(requireEnv("TABLE_NAME")),
     activity: new DynamoActivityRepo(requireEnv("TABLE_NAME")),

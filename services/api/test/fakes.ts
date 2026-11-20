@@ -9,6 +9,7 @@ import type { AvatarStore } from "../src/lib/avatar-store";
 import { newCoachItem, toCoachNote, type CoachNoteItem, type CoachRepo, type TickResult } from "../src/lib/coach-repo";
 import type { CredentialRepo } from "../src/lib/credential-repo";
 import { photoKey, type PhotoContentType, type PhotoStore } from "../src/lib/photo-store";
+import { sharePhotoKey, type SharePhotoStore } from "../src/lib/share-photo-store";
 import type { Deps } from "../src/lib/deps";
 import type { FoodEntryItem, FoodRepo, OwnFoodItem, EntryUpdate } from "../src/lib/food-repo";
 import type { CustomWorkoutItem, EntryItem, WorkoutRepo } from "../src/lib/workout-repo";
@@ -443,6 +444,21 @@ export class FakePhotoStore implements PhotoStore {
   }
 }
 
+export class FakeSharePhotoStore implements SharePhotoStore {
+  readonly objects = new Map<string, { bytes: Uint8Array; contentType: PhotoContentType }>();
+  async put(userId: string, date: string, bytes: Uint8Array, contentType: PhotoContentType) {
+    const key = sharePhotoKey(userId, date, contentType);
+    this.objects.set(key, { bytes, contentType });
+    return key;
+  }
+  async delete(key: string) {
+    this.objects.delete(key);
+  }
+  async urlFor(key: string) {
+    return `https://fake.s3/${key}?sig=1`;
+  }
+}
+
 export class FakeAvatarStore implements AvatarStore {
   readonly objects = new Map<string, Uint8Array>();
   private n = 0;
@@ -490,8 +506,27 @@ export class InMemorySquadRepo implements SquadRepo {
   async getFeed(userId: string, eventId: string) {
     return structuredClone(this.feed.get(feedId(userId, eventId)) ?? null);
   }
-  async putFeed(item: FeedItem) {
+  async putFeed(item: FeedItem, opts: { ifAbsent?: boolean } = {}) {
+    if (opts.ifAbsent && this.feed.has(feedId(item.userId, item.eventId))) return;
     this.feed.set(feedId(item.userId, item.eventId), structuredClone(item));
+  }
+  async postDay(userId: string, squadId: string, date: string, nowIso: string, photoKey: string | null | "keep") {
+    const id = feedId(userId, `day#${date}`);
+    const have = this.feed.get(id);
+    const base: FeedItem = have ?? { userId, squadId, eventId: `day#${date}`, kind: "workout_day", eventDate: date, payload: {}, reactions: { fire: 0, muscle: 0, crown: 0 }, createdAt: nowIso };
+    const { listed: _l, photoKey: oldPhoto, ...rest } = base;
+    const photo = photoKey === "keep" ? oldPhoto : (photoKey ?? undefined);
+    const next: FeedItem = { ...rest, postedAt: base.postedAt ?? nowIso, ...(photo ? { photoKey: photo } : {}) };
+    this.feed.set(id, next);
+    return structuredClone(next);
+  }
+  async unpostDay(userId: string, date: string) {
+    const id = feedId(userId, `day#${date}`);
+    const have = this.feed.get(id);
+    if (!have) return null;
+    const { postedAt: _p, photoKey: _k, ...rest } = have;
+    this.feed.set(id, { ...rest, listed: false });
+    return structuredClone(have);
   }
   async updateFeed(userId: string, eventId: string, eventDate: string, payload: Record<string, unknown>) {
     const f = this.feed.get(feedId(userId, eventId));
@@ -504,7 +539,7 @@ export class InMemorySquadRepo implements SquadRepo {
   async listSquadFeed(squadId: string, pageSize: number, startKey?: Record<string, unknown>) {
     const all = [...this.feed.values()]
       .filter((f) => f.squadId === squadId && f.listed !== false)
-      .sort((a, b) => `${b.createdAt}#${b.userId}#${b.eventId}`.localeCompare(`${a.createdAt}#${a.userId}#${a.eventId}`));
+      .sort((a, b) => `${b.postedAt ?? b.createdAt}#${b.userId}#${b.eventId}`.localeCompare(`${a.postedAt ?? a.createdAt}#${a.userId}#${a.eventId}`));
     const from = typeof startKey?.offset === "number" ? startKey.offset : 0;
     const items = all.slice(from, from + pageSize).map((f) => structuredClone(f));
     return { items, ...(from + pageSize < all.length ? { lastKey: { offset: from + pageSize } } : {}) };
@@ -643,6 +678,7 @@ export function makeDeps(now = "2026-11-11T10:00:00.000Z") {
   const credentials = new InMemoryCredentialRepo();
   const avatars = new FakeAvatarStore();
   const photos = new FakePhotoStore();
+  const sharePhotos = new FakeSharePhotoStore();
   const waitlist = new InMemoryWaitlistRepo();
   const squad = new InMemorySquadRepo();
   const activity = new InMemoryActivityRepo();
@@ -650,8 +686,8 @@ export function makeDeps(now = "2026-11-11T10:00:00.000Z") {
   const catalog = new InMemoryCatalogRepo();
   const users = new InMemoryUserDirectory();
   let clock = new Date(now);
-  const deps: Deps = { profiles, workouts, gym, food, coach, credentials, avatars, photos, waitlist, squad, activity, healthTokens, catalog, users, now: () => clock };
-  return { deps, profiles, workouts, gym, food, coach, credentials, avatars, photos, waitlist, squad, activity, healthTokens, catalog, users, setNow: (iso: string) => (clock = new Date(iso)) };
+  const deps: Deps = { profiles, workouts, gym, food, coach, credentials, avatars, photos, sharePhotos, waitlist, squad, activity, healthTokens, catalog, users, now: () => clock };
+  return { deps, profiles, workouts, gym, food, coach, credentials, avatars, photos, sharePhotos, waitlist, squad, activity, healthTokens, catalog, users, setNow: (iso: string) => (clock = new Date(iso)) };
 }
 
 export function makeEvent(opts: {

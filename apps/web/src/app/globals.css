@@ -28,6 +28,7 @@
   --danger: #b23a2e; /* errors, delete */
 
   --scrim: rgba(28, 27, 25, 0.4); /* dialog backdrop */
+  --backdrop: #2c2b27; /* behind the white share sticker preview (feature 016); dark in both modes */
   --focus-ring: 0 0 0 3px rgba(31, 94, 70, 0.25);
   --shadow-card: 0 1px 2px rgba(28, 27, 25, 0.04);
   --radius: 8px;
@@ -77,6 +78,7 @@
   --color-ink: var(--text);
   --color-muted: var(--muted);
   --color-faint: var(--faint);
+  --color-backdrop: var(--backdrop);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-soft: var(--accent-soft);

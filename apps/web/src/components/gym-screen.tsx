@@ -11,6 +11,7 @@ import { ExerciseSearch } from "./exercise-search";
 import { GymDrawer } from "./gym-drawer";
 import { noticeWarnClass } from "./form-bits";
 import { MusclePills } from "./muscle-pills";
+import { ShareButton } from "./share-button";
 
 const CHECK_EVERY_MS = 60_000;
 const noSubscribe = () => () => {};
@@ -64,6 +65,8 @@ export function GymScreen({ initialView, username, openId: initialOpenId }: { in
     };
   }, [router, timezone, today, openId]);
 
+  // Feature 016: a workout day (a completed set or any cardio) can be shared.
+  const trained = view.exercises.some((e) => e.entry && (e.entry.exerciseKind === "cardio" || (e.entry.sets ?? []).some((s) => s.completed)));
   const shown = useMemo(() => filterExercises(view.exercises, group, query), [view.exercises, group, query]);
   const open = hydrated && openId ? (view.exercises.find((e) => e.exerciseId === openId) ?? null) : null;
 
@@ -100,10 +103,13 @@ export function GymScreen({ initialView, username, openId: initialOpenId }: { in
 
   return (
     <div className="flex flex-col gap-3 overflow-x-clip">
-      <p className="text-sm text-muted">
-        {date === today ? "Today" : "This day"}: <span className="font-semibold text-ink">{view.summary.totalMinutes} min</span> ·{" "}
-        <span className="font-semibold text-ink">{view.summary.totalCalories} kcal</span> burned
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm text-muted">
+          {date === today ? "Today" : "This day"}: <span className="font-semibold text-ink">{view.summary.totalMinutes} min</span> ·{" "}
+          <span className="font-semibold text-ink">{view.summary.totalCalories} kcal</span> burned
+        </p>
+        {trained ? <ShareButton key={date} date={date} className="-mr-3" /> : null}
+      </div>
       {!editable ? (
         <p role="status" className={noticeWarnClass}>
           This day can no longer be edited

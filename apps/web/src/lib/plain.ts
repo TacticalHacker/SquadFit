@@ -1,4 +1,4 @@
-import { STEPS_MIN_DAYS, type Club, type SquadBoardView, type SquadFeedItem } from "@calci/shared";
+import { STEPS_MIN_DAYS, type Club, type ShareRowDto, type SquadBoardView, type SquadFeedItem } from "@calci/shared";
 
 /**
  * Feature 013: every squad-area phrase in one place, written for someone who has never been to a gym. Always with
@@ -220,6 +220,7 @@ export function feedLine(i: SquadFeedItem): string {
   if (i.kind === "streak_week") return i.week && i.week > 1 ? ` hit the workout goal ${i.week} weeks in a row` : " hit the workout goal this week";
   if (i.kind === "protein_streak") return " hit the protein goal 7 days in a row";
   if (i.kind === "step_streak") return " hit the step goal 7 days in a row";
+  if (i.kind === "workout_day") return " shared a workout";
   return " logged their first workout";
 }
 
@@ -256,3 +257,33 @@ export const burned = (n: number) => `Burned about ${nf.format(Math.round(n))} c
 export const ate = (n: number, target: number | null) => (target ? `Ate ${nf.format(n)} of ${nf.format(target)} calories` : `Ate ${nf.format(n)} calories`);
 export const protein = (g: number, target: number | null) => (target ? `Protein: ${nf.format(g)} g of ${nf.format(target)} g goal` : `Protein: ${nf.format(g)} g`);
 export const carbsFat = (carbs: number, fat: number) => `Carbs: ${nf.format(carbs)} g · Fat: ${nf.format(fat)} g`;
+
+// ---------------------------------------------------------------- share card (feature 016)
+
+/** "Wed, 18 Nov". */
+export function shareDate(d: string): string {
+  const parts = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).formatToParts(new Date(`${d}T00:00:00Z`));
+  const get = (t: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === t)?.value ?? "";
+  return `${get("weekday")}, ${get("day")} ${get("month")}`;
+}
+export const exercisesCount = (n: number) => plural(n, "exercise");
+export const stepsCount = (n: number) => plural(Math.round(n), "step");
+export const moreRows = (n: number) => `+${nf.format(n)} more`;
+/** "60 kg × 10", "22.5 kg per dumbbell × 10", "12 reps" (bodyweight), "5 min". */
+export function shareRowValue(r: ShareRowDto): string {
+  if (r.kind === "minutes") return minutes(r.minutes);
+  if (r.top.weightKg === 0) return plural(r.top.reps, "rep");
+  return `${w(r.top.weightKg, isDumbbell(r.exerciseId, r.name))} × ${nf.format(r.top.reps)}`;
+}
+export const shareRow = (r: ShareRowDto) => `${r.name} · ${shareRowValue(r)}`;
+/** "82.5 kg × 5 (+2.5 kg)". */
+export const sharePrValue = (p: { weightKg: number; reps: number; gainKg: number | null }) =>
+  `${kg(p.weightKg)} × ${nf.format(p.reps)}${p.gainKg ? ` (${signedKg(p.gainKg)})` : ""}`;
+export const NEW_PB = "New personal best";
+/** "3 weeks in a row", else "2 of 4 workouts this week". */
+export const shareStreak = (s: { weeks: number; weekDays: number; target: number }) => (s.weeks > 0 ? weeksInARow(s.weeks) : workoutsThisWeek(s.weekDays, s.target));
+export const SHARE_SITE = "squadfit.roshansidequest.com";
+export const SHARE_HINT = "Save the image, then add it to your Instagram Story.";
+export const PHOTO_STAYS = "Your photo stays on your phone.";
+export const PHOTO_ERROR = "Couldn't open this photo. Try a JPEG or a screenshot.";
+export const HIDDEN_POST = "You're hidden from the squad, so you can't post.";

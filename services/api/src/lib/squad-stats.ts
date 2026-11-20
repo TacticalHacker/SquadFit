@@ -4,7 +4,7 @@ import { NO_REACTIONS } from "./squad-repo";
 import { squadSettingsOf } from "./profile-repo";
 
 /** What the rebuild needs, so the operator backfill can run it without the S3 stores. */
-export type StatsDeps = Pick<Deps, "profiles" | "workouts" | "squad" | "now">;
+export type StatsDeps = Pick<Deps, "profiles" | "workouts" | "squad" | "now"> & Partial<Pick<Deps, "sharePhotos">>;
 
 /**
  * Feature 010 (research R1, R2, R6, R13): rebuild one member's cached squad stats from all of their entries and
@@ -63,7 +63,13 @@ export async function refreshSquadStats(userId: string, deps: StatsDeps, opts: {
       }
     }
     // An event that is no longer true (edited or deleted inside the edit window) disappears with its high-fives.
-    for (const f of feed) if (!derived.has(f.eventId)) await deps.squad.deleteFeed(userId, f.eventId);
+    for (const f of feed) {
+      if (derived.has(f.eventId)) continue;
+      await deps.squad.deleteFeed(userId, f.eventId);
+      // Feature 016: a posted day that is no longer a workout day loses its photo too. Best effort: the item is already
+      // gone, so the picture can never be shown; functions without the delete grant (MCP) leave it behind.
+      if (f.photoKey) await deps.sharePhotos?.delete(f.photoKey).catch((err: unknown) => console.error("share photo delete failed", err instanceof Error ? err.name : "unknown"));
+    }
     return;
   }
 }

@@ -38,6 +38,8 @@ export * from "./domain/boards";
 export * from "./contracts/squad";
 export * from "./domain/member-profile";
 export * from "./domain/nutrition-share";
+export * from "./domain/share-card";
+export * from "./contracts/share";
 export * from "./contracts/squad-profile";
 export * from "./contracts/squad-boards";
 export * from "./domain/activity";
