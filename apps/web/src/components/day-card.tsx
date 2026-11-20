@@ -12,6 +12,7 @@ import { InfoTip } from "./info-tip";
 import { Reactions } from "./reactions";
 import { NutritionDay } from "./nutrition-view";
 import { StepsLine } from "./steps-chart";
+import { ShareButton } from "./share-button";
 
 const dayLabel = (d: string) =>
   new Intl.DateTimeFormat("en", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${d}T00:00:00Z`));
@@ -124,7 +125,9 @@ export function DayCard({ card, memberId, member }: { card: DayCardData; memberI
       <PrBadges badges={card.prBadges} />
       {card.steps ? <StepsLine steps={card.steps.steps} goalHit={card.steps.goalHit} /> : null}
       {card.nutrition ? <NutritionDay n={card.nutrition} /> : null}
-      <div className="flex justify-end">
+      <div className="flex items-center justify-end gap-2">
+        {/* Feature 016: only your own days can be shared (members never react to their own cards). */}
+        {!card.canReact ? <ShareButton date={card.date} className="mr-auto -ml-3" /> : null}
         <Reactions id={card.id} reactions={card.reactions} canReact={card.canReact} />
       </div>
     </article>
