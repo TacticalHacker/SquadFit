@@ -6,30 +6,39 @@ import { AdminExercisesResponseSchema } from "@calci/shared";
 import { AdminExercises } from "@/components/admin-exercises";
 import { AdminMembers } from "@/components/admin-members";
 import { linkClass } from "@/components/form-bits";
+import { SegmentLinks } from "@/components/segment-links";
 import { apiFetch } from "@/server/api";
 import { getMe } from "@/server/session";
 
 export const metadata = { title: "Admin · SquadFit" };
 
+const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+
 /** Feature 015: admins only. Everyone else gets the not-found page; the API enforces the same rule. */
-async function Panel() {
+async function Panel({ searchParams }: { searchParams: PageProps<"/settings/admin">["searchParams"] }) {
   const me = await getMe();
   if (!me.isAdmin) notFound();
-  const data = await apiFetch("/admin/exercises", { schema: AdminExercisesResponseSchema });
+  const members = first((await searchParams).tab) === "members";
   return (
-    <div className="flex flex-col gap-10">
-      <AdminMembers />
-      <section aria-labelledby="library-h" className="flex flex-col gap-6">
-        <h2 id="library-h" className="text-xl font-semibold">
-          Exercise library
-        </h2>
-        <AdminExercises data={data} />
-      </section>
+    <div className="flex flex-col gap-6">
+      <SegmentLinks
+        label="Admin sections"
+        options={[
+          { label: "Members", href: "/settings/admin?tab=members", current: members },
+          { label: "Exercise library", href: "/settings/admin", current: !members },
+        ]}
+      />
+      {members ? <AdminMembers /> : <Library />}
     </div>
   );
 }
 
-export default function AdminPage() {
+async function Library() {
+  const data = await apiFetch("/admin/exercises", { schema: AdminExercisesResponseSchema });
+  return <AdminExercises data={data} />;
+}
+
+export default function AdminPage(props: PageProps<"/settings/admin">) {
   return (
     <>
       <p className="mb-3 text-sm">
@@ -40,7 +49,7 @@ export default function AdminPage() {
       </p>
       <h1 className="mb-6 text-3xl font-semibold tracking-[-0.02em]">Admin</h1>
       <Suspense fallback={<p className="text-sm text-muted">Loading…</p>}>
-        <Panel />
+        <Panel searchParams={props.searchParams} />
       </Suspense>
     </>
   );

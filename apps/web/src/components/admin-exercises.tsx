@@ -1,90 +1,142 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Lock } from "lucide-react";
+import { useMemo, useState, useTransition } from "react";
+import { Pencil, Plus } from "lucide-react";
 import {
   CATALOG_GROUPS,
   MUSCLE_GROUPS,
   MUSCLE_GROUP_LABELS,
+  exerciseNameKey,
   type AdminExercisesResponse,
   type AdminMergeResponse,
   type CatalogExercise,
   type CatalogGroup,
+  type MuscleGroup,
 } from "@calci/shared";
 import { addExercise, mergeExercise, updateExercise } from "@/server/actions/admin";
 import { BottomSheet, SheetClose } from "./bottom-sheet";
-import { badgeClass, buttonClass, cardClass, chipClass, inputClass, noticeErrorClass, noticeOkClass, secondaryButtonClass } from "./form-bits";
+import { ExerciseSearch } from "./exercise-search";
+import { badgeClass, buttonClass, cardClass, chipClass, iconButtonClass, inputClass, noticeErrorClass, noticeOkClass, noticeWarnClass, secondaryButtonClass } from "./form-bits";
 
-type Row = { exerciseId: string; name: string; group: string; builtIn: boolean; item?: CatalogExercise };
+type Row = { exerciseId: string; name: string; group: MuscleGroup; builtIn: boolean; item?: CatalogExercise };
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 const day = (iso: string) => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" }).format(new Date(iso));
 
-function GroupPicker({ value, onChange }: { value: CatalogGroup; onChange: (g: CatalogGroup) => void }) {
+/** The submit button must still read as a button while disabled (not faded green text). */
+const submitClass = `min-h-12 w-full text-base ${buttonClass} disabled:border disabled:border-line-strong disabled:bg-surface-2 disabled:text-muted disabled:opacity-100`;
+
+/** High-contrast selection: solid ink fill, so the chosen group can't be missed. */
+const groupChipClass = (selected: boolean) =>
+  selected
+    ? "inline-flex min-h-11 shrink-0 touch-manipulation items-center justify-center rounded-full border border-ink bg-ink px-4 text-sm font-medium text-paper"
+    : chipClass(false);
+
+function GroupPicker({ value, onChange }: { value: CatalogGroup | null; onChange: (g: CatalogGroup) => void }) {
   return (
     <fieldset className="flex flex-col gap-2">
       <legend className="mb-1 text-sm font-medium">Muscle group</legend>
       <div className="flex flex-wrap gap-2">
         {CATALOG_GROUPS.map((g) => (
-          <button key={g} type="button" aria-pressed={g === value} onClick={() => onChange(g)} className={chipClass(g === value)}>
+          <button key={g} type="button" aria-pressed={g === value} onClick={() => onChange(g)} className={groupChipClass(g === value)}>
             {MUSCLE_GROUP_LABELS[g]}
           </button>
         ))}
       </div>
+      <p className="text-xs text-muted">Cardio can&apos;t be added: cardio needs a calorie rate, so only the built-in ones exist.</p>
     </fieldset>
   );
 }
 
-function AddForm({ full }: { full: boolean }) {
+/** Name → where it already lives, for the inline duplicate warning (same matching as the server). */
+function useNameIndex(rows: readonly Row[]) {
+  return useMemo(() => new Map(rows.map((r) => [exerciseNameKey(r.name), r])), [rows]);
+}
+
+function duplicateText(hit: Row | undefined, selfId?: string): string | null {
+  if (!hit || hit.exerciseId === selfId) return null;
+  const where = MUSCLE_GROUP_LABELS[hit.group];
+  if (hit.item?.status === "retired") return `Already exists in ${where} (retired). Restore it instead.`;
+  return `Already exists in ${where}${hit.builtIn ? " (built-in)" : ""}`;
+}
+
+function AddSheet({ rows, onClose, onAdded }: { rows: readonly Row[]; onClose: () => void; onAdded: (name: string) => void }) {
   const [name, setName] = useState("");
-  const [group, setGroup] = useState<CatalogGroup>("chest");
+  const [group, setGroup] = useState<CatalogGroup | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [added, setAdded] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const index = useNameIndex(rows);
+  const clean = name.trim().replace(/\s+/g, " ");
+  const duplicate = clean ? duplicateText(index.get(exerciseNameKey(clean))) : null;
+  const ready = clean.length > 0 && group !== null && !duplicate;
+
+  const submit = () => {
+    if (!ready || !group) return;
+    setError(null);
+    startTransition(async () => {
+      const r = await addExercise({ name: clean, group });
+      if (r.ok) {
+        onAdded(clean);
+        onClose();
+      } else setError(r.error);
+    });
+  };
+
+  const header = (
+    <div className="flex items-center gap-3">
+      <h2 className="flex-1 text-lg font-semibold">Add exercise</h2>
+      <SheetClose />
+    </div>
+  );
+  const footer = (
+    <button type="submit" form="admin-add-exercise" disabled={pending || !ready} className={submitClass}>
+      {pending ? "Adding…" : "Add exercise"}
+    </button>
+  );
+
   return (
-    <form
-      className={`flex flex-col gap-4 p-4 ${cardClass}`}
-      onSubmit={(e) => {
-        e.preventDefault();
-        setError(null);
-        setAdded(null);
-        startTransition(async () => {
-          const r = await addExercise({ name, group });
-          if (r.ok) {
-            setAdded(`Added ${name.trim().replace(/\s+/g, " ")}. Members see it within a few minutes.`);
-            setName("");
-          } else setError(r.error);
-        });
-      }}
-    >
-      <div role="alert">{error ? <p className={noticeErrorClass}>{error}</p> : null}</div>
-      <div role="status">{added ? <p className={noticeOkClass}>{added}</p> : null}</div>
-      <label className="flex flex-col gap-1.5 text-sm font-medium">
-        Name
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          maxLength={40}
-          required
-          autoComplete="off"
-          aria-invalid={error ? true : undefined}
-          className={`font-normal ${inputClass}`}
-        />
-      </label>
-      <GroupPicker value={group} onChange={setGroup} />
-      <button type="submit" disabled={pending || full} className={buttonClass}>
-        {pending ? "Adding…" : "Add exercise"}
-      </button>
-    </form>
+    <BottomSheet open onClose={onClose} label="Add exercise" header={header} footer={footer}>
+      <form
+        id="admin-add-exercise"
+        className="flex flex-col gap-4 px-1"
+        onSubmit={(e) => {
+          e.preventDefault();
+          submit();
+        }}
+      >
+        <div role="alert">{error ? <p className={noticeErrorClass}>{error}</p> : null}</div>
+        <label className="flex flex-col gap-1.5 text-sm font-medium">
+          Name
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={40}
+            required
+            autoComplete="off"
+            aria-invalid={duplicate ? true : undefined}
+            aria-describedby="add-name-dup"
+            className={`font-normal ${inputClass}`}
+          />
+          <span id="add-name-dup" aria-live="polite" className="text-xs font-normal text-warning">
+            {duplicate}
+          </span>
+        </label>
+        <GroupPicker value={group} onChange={setGroup} />
+        <p className="text-xs text-muted">Strength only. Every member can log it within a few minutes.</p>
+      </form>
+    </BottomSheet>
   );
 }
 
-function EditSheet({ item, onClose }: { item: CatalogExercise; onClose: () => void }) {
+function EditSheet({ item, rows, onClose }: { item: CatalogExercise; rows: readonly Row[]; onClose: () => void }) {
   const [name, setName] = useState(item.name);
   const [group, setGroup] = useState<CatalogGroup>(item.group);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const index = useNameIndex(rows);
   const retired = item.status === "retired";
+  const clean = name.trim().replace(/\s+/g, " ");
+  const duplicate = clean ? duplicateText(index.get(exerciseNameKey(clean)), item.exerciseId) : null;
 
   const send = (patch: Record<string, string>) => {
     setError(null);
@@ -96,7 +148,7 @@ function EditSheet({ item, onClose }: { item: CatalogExercise; onClose: () => vo
   };
   const save = () => {
     const patch: Record<string, string> = {};
-    if (name.trim() !== item.name) patch.name = name;
+    if (clean !== item.name) patch.name = clean;
     if (group !== item.group) patch.group = group;
     if (Object.keys(patch).length === 0) return onClose();
     send(patch);
@@ -110,7 +162,7 @@ function EditSheet({ item, onClose }: { item: CatalogExercise; onClose: () => vo
   );
   const footer = (
     <div className="flex flex-col gap-2">
-      <button type="submit" form="admin-exercise" disabled={pending} className={`min-h-12 w-full text-base ${buttonClass}`}>
+      <button type="submit" form="admin-exercise" disabled={pending || !clean || Boolean(duplicate)} className={submitClass}>
         {pending ? "Saving…" : "Save"}
       </button>
       <button type="button" disabled={pending} onClick={() => send({ status: retired ? "active" : "retired" })} className={secondaryButtonClass}>
@@ -132,11 +184,26 @@ function EditSheet({ item, onClose }: { item: CatalogExercise; onClose: () => vo
         <div role="alert">{error ? <p className={noticeErrorClass}>{error}</p> : null}</div>
         <label className="flex flex-col gap-1.5 text-sm font-medium">
           Name
-          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} required autoComplete="off" className={`font-normal ${inputClass}`} />
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={40}
+            required
+            autoComplete="off"
+            aria-invalid={duplicate ? true : undefined}
+            aria-describedby="edit-name-dup"
+            className={`font-normal ${inputClass}`}
+          />
+          <span id="edit-name-dup" aria-live="polite" className="text-xs font-normal text-warning">
+            {duplicate}
+          </span>
         </label>
         <GroupPicker value={group} onChange={setGroup} />
         <p className="text-sm text-muted">
-          {retired ? "Retired: hidden from the picker and the AI. Logged days keep it. " : null}
+          Exercises are retired, never deleted, so members&apos; logged days stay intact.
+          {retired ? " Retired: hidden from the picker and the AI." : ""}
+        </p>
+        <p className="text-sm text-muted">
           Added by {item.createdBy} on {day(item.createdAt)}
           {item.updatedAt !== item.createdAt ? `; last changed by ${item.updatedBy} on ${day(item.updatedAt)}` : ""}.
         </p>
@@ -158,7 +225,7 @@ function MergeSheet({ row, members, onClose, onDone }: { row: Row; members: numb
     <button
       type="button"
       disabled={pending}
-      className={`min-h-12 w-full text-base ${buttonClass}`}
+      className={submitClass}
       onClick={() =>
         startTransition(async () => {
           const r = await mergeExercise(row.exerciseId);
@@ -185,67 +252,81 @@ function MergeSheet({ row, members, onClose, onDone }: { row: Row; members: numb
   );
 }
 
-/** Feature 015: the library grouped by muscle group; built-ins are read-only, catalog rows open an edit sheet. */
+type Filter = "all" | MuscleGroup;
+
+/** Feature 015: searchable library; built-ins are read-only, custom rows open an edit sheet; adding is a sheet. */
 export function AdminExercises({ data }: { data: AdminExercisesResponse }) {
+  const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<CatalogExercise | null>(null);
   const [merging, setMerging] = useState<Row | null>(null);
-  const [merged, setMerged] = useState<AdminMergeResponse | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<Filter>("all");
 
-  const rows: Row[] = [
-    ...data.builtIn.map((b) => ({ exerciseId: b.exerciseId, name: b.name, group: b.group, builtIn: true })),
-    ...data.catalog.map((c) => ({ exerciseId: c.exerciseId, name: c.name, group: c.group, builtIn: false, item: c })),
-  ];
+  const rows: Row[] = useMemo(
+    () => [
+      ...data.builtIn.map((b) => ({ exerciseId: b.exerciseId, name: b.name, group: b.group, builtIn: true })),
+      ...data.catalog.map((c) => ({ exerciseId: c.exerciseId, name: c.name, group: c.group, builtIn: false, item: c })),
+    ],
+    [data],
+  );
   const full = data.catalog.length >= data.limit;
+  const q = exerciseNameKey(query);
+  const visible = rows.filter((r) => (filter === "all" || r.group === filter) && (!q || exerciseNameKey(r.name).includes(q)));
 
   return (
-    <div className="flex flex-col gap-8">
-      <section aria-labelledby="add-h" className="flex flex-col gap-3">
-        <h3 id="add-h" className="text-lg font-semibold">
-          Add an exercise
-        </h3>
-        <p className="text-sm text-muted">
-          Strength only. Every member can log it. {data.catalog.length} of {data.limit} added
-          {full ? " (the library is full)" : ""}.
-        </p>
-        <AddForm full={full} />
-      </section>
-
-      {merged ? (
+    <div className="flex flex-col gap-5">
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-xl font-semibold">Exercise library</h2>
+          <p className="text-sm text-muted">
+            {data.builtIn.length} built-in · {data.catalog.length} of {data.limit} custom exercises added
+          </p>
+        </div>
+        <button type="button" onClick={() => setAdding(true)} disabled={full} className={buttonClass}>
+          <Plus aria-hidden size={18} strokeWidth={1.75} />
+          Add exercise
+        </button>
+      </div>
+      {full ? <p className={noticeWarnClass}>The library is full ({data.limit} custom exercises). Retired ones still count.</p> : null}
+      {notice ? (
         <p role="status" className={noticeOkClass}>
-          Merged: {plural(merged.members, "member", "members")}, {plural(merged.moved, "day", "days")} moved
-          {merged.skipped ? `, ${plural(merged.skipped, "day", "days")} left (already logged)` : ""}, {plural(merged.removed, "own copy", "own copies")} removed.
+          {notice}
         </p>
       ) : null}
 
+      <div className="flex flex-col gap-2">
+        <ExerciseSearch value={query} onChange={setQuery} />
+        <div role="group" aria-label="Filter by muscle group" className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 py-1">
+          {(["all", ...MUSCLE_GROUPS] as const).map((g) => (
+            <button key={g} type="button" aria-pressed={filter === g} onClick={() => setFilter(g)} className={chipClass(filter === g)}>
+              {g === "all" ? "All" : MUSCLE_GROUP_LABELS[g]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {visible.length === 0 ? <p className="text-sm text-muted">No exercises match.</p> : null}
+
       {MUSCLE_GROUPS.map((g) => {
-        const list = rows.filter((r) => r.group === g);
+        const list = visible.filter((r) => r.group === g);
         if (list.length === 0) return null;
         return (
           <section key={g} aria-labelledby={`g-${g}`} className="flex flex-col gap-2">
-            <h3 id={`g-${g}`} className="text-lg font-semibold">
-              {MUSCLE_GROUP_LABELS[g]}
+            <h3 id={`g-${g}`} className="text-sm font-semibold tracking-wide text-muted uppercase">
+              {MUSCLE_GROUP_LABELS[g]} · {list.length}
             </h3>
+            {g === "cardio" ? <p className="text-xs text-muted">Built-in only: new exercises are strength.</p> : null}
             <ul className={`divide-y divide-line ${cardClass}`}>
               {list.map((r) => {
                 const owners = data.ownMatches[r.exerciseId] ?? 0;
                 const retired = r.item?.status === "retired";
                 return (
-                  <li key={r.exerciseId} className="flex flex-wrap items-center gap-3 px-4 py-2">
-                    {r.builtIn ? (
-                      <span className="flex min-h-11 flex-1 items-center gap-2 text-ink">
-                        <Lock aria-label="Built-in" size={16} strokeWidth={1.75} className="text-faint" />
-                        {r.name}
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setEditing(r.item ?? null)}
-                        className={`flex min-h-11 flex-1 items-center gap-2 text-left font-medium hover:text-accent ${retired ? "text-faint" : "text-ink"}`}
-                      >
-                        {r.name}
-                        {retired ? <span className={badgeClass}>Retired</span> : null}
-                      </button>
-                    )}
+                  <li key={r.exerciseId} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-1.5">
+                    <span className={`flex min-h-11 flex-1 items-center gap-2 ${retired ? "text-faint" : "text-ink"}`}>
+                      {r.name}
+                      {retired ? <span className={badgeClass}>Retired</span> : null}
+                    </span>
                     {owners > 0 && !retired ? (
                       <span className="flex items-center gap-3">
                         <span className="text-sm text-muted">{plural(owners, "member has", "members have")} their own</span>
@@ -254,6 +335,13 @@ export function AdminExercises({ data }: { data: AdminExercisesResponse }) {
                         </button>
                       </span>
                     ) : null}
+                    {r.builtIn ? (
+                      <span className={badgeClass}>Built-in</span>
+                    ) : (
+                      <button type="button" onClick={() => setEditing(r.item ?? null)} aria-label={`Edit ${r.name}`} className={iconButtonClass}>
+                        <Pencil aria-hidden size={16} strokeWidth={1.75} />
+                      </button>
+                    )}
                   </li>
                 );
               })}
@@ -262,9 +350,19 @@ export function AdminExercises({ data }: { data: AdminExercisesResponse }) {
         );
       })}
 
-      {editing ? <EditSheet key={editing.exerciseId + editing.updatedAt} item={editing} onClose={() => setEditing(null)} /> : null}
+      {adding ? <AddSheet rows={rows} onClose={() => setAdding(false)} onAdded={(name) => setNotice(`Added ${name}. Members see it within a few minutes.`)} /> : null}
+      {editing ? <EditSheet key={editing.exerciseId + editing.updatedAt} item={editing} rows={rows} onClose={() => setEditing(null)} /> : null}
       {merging ? (
-        <MergeSheet row={merging} members={data.ownMatches[merging.exerciseId] ?? 0} onClose={() => setMerging(null)} onDone={setMerged} />
+        <MergeSheet
+          row={merging}
+          members={data.ownMatches[merging.exerciseId] ?? 0}
+          onClose={() => setMerging(null)}
+          onDone={(m) =>
+            setNotice(
+              `Merged: ${plural(m.members, "member", "members")}, ${plural(m.moved, "day", "days")} moved${m.skipped ? `, ${plural(m.skipped, "day", "days")} left (already logged)` : ""}, ${plural(m.removed, "own copy", "own copies")} removed.`,
+            )
+          }
+        />
       ) : null}
     </div>
   );

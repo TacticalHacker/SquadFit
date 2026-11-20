@@ -107,7 +107,7 @@ export const GYM_EXERCISES: readonly GymExerciseDef[] = [
   strength("sit-ups", "Sit-Ups", "core"),
   strength("russian-twists", "Russian Twists", "core"),
   strength("bicycle-crunches", "Bicycle Crunches", "core"),
-  strength("palloff-press", "Palloff Press", "core"),
+  strength("palloff-press", "Pallof Press", "core"), // id keeps the old spelling: ids never change
   strength("bird-dog", "Bird Dog", "core"),
   strength("dead-bug", "Dead Bug", "core"),
   strength("v-up", "V-Up", "core"),

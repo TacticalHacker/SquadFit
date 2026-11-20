@@ -29,7 +29,7 @@ describe("GYM_EXERCISES", () => {
     expect(byGroup("legs")).toEqual(["Barbell Squat", "Leg Press", "Romanian Deadlift", "Leg Extension", "Hamstring Curl", "Calf Raises"]);
     expect(byGroup("shoulders")).toEqual(["Overhead Press", "Lateral Raises", "Face Pulls", "Rear Delt Flyes", "Front Raises", "Seated Dumbbell Shoulder Press", "Arnold Press", "Upright Rows"]);
     expect(byGroup("arms")).toEqual(["Barbell Curl", "Hammer Curl", "Tricep Pushdown", "Skullcrushers", "EZ-Bar Curl", "Wrist Curl", "Reverse Wrist Curl", "Incline Dumbbell Curl", "Overhead Cable Extension", "Single-Arm Cable Pushdown"]);
-    expect(byGroup("core")).toEqual(["Hanging Leg Raises", "Cable Crunch", "Sit-Ups", "Russian Twists", "Bicycle Crunches", "Palloff Press", "Bird Dog", "Dead Bug", "V-Up"]);
+    expect(byGroup("core")).toEqual(["Hanging Leg Raises", "Cable Crunch", "Sit-Ups", "Russian Twists", "Bicycle Crunches", "Pallof Press", "Bird Dog", "Dead Bug", "V-Up"]);
     expect(byGroup("cardio")).toEqual(["Incline Treadmill Walk", "Stairmaster"]);
   });
 
