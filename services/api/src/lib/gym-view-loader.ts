@@ -11,6 +11,7 @@ import {
 } from "@calci/shared";
 import type { DayContext } from "./day-context";
 import type { Deps } from "./deps";
+import { getLibrary } from "./gym-library";
 
 /** Feature 010: which of this day's entries carry an unusual-jump flag (read from the member's cached stats). */
 async function flaggedOn(userId: string, date: string, deps: Deps): Promise<Set<string>> {
@@ -20,12 +21,13 @@ async function flaggedOn(userId: string, date: string, deps: Deps): Promise<Set<
 
 /** GET /workouts/gym: the day's gym list plus, per exercise, the latest earlier entry (research R5). */
 export async function loadGymView(userId: string, ctx: DayContext, date: string, deps: Deps): Promise<GymView> {
-  const [ownExercises, entries, flagged] = await Promise.all([
+  const [ownExercises, entries, flagged, library] = await Promise.all([
     deps.gym.listOwnExercises(userId),
     deps.workouts.listEntriesForDay(userId, date),
     flaggedOn(userId, date, deps),
+    getLibrary(deps),
   ]);
-  const base = buildGymView({ date, today: ctx.today, timezone: ctx.timezone, ownExercises, entries, last: {} });
+  const base = buildGymView({ date, today: ctx.today, timezone: ctx.timezone, ownExercises, library, entries, last: {} });
   const lasts = await Promise.all(
     base.exercises.map(async (e) => {
       const hit = await deps.gym.lastBefore(userId, e.exerciseId, date);

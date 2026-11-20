@@ -30,6 +30,8 @@ export interface GymExerciseDef {
   /** Cardio only: calories per this many minutes (research R4). */
   rateMinutes?: number;
   rateCalories?: number;
+  /** Feature 015: added by an admin at runtime (not in code). */
+  source?: "catalog";
 }
 
 export const GYM_MAX_SETS = 20;
@@ -107,7 +109,10 @@ export const GYM_EXERCISES: readonly GymExerciseDef[] = [
   { id: "gx-stairmaster", name: "Stairmaster", group: "cardio", kind: "cardio", rateMinutes: 20, rateCalories: 180 },
 ];
 
-export const findGymExercise = (id: string) => GYM_EXERCISES.find((e) => e.id === id);
+/** Built-ins plus active admin-added exercises (feature 015). Always pass it explicitly; only boards use built-ins alone. */
+export type GymLibrary = readonly GymExerciseDef[];
+
+export const findGymExercise = (id: string, library: GymLibrary) => library.find((e) => e.id === id);
 
 /** Gym exercise ids never collide with workout ids (`std-`, `c-`), research R2. */
 export const isGymId = (id: string) => id.startsWith("gx-") || id.startsWith("gc-");
@@ -205,13 +210,59 @@ export const ExerciseNameSchema = z
   .transform((s) => s.trim().replace(/\s+/g, " "))
   .pipe(z.string().min(1, "Name is required").max(40, "Name must be at most 40 characters"));
 
-/** True if `name` clashes with a built-in exercise or one of `existingNames`, ignoring case and spacing (FR-005). */
-export function isExerciseNameTaken(name: string, existingNames: readonly string[]): boolean {
+/** True if `name` clashes with a library exercise or one of `existingNames`, ignoring case and spacing (FR-005). */
+export function isExerciseNameTaken(name: string, existingNames: readonly string[], library: GymLibrary): boolean {
   const n = normalizeWorkoutName(name);
   return (
-    GYM_EXERCISES.some((e) => normalizeWorkoutName(e.name) === n) ||
+    library.some((e) => normalizeWorkoutName(e.name) === n) ||
     existingNames.some((e) => normalizeWorkoutName(e) === n)
   );
+}
+
+// ---------------------------------------------------------------- admin catalog (feature 015)
+
+export const CATALOG_LIMIT = 200;
+export const CATALOG_GROUPS = ["chest", "back", "legs", "shoulders", "arms", "core"] as const;
+export const CatalogGroupSchema = z.enum(CATALOG_GROUPS);
+export type CatalogGroup = z.infer<typeof CatalogGroupSchema>;
+
+export const CatalogExerciseSchema = z
+  .object({
+    exerciseId: z.string().regex(/^gx-[a-z0-9-]+$/),
+    name: ExerciseNameSchema,
+    group: CatalogGroupSchema,
+    kind: z.literal("strength"),
+    status: z.enum(["active", "retired"]),
+    createdAt: z.string(),
+    createdBy: z.string(),
+    updatedAt: z.string(),
+    updatedBy: z.string(),
+  })
+  .strict();
+export type CatalogExercise = z.infer<typeof CatalogExerciseSchema>;
+
+/** Built-ins first (code order), then active catalog exercises A→Z; retired ones are hidden, never deleted. */
+export function buildLibrary(catalog: readonly CatalogExercise[]): GymLibrary {
+  const extra = catalog
+    .filter((c) => c.status === "active")
+    .sort((a, b) => a.name.localeCompare(b.name, "en"))
+    .map((c): GymExerciseDef => ({ id: c.exerciseId, name: c.name, group: c.group, kind: "strength", source: "catalog" }));
+  return [...GYM_EXERCISES, ...extra];
+}
+
+/** Permanent id for a new catalog exercise: `gx-<slug>`, then `-2`, `-3`… while taken (built-in ids always are). */
+export function catalogId(name: string, takenIds: readonly string[]): string {
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "exercise";
+  const taken = new Set([...GYM_EXERCISES.map((e) => e.id), ...takenIds]);
+  const base = `gx-${slug}`;
+  if (!taken.has(base)) return base;
+  for (let n = 2; ; n++) if (!taken.has(`${base}-${n}`)) return `${base}-${n}`;
+}
+
+/** Admin create/rename: a name is taken by any built-in or any catalog row, retired ones included. */
+export function isLibraryNameTaken(name: string, catalogAll: readonly { name: string }[]): boolean {
+  const n = normalizeWorkoutName(name);
+  return GYM_EXERCISES.some((e) => normalizeWorkoutName(e.name) === n) || catalogAll.some((c) => normalizeWorkoutName(c.name) === n);
 }
 
 // ---------------------------------------------------------------- views
@@ -297,6 +348,7 @@ export function buildGymView(input: {
   today: string;
   timezone: string;
   ownExercises: readonly OwnExercise[];
+  library: GymLibrary;
   /** All of the day's entries (workouts and gym). */
   entries: readonly StoredEntry[];
   last: Readonly<Record<string, GymLast | null>>;
@@ -308,7 +360,7 @@ export function buildGymView(input: {
     const e = byId.get(def.exerciseId);
     return { ...def, entry: e ? toGymEntryView(e) : null, last: input.last[def.exerciseId] ?? null };
   };
-  const exercises: GymExerciseView[] = GYM_EXERCISES.map((d) =>
+  const exercises: GymExerciseView[] = input.library.map((d) =>
     view({
       exerciseId: d.id,
       name: d.name,
@@ -364,16 +416,17 @@ export function dayGymVolume(entries: readonly StoredEntry[]): number {
 }
 
 /**
- * Exercise id for an exact name (case and spacing ignored) among the built-ins and the member's active own
+ * Exercise id for an exact name (case and spacing ignored) among the library and the member's active own
  * exercises, or null. Used by the AI's upsert_workout_log (feature 007, R12): no fuzzy matching, so a typo never
  * logs the wrong lift.
  */
 export function findGymExerciseByName(
   name: string,
   own: readonly { exerciseId: string; name: string; removedAt?: string }[],
+  library: GymLibrary,
 ): string | null {
   const n = normalizeWorkoutName(name);
-  const builtIn = GYM_EXERCISES.find((e) => normalizeWorkoutName(e.name) === n);
+  const builtIn = library.find((e) => normalizeWorkoutName(e.name) === n);
   if (builtIn) return builtIn.id;
   return own.find((e) => !e.removedAt && normalizeWorkoutName(e.name) === n)?.exerciseId ?? null;
 }

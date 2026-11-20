@@ -42,8 +42,8 @@ describe("GYM_EXERCISES", () => {
 
   it("only cardio items are cardio, with their rates", () => {
     expect(GYM_EXERCISES.filter((e) => e.kind === "cardio").map((e) => e.id)).toEqual(["gx-incline-treadmill-walk", "gx-stairmaster"]);
-    expect(findGymExercise("gx-incline-treadmill-walk")).toMatchObject({ rateMinutes: 20, rateCalories: 140 });
-    expect(findGymExercise("gx-stairmaster")).toMatchObject({ rateMinutes: 20, rateCalories: 180 });
+    expect(findGymExercise("gx-incline-treadmill-walk", GYM_EXERCISES)).toMatchObject({ rateMinutes: 20, rateCalories: 140 });
+    expect(findGymExercise("gx-stairmaster", GYM_EXERCISES)).toMatchObject({ rateMinutes: 20, rateCalories: 180 });
   });
 
   it("isGymId recognises gx- and gc- only", () => {
@@ -122,9 +122,9 @@ describe("parsers", () => {
 
 describe("own exercise names", () => {
   it("clash with built-ins and own names ignoring case and spaces", () => {
-    expect(isExerciseNameTaken("  bench   press ", [])).toBe(true);
-    expect(isExerciseNameTaken("Hip Thrust", ["hip thrust"])).toBe(true);
-    expect(isExerciseNameTaken("Hip Thrust", ["Cable Kickback"])).toBe(false);
+    expect(isExerciseNameTaken("  bench   press ", [], GYM_EXERCISES)).toBe(true);
+    expect(isExerciseNameTaken("Hip Thrust", ["hip thrust"], GYM_EXERCISES)).toBe(true);
+    expect(isExerciseNameTaken("Hip Thrust", ["Cable Kickback"], GYM_EXERCISES)).toBe(false);
   });
 });
 
@@ -149,13 +149,13 @@ describe("findGymExerciseByName (feature 007)", () => {
     { exerciseId: "gc-2", name: "Old Move", removedAt: "t" },
   ];
   it("matches built-ins ignoring case and spacing", () => {
-    expect(findGymExerciseByName("  bench   PRESS ", own)).toBe("gx-bench-press");
+    expect(findGymExerciseByName("  bench   PRESS ", own, GYM_EXERCISES)).toBe("gx-bench-press");
   });
   it("matches the member's active own exercises", () => {
-    expect(findGymExerciseByName("zercher squat", own)).toBe("gc-1");
+    expect(findGymExerciseByName("zercher squat", own, GYM_EXERCISES)).toBe("gc-1");
   });
   it("ignores removed own exercises and unknown names", () => {
-    expect(findGymExerciseByName("Old Move", own)).toBeNull();
-    expect(findGymExerciseByName("Benchpress", own)).toBeNull();
+    expect(findGymExerciseByName("Old Move", own, GYM_EXERCISES)).toBeNull();
+    expect(findGymExerciseByName("Benchpress", own, GYM_EXERCISES)).toBeNull();
   });
 });

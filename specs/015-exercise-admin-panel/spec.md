@@ -79,6 +79,20 @@ Before the library had "T-Bar Row", two members created their own "T-Bar Row". A
 
 ---
 
+### User Story 5 - Admin creates a member account (Priority: P2)
+
+An admin adds a new squad member from the panel instead of asking the operator to run the CLI: they enter a username and get a temporary password, shown once, to pass on. The new member signs in and must set their own password, exactly as with accounts made by `pnpm admin create-user`.
+
+**Why this priority**: Saves the operator a terminal round-trip for every new member; the exercise library works without it.
+
+**Independent Test**: As an admin, create `testuser` in the panel, copy the temporary password, sign in as `testuser` and get asked for a new password. Creating `TESTUSER` again is refused with "Username is taken". A non-admin gets 403 from the API.
+
+**Acceptance Scenarios**:
+
+1. **Given** an admin, **When** they create a valid unused username, **Then** the account exists and the panel shows the username and a temporary password once, with a copy button.
+2. **Given** a username taken in any letter case, **When** an admin submits it, **Then** it is refused with "Username is taken" and nothing changes.
+3. **Given** a non-admin, **When** they call the create endpoint, **Then** it returns 403 and no account is created.
+
 ### Edge Cases
 
 - Two admins add the same name at the same moment: exactly one succeeds, the other gets the "already exists" message.
@@ -122,9 +136,15 @@ Before the library had "T-Bar Row", two members created their own "T-Bar Row". A
 - **FR-018**: Merge MUST move each matching member's own-exercise days onto the library exercise unchanged (sets, dates, notes, confirmations), skip days already logged on the library exercise, remove the own exercise only when nothing was skipped, refresh affected members' squad stats and feed, report counts only, and be safe to run again.
 - **FR-019**: Each catalog exercise MUST record who created it and when, and when it was last changed and by whom (visible in the panel).
 
+**Member accounts (Story 5)**
+
+- **FR-021**: Admins MUST be able to create a member account from the panel with a username following 001 FR-002 (3–20 letters, digits or underscores); the server generates a 16-character temporary password (same alphabet as the CLI) and creates the account with no invitation message, requiring a new password at first sign-in (001 FR-004a). This is the admin tool of 001 FR-004; there is still no public sign-up.
+- **FR-022**: The temporary password MUST be returned only in the create response, shown once in the panel and never stored, logged or shown again. Password resets stay on the CLI.
+- **FR-023**: Only the account-creation function MAY call the identity provider's admin API, and only to create users in this user pool.
+
 **Privacy and logging**
 
-- **FR-020**: Exercise names, member identities and lifting data MUST NOT be written to logs by admin actions; logs may contain counts and error names only.
+- **FR-020**: Exercise names, member identities, usernames, temporary passwords and lifting data MUST NOT be written to logs by admin actions; logs may contain counts and error names only.
 
 ### Key Entities
 

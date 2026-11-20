@@ -20,6 +20,7 @@ export * from "./contracts/workouts";
 export * from "./domain/gym";
 export * from "./domain/gym-drawer";
 export * from "./contracts/gym";
+export * from "./contracts/admin-exercises";
 export * from "./domain/streak";
 export * from "./domain/nutrition";
 export * from "./domain/foods";

@@ -4,7 +4,6 @@ import {
   findGymExerciseByName,
   findStandardFood,
   formatLogId,
-  GYM_EXERCISES,
   isEditableDay,
   normalizeWorkoutName,
   parseLogId,
@@ -22,6 +21,7 @@ import {
 } from "@calci/shared";
 import { createFoodEntry, patchFoodEntry } from "../food-write";
 import { ENTRY_ID_PATTERN } from "../food-repo";
+import { getLibrary } from "../gym-library";
 import { saveGymEntry, type WriteFailure } from "../gym-save";
 import { describeIssues, fail, stripUnknown, type Tool, type ToolContext, type ToolResult } from "./types";
 
@@ -102,13 +102,13 @@ const upsertWorkoutLog: Tool = {
     const problem = writableDateProblem(date, ctx.today);
     if (problem) return fail(problem);
 
-    const own = await ctx.deps.gym.listOwnExercises(ctx.userId);
-    const isId = findGymExercise(exercise) || own.some((e) => e.exerciseId === exercise && !e.removedAt);
-    const exerciseId = isId ? exercise : findGymExerciseByName(exercise, own);
+    const [own, library] = await Promise.all([ctx.deps.gym.listOwnExercises(ctx.userId), getLibrary(ctx.deps)]);
+    const isId = findGymExercise(exercise, library) || own.some((e) => e.exerciseId === exercise && !e.removedAt);
+    const exerciseId = isId ? exercise : findGymExerciseByName(exercise, own, library);
     if (!exerciseId) {
       const q = normalizeWorkoutName(exercise);
       const words = q.split(" ").filter((w) => w.length > 2);
-      const close = [...GYM_EXERCISES.map((e) => e.name), ...own.filter((e) => !e.removedAt).map((e) => e.name)]
+      const close = [...library.map((e) => e.name), ...own.filter((e) => !e.removedAt).map((e) => e.name)]
         .filter((n) => words.some((w) => normalizeWorkoutName(n).includes(w)))
         .slice(0, 5);
       return fail(`Exercise not found.${close.length ? ` Close matches: ${close.join(", ")}.` : ""}`);

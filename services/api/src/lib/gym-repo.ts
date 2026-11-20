@@ -1,5 +1,5 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DeleteCommand, DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { DeleteCommand, DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, TransactWriteCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import type { MuscleGroup } from "@calci/shared";
 import { toEntry, type EntryItem } from "./workout-repo";
 
@@ -21,6 +21,13 @@ export interface OwnExerciseItem {
   removedAt?: string;
 }
 
+/** Feature 015: the library exercise a merge moves days onto. */
+export interface MergeTarget {
+  id: string;
+  name: string;
+  group: MuscleGroup;
+}
+
 export interface GymRepo {
   getGymEntry(userId: string, date: string, exerciseId: string): Promise<EntryItem | null>;
   /** Full replace of one (member, exercise, day) slot. */
@@ -36,6 +43,15 @@ export interface GymRepo {
   updateOwnExercise(userId: string, exerciseId: string, fields: { name: string; group: MuscleGroup }, nowIso: string): Promise<boolean>;
   /** Soft remove; false if it does not exist. Idempotent. */
   markOwnRemoved(userId: string, exerciseId: string, nowIso: string): Promise<boolean>;
+  /** Feature 015: every gym entry of one exercise (gsi1), any date. */
+  listEntriesByExercise(userId: string, exerciseId: string): Promise<EntryItem[]>;
+  /**
+   * Feature 015: move one day from `sourceId` to the target, keeping sets, `updatedAt`, `aiNote` and `jumpConfirmedAt`;
+   * only the id, name and muscle group change. "conflict" when that day already has the target (nothing changes).
+   */
+  moveEntry(userId: string, date: string, sourceId: string, target: MergeTarget): Promise<"moved" | "conflict">;
+  /** Feature 015: soft-remove an own exercise folded into `targetId`. */
+  markOwnExerciseMerged(userId: string, sourceId: string, targetId: string, nowIso: string): Promise<void>;
 }
 
 const pk = (userId: string) => `USER#${userId}`;
@@ -155,6 +171,64 @@ export class DynamoGymRepo implements GymRepo {
       if (isConditionFailure(err)) return false;
       throw err;
     }
+  }
+
+  async listEntriesByExercise(userId: string, exerciseId: string) {
+    const items: Record<string, unknown>[] = [];
+    let startKey: Record<string, unknown> | undefined;
+    do {
+      const res = await this.doc.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          IndexName: "gsi1",
+          KeyConditionExpression: "gsi1pk = :p",
+          ExpressionAttributeValues: { ":p": gymGsiPk(userId, exerciseId) },
+          ExclusiveStartKey: startKey,
+        }),
+      );
+      items.push(...(res.Items ?? []));
+      startKey = res.LastEvaluatedKey;
+    } while (startKey);
+    return items.map(toEntry);
+  }
+
+  async moveEntry(userId: string, date: string, sourceId: string, target: MergeTarget) {
+    const res = await this.doc.send(new GetCommand({ TableName: this.tableName, Key: { pk: pk(userId), sk: entrySk(date, sourceId) } }));
+    if (!res.Item) return "conflict" as const;
+    const moved = {
+      ...res.Item,
+      sk: entrySk(date, target.id),
+      gsi1pk: gymGsiPk(userId, target.id),
+      gsi1sk: date,
+      workoutId: target.id,
+      name: target.name,
+      muscleGroup: target.group,
+    };
+    try {
+      await this.doc.send(
+        new TransactWriteCommand({
+          TransactItems: [
+            { Put: { TableName: this.tableName, Item: moved, ConditionExpression: "attribute_not_exists(pk)" } },
+            { Delete: { TableName: this.tableName, Key: { pk: pk(userId), sk: entrySk(date, sourceId) }, ConditionExpression: "attribute_exists(pk)" } },
+          ],
+        }),
+      );
+      return "moved" as const;
+    } catch (err) {
+      if (err instanceof Error && err.name === "TransactionCanceledException") return "conflict" as const;
+      throw err;
+    }
+  }
+
+  async markOwnExerciseMerged(userId: string, sourceId: string, targetId: string, nowIso: string) {
+    await this.doc.send(
+      new UpdateCommand({
+        TableName: this.tableName,
+        Key: { pk: pk(userId), sk: exerciseSk(sourceId) },
+        UpdateExpression: "SET removedAt = if_not_exists(removedAt, :now), mergedInto = :t",
+        ExpressionAttributeValues: { ":now": nowIso, ":t": targetId },
+      }),
+    );
   }
 
   async markOwnRemoved(userId: string, exerciseId: string, nowIso: string) {

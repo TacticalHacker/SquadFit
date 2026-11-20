@@ -150,3 +150,13 @@ describe("squad stats follow AI writes (feature 010)", () => {
     expect([...squad.feed.values()].map((f) => f.eventId)).toContain("pr#gx-bench-press#2026-11-11");
   });
 });
+
+describe("upsert_workout_log with the admin catalog (feature 015)", () => {
+  it("matches a catalog exercise by name", async () => {
+    const { deps, catalog, workouts, token } = await setup();
+    catalog.seed("gx-cable-kickback", "Cable Kickback");
+    const r = toolText(await callTool(deps, token, "upsert_workout_log", { date: "2026-11-11", exercise: "cable kickback", sets: lifts(3, 10, 12) }));
+    expect(r.isError).toBe(false);
+    expect(await workouts.getEntry("user-1", "2026-11-11", "gx-cable-kickback")).toMatchObject({ name: "Cable Kickback", muscleGroup: "arms" });
+  });
+});

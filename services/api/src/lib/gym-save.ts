@@ -10,6 +10,7 @@ import {
 } from "@calci/shared";
 import type { Deps } from "./deps";
 import type { GymEntryItem } from "./gym-repo";
+import { getLibrary } from "./gym-library";
 import { safeRefresh } from "./squad-stats";
 
 export type WriteFailure = { ok: false; status: number; code: ApiErrorCode; message: string; fields?: Record<string, string> };
@@ -38,9 +39,10 @@ export async function saveGymEntry(
   const existing = await deps.gym.getGymEntry(userId, date, exerciseId);
   const existingGym = existing?.kind === "gym" ? existing : null;
 
-  // Current definition: built-in, or the caller's active own exercise.
+  // Current definition: library (built-in or active catalog, feature 015), or the caller's active own exercise.
+  // A retired catalog exercise is absent, so it falls back to the day's snapshot below like a removed own one.
   let target: Target | null = null;
-  const builtIn = findGymExercise(exerciseId);
+  const builtIn = findGymExercise(exerciseId, await getLibrary(deps));
   if (builtIn) {
     target = {
       name: builtIn.name,

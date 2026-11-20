@@ -1,7 +1,10 @@
 import type { APIGatewayProxyEventV2WithJWTAuthorizer, APIGatewayProxyStructuredResultV2 } from "aws-lambda";
+import { normalizeWorkoutName, type CatalogExercise } from "@calci/shared";
 import type { ActivitySource, ActivityValues, OverallNoteInput, ProfileInput, ReactionType, SquadSettingsInput, SquadStats, StepSettings } from "@calci/shared";
 import { toActivityItem, type ActivityItem, type ActivityRepo } from "../src/lib/activity-repo";
 import type { HealthTokenRepo } from "../src/lib/health-token-repo";
+import type { UserDirectory } from "../src/lib/user-directory";
+import type { CatalogPatch, CatalogRepo, CatalogUpdateResult } from "../src/lib/catalog-repo";
 import type { AvatarStore } from "../src/lib/avatar-store";
 import { newCoachItem, toCoachNote, type CoachNoteItem, type CoachRepo, type TickResult } from "../src/lib/coach-repo";
 import type { CredentialRepo } from "../src/lib/credential-repo";
@@ -9,7 +12,7 @@ import { photoKey, type PhotoContentType, type PhotoStore } from "../src/lib/pho
 import type { Deps } from "../src/lib/deps";
 import type { FoodEntryItem, FoodRepo, OwnFoodItem, EntryUpdate } from "../src/lib/food-repo";
 import type { CustomWorkoutItem, EntryItem, WorkoutRepo } from "../src/lib/workout-repo";
-import type { GymEntryItem, GymRepo, OwnExerciseItem } from "../src/lib/gym-repo";
+import type { GymEntryItem, GymRepo, MergeTarget, OwnExerciseItem } from "../src/lib/gym-repo";
 import { ProfileMissingError, type ProfileItem, type ProfileRepo } from "../src/lib/profile-repo";
 import type { WaitlistEntry, WaitlistRepo } from "../src/lib/waitlist-repo";
 import { feedId, reactionKey, type FeedItem, type FeedKey, type ReactionCounts, type SquadRepo } from "../src/lib/squad-repo";
@@ -245,6 +248,24 @@ export class InMemoryGymRepo implements GymRepo {
     if (!e) return false;
     this.exercises.set(`${userId}|${exerciseId}`, { ...e, removedAt: e.removedAt ?? nowIso, updatedAt: nowIso });
     return true;
+  }
+  async listEntriesByExercise(userId: string, exerciseId: string) {
+    return [...this.workouts.entries.entries()]
+      .filter(([k, e]) => k.startsWith(`${userId}|`) && e.kind === "gym" && e.workoutId === exerciseId)
+      .map(([, e]) => e);
+  }
+  async moveEntry(userId: string, date: string, sourceId: string, target: MergeTarget) {
+    const from = this.key(userId, date, sourceId);
+    const to = this.key(userId, date, target.id);
+    const e = this.workouts.entries.get(from);
+    if (!e || this.workouts.entries.has(to)) return "conflict" as const;
+    this.workouts.entries.delete(from);
+    this.workouts.entries.set(to, { ...e, workoutId: target.id, name: target.name, muscleGroup: target.group });
+    return "moved" as const;
+  }
+  async markOwnExerciseMerged(userId: string, sourceId: string, _targetId: string, nowIso: string) {
+    const e = this.exercises.get(`${userId}|${sourceId}`);
+    if (e) this.exercises.set(`${userId}|${sourceId}`, { ...e, removedAt: e.removedAt ?? nowIso });
   }
 }
 
@@ -567,6 +588,52 @@ export class InMemoryHealthTokenRepo implements HealthTokenRepo {
   }
 }
 
+/** Feature 015: same create/update/duplicate/stale rules as the DynamoDB repo. */
+export class InMemoryCatalogRepo implements CatalogRepo {
+  readonly items = new Map<string, CatalogExercise>();
+  /** Test hook: make `list()` fail (catalog outage). */
+  failList = false;
+
+  private nameTaken(name: string, exceptId?: string) {
+    const n = normalizeWorkoutName(name);
+    return [...this.items.values()].some((i) => i.exerciseId !== exceptId && normalizeWorkoutName(i.name) === n);
+  }
+  async list() {
+    if (this.failList) throw Object.assign(new Error("boom"), { name: "ServiceUnavailable" });
+    return [...this.items.values()];
+  }
+  async create(item: CatalogExercise) {
+    if (this.items.has(item.exerciseId)) return "id_taken" as const;
+    if (this.nameTaken(item.name)) return "duplicate" as const;
+    this.items.set(item.exerciseId, item);
+    return "ok" as const;
+  }
+  async update(id: string, expectedUpdatedAt: string, patch: CatalogPatch, by: string, nowIso: string): Promise<CatalogUpdateResult> {
+    const current = this.items.get(id);
+    if (!current) return { ok: false, reason: "not_found" };
+    if (current.updatedAt !== expectedUpdatedAt) return { ok: false, reason: "stale" };
+    if (patch.name !== undefined && this.nameTaken(patch.name, id)) return { ok: false, reason: "duplicate" };
+    const item = { ...current, ...patch, updatedAt: nowIso, updatedBy: by };
+    this.items.set(id, item);
+    return { ok: true, item };
+  }
+  /** Seed an active exercise directly. */
+  seed(exerciseId: string, name: string, group: CatalogExercise["group"] = "arms", status: CatalogExercise["status"] = "active") {
+    this.items.set(exerciseId, { exerciseId, name, group, kind: "strength", status, createdAt: "t", createdBy: "roshan", updatedAt: "t", updatedBy: "roshan" });
+  }
+}
+
+/** Usernames are unique ignoring case, like the Cognito pool (signInCaseSensitive: false). */
+export class InMemoryUserDirectory implements UserDirectory {
+  readonly users = new Map<string, string>();
+  async create(username: string, temporaryPassword: string) {
+    const key = username.toLowerCase();
+    if (this.users.has(key)) return "taken" as const;
+    this.users.set(key, temporaryPassword);
+    return "ok" as const;
+  }
+}
+
 export function makeDeps(now = "2026-11-11T10:00:00.000Z") {
   const profiles = new InMemoryProfileRepo();
   const workouts = new InMemoryWorkoutRepo();
@@ -580,9 +647,11 @@ export function makeDeps(now = "2026-11-11T10:00:00.000Z") {
   const squad = new InMemorySquadRepo();
   const activity = new InMemoryActivityRepo();
   const healthTokens = new InMemoryHealthTokenRepo();
+  const catalog = new InMemoryCatalogRepo();
+  const users = new InMemoryUserDirectory();
   let clock = new Date(now);
-  const deps: Deps = { profiles, workouts, gym, food, coach, credentials, avatars, photos, waitlist, squad, activity, healthTokens, now: () => clock };
-  return { deps, profiles, workouts, gym, food, coach, credentials, avatars, photos, waitlist, squad, activity, healthTokens, setNow: (iso: string) => (clock = new Date(iso)) };
+  const deps: Deps = { profiles, workouts, gym, food, coach, credentials, avatars, photos, waitlist, squad, activity, healthTokens, catalog, users, now: () => clock };
+  return { deps, profiles, workouts, gym, food, coach, credentials, avatars, photos, waitlist, squad, activity, healthTokens, catalog, users, setNow: (iso: string) => (clock = new Date(iso)) };
 }
 
 export function makeEvent(opts: {
@@ -592,12 +661,17 @@ export function makeEvent(opts: {
   rawBody?: string;
   pathParameters?: Record<string, string>;
   queryStringParameters?: Record<string, string>;
+  /** Feature 015: the `cognito:groups` claim as the HTTP API authorizer passes it, e.g. "[admin]". */
+  groups?: string;
 }): APIGatewayProxyEventV2WithJWTAuthorizer {
   const body = opts.rawBody ?? (opts.body === undefined ? undefined : JSON.stringify(opts.body));
   return {
     requestContext: {
       authorizer: {
-        jwt: { claims: { sub: opts.sub ?? "user-1", username: opts.username ?? "alice" }, scopes: [] },
+        jwt: {
+          claims: { sub: opts.sub ?? "user-1", username: opts.username ?? "alice", ...(opts.groups ? { "cognito:groups": opts.groups } : {}) },
+          scopes: [],
+        },
       },
     },
     ...(body !== undefined ? { body } : {}),

@@ -8,7 +8,12 @@ describe("GET /me", () => {
     const { deps } = makeDeps();
     const { status, body } = parse(await handle(makeEvent({}), deps));
     expect(status).toBe(200);
-    expect(body).toEqual({ username: "alice", profile: null });
+    expect(body).toEqual({ username: "alice", profile: null, isAdmin: false });
+  });
+
+  it("isAdmin follows the caller's admin group (feature 015)", async () => {
+    const { deps } = makeDeps();
+    expect(parse(await handle(makeEvent({ groups: "[admin]" }), deps)).body.isAdmin).toBe(true);
   });
 
   it("returns the private profile including calorie target and presigned avatar", async () => {

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { StoredEntry } from "../src/domain/day-view";
 import { GYM_EXERCISES, buildGymView, filterExercises, type GymExerciseView } from "../src/domain/gym";
 
-const base = { date: "2026-11-11", today: "2026-11-11", timezone: "Asia/Kolkata" };
+const base = { date: "2026-11-11", today: "2026-11-11", timezone: "Asia/Kolkata", library: GYM_EXERCISES };
 const gymEntry = (id: string, name: string, group = "legs"): StoredEntry => ({
   workoutId: id, name, rateMinutes: 5, rateCalories: 30, minutes: 8, calories: 45,
   kind: "gym", muscleGroup: group as "legs", exerciseKind: "strength",

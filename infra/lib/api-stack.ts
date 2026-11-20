@@ -168,6 +168,16 @@ export class ApiStack extends Stack {
     route("me-health-token-post", HttpMethod.POST, "/me/health-token", { write: true });
     route("me-health-token-delete", HttpMethod.DELETE, "/me/health-token", { write: true });
     route("me-steps-put", HttpMethod.PUT, "/me/steps", { write: true });
+    // Exercise admin (feature 015): Cognito-authorized; each handler also requires the "admin" group (403 otherwise).
+    route("admin-exercises-get", HttpMethod.GET, "/admin/exercises");
+    route("admin-exercise-post", HttpMethod.POST, "/admin/exercises", { write: true });
+    route("admin-exercise-put", HttpMethod.PUT, "/admin/exercises/{exerciseId}", { write: true });
+    route("admin-exercise-merge-post", HttpMethod.POST, "/admin/exercises/{exerciseId}/merge", { write: true, timeoutSeconds: 60 });
+    // Story 5: admins create member accounts. The only function with the pool id and a Cognito admin permission,
+    // and only AdminCreateUser on this pool (FR-023). No table access is needed beyond the default read.
+    const adminUserFn = route("admin-user-post", HttpMethod.POST, "/admin/users");
+    adminUserFn.addEnvironment("USER_POOL_ID", userPool.userPoolId);
+    userPool.grant(adminUserFn, "cognito-idp:AdminCreateUser");
 
     // Public landing page (feature 009): anonymous, called only by the Next server. Pulse returns two counts
     // (constitution VI); the waitlist is rate-limited and dedupes by email in the handler.

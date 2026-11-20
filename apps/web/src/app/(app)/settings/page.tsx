@@ -1,9 +1,11 @@
+import Link from "next/link";
 import { Suspense } from "react";
+import { ChevronRight, Shield } from "lucide-react";
 import { ProfileForm } from "@/components/profile-form";
 import { SquadSettingsForm } from "@/components/squad-settings-form";
-import { noticeWarnClass, secondaryButtonClass } from "@/components/form-bits";
+import { cardClass, noticeWarnClass, secondaryButtonClass } from "@/components/form-bits";
 import { removeAvatar } from "@/server/actions/profile";
-import { requireProfile } from "@/server/session";
+import { getMe, requireProfile } from "@/server/session";
 import { HealthSyncStatusSchema } from "@calci/shared";
 import { HealthSyncSection } from "@/components/health-sync-section";
 import { apiFetch } from "@/server/api";
@@ -95,10 +97,26 @@ async function HealthSection() {
   );
 }
 
+/** Feature 015: only admins see the link (the page and the API check again). */
+async function AdminLink() {
+  const me = await getMe();
+  if (!me.isAdmin) return null;
+  return (
+    <Link href="/settings/admin" className={`flex min-h-12 items-center gap-3 px-4 py-3 font-medium text-ink hover:bg-surface-2 active:bg-line ${cardClass}`}>
+      <Shield aria-hidden size={18} strokeWidth={1.75} className="text-accent" />
+      <span className="flex-1">Admin: members and exercise library</span>
+      <ChevronRight aria-hidden size={18} strokeWidth={1.75} className="text-faint" />
+    </Link>
+  );
+}
+
 export default function SettingsPage() {
   return (
     <div className="flex flex-col gap-10">
       <h1 className="text-3xl font-semibold tracking-[-0.02em]">Settings</h1>
+      <Suspense fallback={null}>
+        <AdminLink />
+      </Suspense>
       <Suspense fallback={<p className="text-sm text-muted">Loading…</p>}>
         <ProfileSection />
       </Suspense>

@@ -1,5 +1,5 @@
 import { CfnOutput, Duration, RemovalPolicy, Stack, type StackProps } from "aws-cdk-lib";
-import { AccountRecovery, FeaturePlan, UserPool, UserPoolClient } from "aws-cdk-lib/aws-cognito";
+import { AccountRecovery, CfnUserPoolGroup, FeaturePlan, UserPool, UserPoolClient } from "aws-cdk-lib/aws-cognito";
 import type { Construct } from "constructs";
 import type { StageConfig } from "./config";
 
@@ -48,6 +48,13 @@ export class AuthStack extends Stack {
       // Sliding 30-day inactivity is enforced by the web app's cookie (research R3);
       // this is the hard upper bound on a refresh token.
       refreshTokenValidity: Duration.days(365),
+    });
+
+    // Feature 015: members in this group manage the gym exercise library (`pnpm admin admins add|remove|list`).
+    new CfnUserPoolGroup(this, "AdminGroup", {
+      userPoolId: this.userPool.userPoolId,
+      groupName: "admin",
+      description: "SquadFit admins (feature 015)",
     });
 
     new CfnOutput(this, "UserPoolId", { value: this.userPool.userPoolId });

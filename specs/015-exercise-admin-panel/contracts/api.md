@@ -51,6 +51,16 @@ Body `{ updatedAt: string, name?: string, group?: Group, status?: "active" | "re
 
 Moves every member's same-name own exercise days onto the target (research R7), then refreshes their squad stats. Safe to repeat.
 
+## `POST /admin/users` (Story 5)
+
+Body `{ username: string }` (`UsernameSchema`, 3–20 letters, digits, underscores). Schemas in `contracts/admin-exercises.ts` (`AdminUserInputSchema`, `AdminUserCreatedSchema`).
+
+- `201 { username, temporaryPassword }`: shown once; the member must set a new password at first sign-in
+- `400 VALIDATION_FAILED`
+- `409 USERNAME_TAKEN` "Username is taken"
+
+The function alone gets `USER_POOL_ID` and `cognito-idp:AdminCreateUser` on this pool (FR-023). Nothing about the request is logged.
+
 ## Changed behavior (no shape change)
 
 - `GET /workouts/gym`: `exercises` includes active catalog items (`isBuiltIn: true`) after the built-ins.

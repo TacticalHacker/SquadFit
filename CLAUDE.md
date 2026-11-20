@@ -39,7 +39,7 @@ AWS runs only in **ap-south-1** (`AWS_REGION` in `infra/lib/config.ts`): CDK sta
 
 ## Auth model (feature 001)
 
-- Accounts are created by the operator only; users sign in with username + password (Cognito).
+- Accounts are created by the operator (CLI) or an admin (panel, feature 015) only; no public sign-up. Users sign in with username + password (Cognito).
 - The browser never sees tokens or calls the AWS API: Server Actions / Server Components call Cognito and the API from the Next server, with tokens in httpOnly cookies (`sf_at`, `sf_rt`, `sf_ch`; see `specs/001-user-accounts/research.md` R3).
 - Read the session only inside `<Suspense>` (Cache Components). `getMe()` is memoised per request with React `cache()`, never `use cache: private`.
 - Handlers get the caller from verified JWT claims (`getCaller`), and are written as `handle(event, deps)` so tests inject in-memory fakes (`services/api/test/fakes.ts`).
@@ -168,3 +168,13 @@ AWS runs only in **ap-south-1** (`AWS_REGION` in `infra/lib/config.ts`): CDK sta
 - Rollout: deploy, `pnpm admin squad migrate-reactions`, then `pnpm admin squad backfill`.
 - Total weight lifted is never a board: profiles show this week vs last week (`weekVolumes`, `weightLifted` on `GET /squad/members/{id}`).
 - The body-weight ratio switch is hidden until feature 014 (relative strength, bodyweight log and privacy).
+
+## Exercise admin (feature 015)
+
+- Admin = Cognito group `admin` (CDK `CfnUserPoolGroup` in `auth-stack.ts`), managed with `pnpm admin admins add|remove <username>` / `admins list`. The access token's `cognito:groups` (string `"[admin]"` from the HTTP API authorizer, or an array) becomes `Caller.isAdmin` (`isAdminClaim`); `GET /me` returns the caller's own `isAdmin`. Members sign in again to pick it up; removal takes effect on the next token refresh (≤ 1 h).
+- Web: `/settings/admin` (`notFound()` unless `me.isAdmin`; link in Settings only for admins), `components/admin-exercises.tsx`, Server Actions in `server/actions/admin.ts` (`refresh()` after writes). API (Cognito + `requireAdmin` → 403 `FORBIDDEN`): `GET|POST /admin/exercises`, `PUT /admin/exercises/{id}` (rename/regroup/retire/restore, conditional on `updatedAt` → 409 `STALE`), `POST /admin/exercises/{id}/merge`.
+- Items: `GYMCATALOG / EX#<gx-id>` (status `active|retired`, created/updated by + at; max 200) and name guard `GYMCATALOGNAME#<normalized name> / N`, written in one transaction. Ids are `gx-<slug>[-n]` and never change; retired = hidden, never deleted, name stays reserved. Built-ins are not editable (404).
+- The library = `GYM_EXERCISES` + active catalog (`buildLibrary`), read through `getLibrary(deps)` (`lib/gym-library.ts`, 2-minute per-container cache, built-ins only on a read error). Always pass the library to `findGymExercise`, `isExerciseNameTaken`, `findGymExerciseByName` and `buildGymView`; only `boards.ts` keeps `GYM_EXERCISES` (Big 3 / PR-jump lifts are built-ins). Catalog exercises show `isBuiltIn: true`; a retired one saves only on a day that already has its entry (snapshot fallback).
+- Merge: `lib/gym-merge.ts` (`findOwnMatches`, `mergeInto`) is shared by the panel and `pnpm admin gym merge` (which now accepts catalog targets). Days move with sets/`updatedAt`/`aiNote`/`jumpConfirmedAt` kept; a day that already has the target is skipped and the own exercise kept; squad stats are refreshed. The panel only ever sees counts.
+- Members (Story 5): `POST /admin/users` `{ username }` creates a Cognito account (`AdminCreateUser`, no message) and returns `{ username, temporaryPassword }` once; the panel's Members section shows it with a Copy button. Only that function has `USER_POOL_ID` and a `cognito-idp` permission (`AdminCreateUser` on this pool; stack test enforces it). `generateTempPassword` lives in `services/api/src/lib/temp-password.ts` (the CLI re-exports it). Password resets stay on the CLI.
+- Never log member ids, usernames, temporary passwords, own-exercise names, sets or weights from admin code.
