@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Check, Copy } from "lucide-react";
 import type { AdminUserCreated } from "@calci/shared";
 import { createMember } from "@/server/actions/admin";
+import { copyText } from "@/lib/copy-text";
 import { buttonClass, cardClass, inputClass, noticeErrorClass, secondaryButtonClass } from "./form-bits";
 
 /** Feature 015 Story 5: create a member account; the temporary password is shown here once and kept nowhere. */
@@ -11,17 +12,12 @@ export function AdminMembers() {
   const [username, setUsername] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<AdminUserCreated | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<boolean | null>(null);
   const [pending, startTransition] = useTransition();
 
   const copy = async () => {
     if (!created) return;
-    try {
-      await navigator.clipboard.writeText(`Username: ${created.username}\nTemporary password: ${created.temporaryPassword}`);
-      setCopied(true);
-    } catch {
-      setCopied(false);
-    }
+    setCopied(await copyText(`Username: ${created.username}\nTemporary password: ${created.temporaryPassword}`));
   };
 
   return (
@@ -38,8 +34,13 @@ export function AdminMembers() {
             <dt className="text-muted">Username</dt>
             <dd className="font-medium text-ink">{created.username}</dd>
             <dt className="text-muted">Temporary password</dt>
-            <dd className="font-mono text-base text-ink break-all">{created.temporaryPassword}</dd>
+            <dd className="font-mono text-base text-ink break-all select-all">{created.temporaryPassword}</dd>
           </dl>
+          {copied === false ? (
+            <p role="alert" className="text-sm text-danger">
+              Couldn&apos;t copy here. Press and hold the password to select it, then copy.
+            </p>
+          ) : null}
           <div className="flex gap-2">
             <button type="button" onClick={copy} className={`${secondaryButtonClass} flex-1`}>
               {copied ? <Check aria-hidden size={18} strokeWidth={1.75} /> : <Copy aria-hidden size={18} strokeWidth={1.75} />}
@@ -49,7 +50,7 @@ export function AdminMembers() {
               type="button"
               onClick={() => {
                 setCreated(null);
-                setCopied(false);
+                setCopied(null);
               }}
               className={secondaryButtonClass}
             >
