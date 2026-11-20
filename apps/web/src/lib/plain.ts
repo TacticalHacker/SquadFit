@@ -260,8 +260,12 @@ export const carbsFat = (carbs: number, fat: number) => `Carbs: ${nf.format(carb
 
 // ---------------------------------------------------------------- share card (feature 016)
 
-export const shareDate = (d: string) =>
-  new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${d}T00:00:00Z`));
+/** "Wed, 18 Nov". */
+export function shareDate(d: string): string {
+  const parts = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).formatToParts(new Date(`${d}T00:00:00Z`));
+  const get = (t: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === t)?.value ?? "";
+  return `${get("weekday")}, ${get("day")} ${get("month")}`;
+}
 export const exercisesCount = (n: number) => plural(n, "exercise");
 export const stepsCount = (n: number) => plural(Math.round(n), "step");
 export const moreRows = (n: number) => `+${nf.format(n)} more`;

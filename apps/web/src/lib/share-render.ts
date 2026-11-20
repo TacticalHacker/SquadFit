@@ -49,7 +49,7 @@ interface Palette {
 const PALETTE: Record<ShareTemplate, Palette> = {
   card: { text: DARK.text, muted: DARK.muted, accent: DARK.accent, line: DARK.border, shadow: false },
   photo: { text: "#ffffff", muted: "rgba(255,255,255,0.74)", accent: DARK.accent, line: "rgba(255,255,255,0.22)", shadow: false },
-  sticker: { text: "#ffffff", muted: "rgba(255,255,255,0.85)", accent: DARK.accent, line: "rgba(255,255,255,0.45)", shadow: true },
+  sticker: { text: "#ffffff", muted: "rgba(255,255,255,0.96)", accent: DARK.accent, line: "rgba(255,255,255,0.6)", shadow: true },
 };
 
 // ---------------------------------------------------------------- fonts
@@ -69,7 +69,7 @@ export async function loadShareFonts(): Promise<ShareFonts> {
   };
   try {
     await Promise.all(
-      ["400", "500", "600"].flatMap((w) => [document.fonts.load(`${w} 40px ${fonts.sans}`), document.fonts.load(`${w} 40px ${fonts.mono}`)]),
+      ["400", "500", "600"].map((w) => document.fonts.load(`${w} 40px ${fonts.sans}`)),
     );
     await document.fonts.ready;
   } catch {
@@ -187,8 +187,8 @@ function buildBlocks(s: ShareSummary, o: ShareOptions, p: Palette, f: ShareFonts
       const col = w / stats.length;
       stats.forEach(([value, word], i) => {
         const cx = x + col * i;
-        const v = fitText(ctx, value, col - 24, 600, 104, f.mono);
-        drawText(ctx, v.text, cx, y + 96, 600, v.size, f.mono, p.text);
+        const v = fitText(ctx, value, col - 24, 600, 108, f.sans);
+        drawText(ctx, v.text, cx, y + 96, 600, v.size, f.sans, p.text);
         const t = fitText(ctx, word, col - 24, 400, 32, f.sans);
         drawText(ctx, t.text, cx, y + 142, 400, t.size, f.sans, p.muted);
       });
@@ -199,10 +199,10 @@ function buildBlocks(s: ShareSummary, o: ShareOptions, p: Palette, f: ShareFonts
   const pairRow = (name: string, value: string, size: number, h: number, valueColor: string): Block => ({
     h,
     draw: (ctx, x, y, w) => {
-      ctx.font = font(500, size - 2, f.mono);
-      const vw = Math.min(ctx.measureText(value).width, w * 0.6);
-      const v = fitText(ctx, value, vw, 500, size - 2, f.mono);
-      drawText(ctx, v.text, x + w, y + h - 20, 500, v.size, f.mono, valueColor, "right");
+      ctx.font = font(500, size, f.sans);
+      const vw = Math.min(ctx.measureText(value).width, w * 0.66);
+      const v = fitText(ctx, value, vw, 500, size, f.sans);
+      drawText(ctx, v.text, x + w, y + h - 20, 500, v.size, f.sans, valueColor, "right");
       const n = fitText(ctx, name, w - vw - 32, 400, size, f.sans);
       drawText(ctx, n.text, x, y + h - 20, 400, n.size, f.sans, p.text);
     },
@@ -311,20 +311,28 @@ export function drawShare(ctx: Ctx, input: ShareDrawInput) {
     ctx.fill();
   }
 
-  ctx.save();
-  if (p.shadow) {
-    ctx.shadowColor = "rgba(0,0,0,0.5)";
-    ctx.shadowBlur = 14;
-    ctx.shadowOffsetY = 2;
+  const passes = p.shadow
+    ? [
+        { color: "rgba(0,0,0,0.38)", blur: 28, dy: 4 },
+        { color: "rgba(0,0,0,0.6)", blur: 5, dy: 1 },
+      ]
+    : [null];
+  for (const shadow of passes) {
+    ctx.save();
+    if (shadow) {
+      ctx.shadowColor = shadow.color;
+      ctx.shadowBlur = shadow.blur;
+      ctx.shadowOffsetY = shadow.dy;
+    }
+    ctx.translate(innerX + (innerW - innerW * k) / 2, top + pad);
+    ctx.scale(k, k);
+    let y = 0;
+    for (const b of blocks) {
+      b.draw(ctx, 0, y, innerW);
+      y += b.h;
+    }
+    ctx.restore();
   }
-  ctx.translate(innerX + (innerW - innerW * k) / 2, top + pad);
-  ctx.scale(k, k);
-  let y = 0;
-  for (const b of blocks) {
-    b.draw(ctx, 0, y, innerW);
-    y += b.h;
-  }
-  ctx.restore();
 }
 
 export const shareFileName = (date: string, template: ShareTemplate) => `squadfit-${date}.${template === "sticker" ? "png" : "jpg"}`;

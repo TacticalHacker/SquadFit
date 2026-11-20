@@ -107,6 +107,8 @@ export function ShareSheet({ date, onClose }: { date: string; onClose: () => voi
       setPhoto(loaded);
       setPhotoFile(f);
       setTransform(centredTransform(SHARE_W, SHARE_H));
+      // First photo: keep the scrim to the bottom of the frame by starting without the exercise list (one tap to add).
+      if (!photo) setOptions((o) => ({ ...o, exercises: false }));
       setTemplate("photo");
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Couldn't open this photo.");
