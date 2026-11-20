@@ -1,4 +1,4 @@
-import { normalizeWorkoutName, type GymExerciseDef, type GymLibrary } from "@calci/shared";
+import { exerciseNameKey, type GymExerciseDef, type GymLibrary } from "@calci/shared";
 import type { Deps } from "./deps";
 
 /**
@@ -21,11 +21,11 @@ export interface MergeCounts {
 
 /** Library strength exercise id → members' active own exercises with the same name (case and spacing ignored). */
 export async function findOwnMatches(library: GymLibrary, deps: Pick<Deps, "profiles" | "gym">): Promise<Map<string, OwnSource[]>> {
-  const byName = new Map(library.filter((e) => e.kind === "strength").map((e) => [normalizeWorkoutName(e.name), e.id]));
+  const byName = new Map(library.filter((e) => e.kind === "strength").map((e) => [exerciseNameKey(e.name), e.id]));
   const matches = new Map<string, OwnSource[]>();
   for (const m of await deps.profiles.listCommunity()) {
     for (const own of await deps.gym.listOwnExercises(m.userId)) {
-      const id = byName.get(normalizeWorkoutName(own.name));
+      const id = byName.get(exerciseNameKey(own.name));
       if (!id) continue;
       matches.set(id, [...(matches.get(id) ?? []), { userId: m.userId, exerciseId: own.exerciseId }]);
     }

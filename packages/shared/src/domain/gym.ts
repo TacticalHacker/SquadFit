@@ -2,7 +2,6 @@ import { z } from "zod";
 import { caloriesFor, summarize, type Summary } from "./calories";
 import { isEditableDay } from "./day";
 import type { StoredEntry } from "./day-view";
-import { normalizeWorkoutName } from "./workouts";
 
 /** Gym logger (feature 006). See specs/006-gym-set-logger/data-model.md. */
 
@@ -33,6 +32,13 @@ export interface GymExerciseDef {
   /** Feature 015: added by an admin at runtime (not in code). */
   source?: "catalog";
 }
+
+/**
+ * Key for comparing and searching gym exercise names: case, spacing and punctuation are ignored, so
+ * "EZ Bar Curl", "ez-bar curl" and "EZ-Bar  Curl" are the same exercise. Letters and digits of any script are kept.
+ */
+export const exerciseNameKey = (name: string) =>
+  name.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 
 export const GYM_MAX_SETS = 20;
 export const GYM_MAX_OWN = 50;
@@ -212,10 +218,10 @@ export const ExerciseNameSchema = z
 
 /** True if `name` clashes with a library exercise or one of `existingNames`, ignoring case and spacing (FR-005). */
 export function isExerciseNameTaken(name: string, existingNames: readonly string[], library: GymLibrary): boolean {
-  const n = normalizeWorkoutName(name);
+  const n = exerciseNameKey(name);
   return (
-    library.some((e) => normalizeWorkoutName(e.name) === n) ||
-    existingNames.some((e) => normalizeWorkoutName(e) === n)
+    library.some((e) => exerciseNameKey(e.name) === n) ||
+    existingNames.some((e) => exerciseNameKey(e) === n)
   );
 }
 
@@ -261,8 +267,8 @@ export function catalogId(name: string, takenIds: readonly string[]): string {
 
 /** Admin create/rename: a name is taken by any built-in or any catalog row, retired ones included. */
 export function isLibraryNameTaken(name: string, catalogAll: readonly { name: string }[]): boolean {
-  const n = normalizeWorkoutName(name);
-  return GYM_EXERCISES.some((e) => normalizeWorkoutName(e.name) === n) || catalogAll.some((c) => normalizeWorkoutName(c.name) === n);
+  const n = exerciseNameKey(name);
+  return GYM_EXERCISES.some((e) => exerciseNameKey(e.name) === n) || catalogAll.some((c) => exerciseNameKey(c.name) === n);
 }
 
 // ---------------------------------------------------------------- views
@@ -405,8 +411,8 @@ export function buildGymView(input: {
 
 /** A non-empty query searches every group by name (ignoring case and spacing); otherwise filter by group (FR-003, FR-004). */
 export function filterExercises<T extends { name: string; group: MuscleGroup }>(list: readonly T[], group: MuscleGroup, query: string): T[] {
-  const q = normalizeWorkoutName(query);
-  if (q) return list.filter((e) => normalizeWorkoutName(e.name).includes(q));
+  const q = exerciseNameKey(query);
+  if (q) return list.filter((e) => exerciseNameKey(e.name).includes(q));
   return list.filter((e) => e.group === group);
 }
 
@@ -425,8 +431,8 @@ export function findGymExerciseByName(
   own: readonly { exerciseId: string; name: string; removedAt?: string }[],
   library: GymLibrary,
 ): string | null {
-  const n = normalizeWorkoutName(name);
-  const builtIn = library.find((e) => normalizeWorkoutName(e.name) === n);
+  const n = exerciseNameKey(name);
+  const builtIn = library.find((e) => exerciseNameKey(e.name) === n);
   if (builtIn) return builtIn.id;
-  return own.find((e) => !e.removedAt && normalizeWorkoutName(e.name) === n)?.exerciseId ?? null;
+  return own.find((e) => !e.removedAt && exerciseNameKey(e.name) === n)?.exerciseId ?? null;
 }

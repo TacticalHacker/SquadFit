@@ -5,6 +5,7 @@ import {
   findStandardFood,
   formatLogId,
   isEditableDay,
+  exerciseNameKey,
   normalizeWorkoutName,
   parseLogId,
   STANDARD_FOODS,
@@ -106,10 +107,10 @@ const upsertWorkoutLog: Tool = {
     const isId = findGymExercise(exercise, library) || own.some((e) => e.exerciseId === exercise && !e.removedAt);
     const exerciseId = isId ? exercise : findGymExerciseByName(exercise, own, library);
     if (!exerciseId) {
-      const q = normalizeWorkoutName(exercise);
+      const q = exerciseNameKey(exercise);
       const words = q.split(" ").filter((w) => w.length > 2);
       const close = [...library.map((e) => e.name), ...own.filter((e) => !e.removedAt).map((e) => e.name)]
-        .filter((n) => words.some((w) => normalizeWorkoutName(n).includes(w)))
+        .filter((n) => words.some((w) => exerciseNameKey(n).includes(w)))
         .slice(0, 5);
       return fail(`Exercise not found.${close.length ? ` Close matches: ${close.join(", ")}.` : ""}`);
     }

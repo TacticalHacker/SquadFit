@@ -42,5 +42,7 @@ describe("library names", () => {
     const lib = buildLibrary([item("gx-cable-kickback", "Cable Kickback")]);
     expect(isExerciseNameTaken("cable  kickback", [], lib)).toBe(true);
     expect(isExerciseNameTaken("cable kickback", [], GYM_EXERCISES)).toBe(false);
+    // Punctuation is ignored too: "EZ Bar Curl" is the built-in "EZ-Bar Curl".
+    expect(isExerciseNameTaken("EZ Bar Curl", [], GYM_EXERCISES)).toBe(true);
   });
 });

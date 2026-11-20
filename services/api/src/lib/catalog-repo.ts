@@ -1,6 +1,6 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, GetCommand, QueryCommand, TransactWriteCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
-import { normalizeWorkoutName, type CatalogExercise, type CatalogGroup } from "@calci/shared";
+import { exerciseNameKey, type CatalogExercise, type CatalogGroup } from "@calci/shared";
 
 /**
  * Feature 015: admin-managed gym exercises. Items `GYMCATALOG / EX#<id>` plus a name guard
@@ -19,7 +19,7 @@ export interface CatalogRepo {
 
 const PK = "GYMCATALOG";
 const sk = (id: string) => `EX#${id}`;
-const guardPk = (name: string) => `GYMCATALOGNAME#${normalizeWorkoutName(name)}`;
+const guardPk = (name: string) => `GYMCATALOGNAME#${exerciseNameKey(name)}`;
 
 function toCatalog(i: Record<string, unknown>): CatalogExercise {
   return {

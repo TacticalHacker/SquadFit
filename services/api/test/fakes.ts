@@ -1,5 +1,5 @@
 import type { APIGatewayProxyEventV2WithJWTAuthorizer, APIGatewayProxyStructuredResultV2 } from "aws-lambda";
-import { normalizeWorkoutName, type CatalogExercise } from "@calci/shared";
+import { exerciseNameKey, type CatalogExercise } from "@calci/shared";
 import type { ActivitySource, ActivityValues, OverallNoteInput, ProfileInput, ReactionType, SquadSettingsInput, SquadStats, StepSettings } from "@calci/shared";
 import { toActivityItem, type ActivityItem, type ActivityRepo } from "../src/lib/activity-repo";
 import type { HealthTokenRepo } from "../src/lib/health-token-repo";
@@ -595,8 +595,8 @@ export class InMemoryCatalogRepo implements CatalogRepo {
   failList = false;
 
   private nameTaken(name: string, exceptId?: string) {
-    const n = normalizeWorkoutName(name);
-    return [...this.items.values()].some((i) => i.exerciseId !== exceptId && normalizeWorkoutName(i.name) === n);
+    const n = exerciseNameKey(name);
+    return [...this.items.values()].some((i) => i.exerciseId !== exceptId && exerciseNameKey(i.name) === n);
   }
   async list() {
     if (this.failList) throw Object.assign(new Error("boom"), { name: "ServiceUnavailable" });
