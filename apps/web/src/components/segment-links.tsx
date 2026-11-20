@@ -8,7 +8,7 @@ import { segmentClass, segmentGroupClass } from "./form-bits";
  */
 export function SegmentLinks({ label, options }: { label: string; options: readonly { label: string; href: string; current: boolean }[] }) {
   return (
-    <nav aria-label={label} className={`${segmentGroupClass} grid-cols-2`}>
+    <nav aria-label={label} className={segmentGroupClass} style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
       {options.map((o) =>
         o.current ? (
           <span key={o.label} aria-current="page" className={`min-h-11 ${segmentClass(true)}`}>

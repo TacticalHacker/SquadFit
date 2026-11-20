@@ -122,6 +122,14 @@ description: "Task list for feature 015: Exercise Admin Panel"
 
 ---
 
+## Phase 6c: User Story 6 – Member-made exercises, make global (P3)
+
+- [X] T042 [US6] `memberExercises()` in `services/api/src/lib/gym-merge.ts` (own exercises not taken by the library or any catalog row, grouped by `exerciseNameKey`, members + logged days, most common spelling/group); `memberExercises` in `AdminExercisesResponseSchema` and `GET /admin/exercises`
+- [X] T043 [US6] Test in `services/api/test/admin-merge.test.ts`: two members' "Zercher Squat"/"zercher-squat" → one row (2 members, 2 days, no user ids); create + merge moves both and empties the list
+- [X] T044 [US6] Web: `promoteExercise` Server Action (create, then merge); "Member-made" tab on `/settings/admin` (`?tab=member-made`, `components/admin-member-exercises.tsx`) with a Make global sheet (group picker); `SegmentLinks` takes any number of options
+
+---
+
 ## Phase 7: Polish & cross-cutting
 
 - [X] T033 [P] Add an "Exercise admin (feature 015)" section to `CLAUDE.md`: admin = Cognito group `admin` (`pnpm admin admins add|remove|list`), `/settings/admin`, `/admin/*` routes, `GYMCATALOG`/`GYMCATALOGNAME#` items, `getLibrary` (2-min cache; always pass the library, never `GYM_EXERCISES`, except boards), retired = hidden not deleted, merge service shared with the CLI, never log member data

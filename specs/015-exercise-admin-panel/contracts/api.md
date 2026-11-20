@@ -19,6 +19,7 @@ Response `AdminExercisesResponse`:
     createdAt, createdBy, updatedAt, updatedBy,
   }[],
   ownMatches: Record<string /* library exerciseId */, number /* members with a same-name own exercise */>,
+  memberExercises: { name, group, members, days }[], // Story 6: own exercises not in the library, grouped by name; counts only
   limit: 200,
 }
 ```

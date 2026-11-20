@@ -24,7 +24,7 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 const day = (iso: string) => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" }).format(new Date(iso));
 
 /** The submit button must still read as a button while disabled (not faded green text). */
-const submitClass = `min-h-12 w-full text-base ${buttonClass} disabled:border disabled:border-line-strong disabled:bg-surface-2 disabled:text-muted disabled:opacity-100`;
+export const submitClass = `min-h-12 w-full text-base ${buttonClass} disabled:border disabled:border-line-strong disabled:bg-surface-2 disabled:text-muted disabled:opacity-100`;
 
 /** High-contrast selection: solid ink fill, so the chosen group can't be missed. */
 const groupChipClass = (selected: boolean) =>
@@ -32,7 +32,7 @@ const groupChipClass = (selected: boolean) =>
     ? "inline-flex min-h-11 shrink-0 touch-manipulation items-center justify-center rounded-full border border-ink bg-ink px-4 text-sm font-medium text-paper"
     : chipClass(false);
 
-function GroupPicker({ value, onChange }: { value: CatalogGroup | null; onChange: (g: CatalogGroup) => void }) {
+export function GroupPicker({ value, onChange }: { value: CatalogGroup | null; onChange: (g: CatalogGroup) => void }) {
   return (
     <fieldset className="flex flex-col gap-2">
       <legend className="mb-1 text-sm font-medium">Muscle group</legend>

@@ -25,6 +25,10 @@ export const AdminExercisesResponseSchema = z.strictObject({
   catalog: z.array(CatalogExerciseSchema),
   /** Library exercise id → number of members with a same-name own exercise. Counts only (FR-017). */
   ownMatches: z.record(z.string(), z.number().int().nonnegative()),
+  /** Story 6: members' own exercises not in the library yet, grouped by name. Counts only, never who (FR-024). */
+  memberExercises: z.array(
+    z.strictObject({ name: z.string(), group: CatalogGroupSchema, members: z.number().int().positive(), days: z.number().int().nonnegative() }),
+  ),
   limit: z.literal(CATALOG_LIMIT),
 });
 export type AdminExercisesResponse = z.infer<typeof AdminExercisesResponseSchema>;

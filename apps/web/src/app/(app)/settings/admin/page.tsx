@@ -5,6 +5,7 @@ import { ChevronLeft } from "lucide-react";
 import { AdminExercisesResponseSchema } from "@calci/shared";
 import { AdminExercises } from "@/components/admin-exercises";
 import { AdminMembers } from "@/components/admin-members";
+import { AdminMemberExercises } from "@/components/admin-member-exercises";
 import { linkClass } from "@/components/form-bits";
 import { SegmentLinks } from "@/components/segment-links";
 import { apiFetch } from "@/server/api";
@@ -18,17 +19,20 @@ const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v
 async function Panel({ searchParams }: { searchParams: PageProps<"/settings/admin">["searchParams"] }) {
   const me = await getMe();
   if (!me.isAdmin) notFound();
-  const members = first((await searchParams).tab) === "members";
+  const tab = first((await searchParams).tab);
+  const members = tab === "members";
+  const made = tab === "member-made";
   return (
     <div className="flex flex-col gap-6">
       <SegmentLinks
         label="Admin sections"
         options={[
           { label: "Members", href: "/settings/admin?tab=members", current: members },
-          { label: "Exercise library", href: "/settings/admin", current: !members },
+          { label: "Exercise library", href: "/settings/admin", current: !members && !made },
+          { label: "Member-made", href: "/settings/admin?tab=member-made", current: made },
         ]}
       />
-      {members ? <AdminMembers /> : <Library />}
+      {members ? <AdminMembers /> : made ? <MemberMade /> : <Library />}
     </div>
   );
 }
@@ -36,6 +40,11 @@ async function Panel({ searchParams }: { searchParams: PageProps<"/settings/admi
 async function Library() {
   const data = await apiFetch("/admin/exercises", { schema: AdminExercisesResponseSchema });
   return <AdminExercises data={data} />;
+}
+
+async function MemberMade() {
+  const data = await apiFetch("/admin/exercises", { schema: AdminExercisesResponseSchema });
+  return <AdminMemberExercises items={data.memberExercises} full={data.catalog.length >= data.limit} />;
 }
 
 export default function AdminPage(props: PageProps<"/settings/admin">) {

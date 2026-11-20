@@ -79,3 +79,19 @@ export async function createMember(input: { username: string }): Promise<AdminRe
   const r = await call(() => apiFetch("/admin/users", { method: "POST", body: parsed.data, schema: AdminUserCreatedSchema }));
   return r.ok ? { ok: true, value: r.value } : r;
 }
+
+/**
+ * Story 6: make a member-made exercise global: add it to the library under the same name, then merge every member's
+ * copy into it (the merge matches by name). Two calls; if the merge fails the exercise is still added.
+ */
+export async function promoteExercise(input: { name: string; group: string }): Promise<AdminResult<AdminMergeResponse>> {
+  const parsed = AdminExerciseInputSchema.safeParse(input);
+  if (!parsed.success) return invalid(parsed.error.issues);
+  const created = await call(() => apiFetch("/admin/exercises", { method: "POST", body: parsed.data, schema: AdminExerciseResponseSchema }));
+  if (!created.ok) return created;
+  const id = created.value.exercise.exerciseId;
+  const merged = await call(() => apiFetch(`/admin/exercises/${encodeURIComponent(id)}/merge`, { method: "POST", schema: AdminMergeResponseSchema }));
+  refresh();
+  if (!merged.ok) return { ok: false, error: `Added to the library, but moving members' days failed: ${merged.error} Use Merge in the library to retry.` };
+  return { ok: true, value: merged.value };
+}

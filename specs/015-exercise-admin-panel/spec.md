@@ -93,6 +93,12 @@ An admin adds a new squad member from the panel instead of asking the operator t
 2. **Given** a username taken in any letter case, **When** an admin submits it, **Then** it is refused with "Username is taken" and nothing changes.
 3. **Given** a non-admin, **When** they call the create endpoint, **Then** it returns 403 and no account is created.
 
+### User Story 6 - Admin sees member-made exercises and makes one global (Priority: P3)
+
+An admin opens the **Member-made** tab and sees every own exercise that isn't in the library yet, grouped by name across members, with how many members have it and how many days are logged (never who). **Make global** adds it to the library under that name (the admin may change the group) and moves every member's copy onto it, as Merge does.
+
+**Independent Test**: Two members create "Zercher Squat" / "zercher-squat" and log a day each. The tab shows one row: Legs · 2 members · 2 days. Make global → the exercise is in the library, both days moved, both own copies removed, the row is gone.
+
 ### Edge Cases
 
 - Two admins add the same name at the same moment: exactly one succeeds, the other gets the "already exists" message.
@@ -141,6 +147,11 @@ An admin adds a new squad member from the panel instead of asking the operator t
 - **FR-021**: Admins MUST be able to create a member account from the panel with a username following 001 FR-002 (3–20 letters, digits or underscores); the server generates a 16-character temporary password (same alphabet as the CLI) and creates the account with no invitation message, requiring a new password at first sign-in (001 FR-004a). This is the admin tool of 001 FR-004; there is still no public sign-up.
 - **FR-022**: The temporary password MUST be returned only in the create response, shown once in the panel and never stored, logged or shown again. Password resets stay on the CLI.
 - **FR-023**: Only the account-creation function MAY call the identity provider's admin API, and only to create users in this user pool.
+
+**Member-made exercises (Story 6)**
+
+- **FR-024**: Admins MAY see the names, muscle group, number of members and number of logged days of members' own exercises whose name is not taken by the library or any catalog row (retired names are restored, not re-added). Responses MUST NOT identify members or carry sets, weights or dates.
+- **FR-025**: Making one global MUST add it to the catalog under the same name (group chosen by the admin, never Cardio) and then run the FR-018 merge for that exercise.
 
 **Privacy and logging**
 
