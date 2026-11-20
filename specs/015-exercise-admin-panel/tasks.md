@@ -128,6 +128,10 @@ description: "Task list for feature 015: Exercise Admin Panel"
 - [X] T043 [US6] Test in `services/api/test/admin-merge.test.ts`: two members' "Zercher Squat"/"zercher-squat" → one row (2 members, 2 days, no user ids); create + merge moves both and empties the list
 - [X] T044 [US6] Web: `promoteExercise` Server Action (create, then merge); "Member-made" tab on `/settings/admin` (`?tab=member-made`, `components/admin-member-exercises.tsx`) with a Make global sheet (group picker); `SegmentLinks` takes any number of options
 
+- [X] T045 [US6] Test first, then `suggestLibraryMatch` in `packages/shared/src/domain/exercise-match.ts` (DB Bench → Flat Dumbbell Press, EZ Bar Curls → EZ-Bar Curl; none for Bulgarian Split Squat, Smith Machine shoulder press, Bicep Curl)
+- [X] T046 [US6] `suggestion` on each `memberExercises` row; merge route accepts `{ sourceName }` (`ownByName`); test merging "DB Bench" into Flat Dumbbell Press
+- [X] T047 [US6] Web: suggested-match line with one-tap Merge, "Merge into…"/"Other…" picker sheet (auto-focused search, Enter = first result) with direction + impact confirm, "Add to library"
+
 ---
 
 ## Phase 7: Polish & cross-cutting

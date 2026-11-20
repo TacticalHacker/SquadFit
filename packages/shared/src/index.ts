@@ -18,6 +18,7 @@ export * from "./domain/workouts";
 export * from "./domain/day-view";
 export * from "./contracts/workouts";
 export * from "./domain/gym";
+export * from "./domain/exercise-match";
 export * from "./domain/gym-drawer";
 export * from "./contracts/gym";
 export * from "./contracts/admin-exercises";

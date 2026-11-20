@@ -19,7 +19,7 @@ Response `AdminExercisesResponse`:
     createdAt, createdBy, updatedAt, updatedBy,
   }[],
   ownMatches: Record<string /* library exerciseId */, number /* members with a same-name own exercise */>,
-  memberExercises: { name, group, members, days }[], // Story 6: own exercises not in the library, grouped by name; counts only
+  memberExercises: { name, group, members, days, suggestion: { exerciseId, name, group } | null }[], // Story 6: own exercises not in the library, grouped by name; counts only
   limit: 200,
 }
 ```
@@ -46,6 +46,8 @@ Body `{ updatedAt: string, name?: string, group?: Group, status?: "active" | "re
 ## `POST /admin/exercises/{exerciseId}/merge`
 
 `exerciseId` is any library strength exercise (built-in or active catalog). No body.
+
+Optional body `{ sourceName }` (Story 6): merge the member-made exercises with that name (any spelling) into the target, whatever the target is called. Without a body, the same-name copies are merged (Story 4).
 
 - `200 { members: number, moved: number, skipped: number, removed: number }`
 - `404 NOT_FOUND` (unknown, cardio or retired target)

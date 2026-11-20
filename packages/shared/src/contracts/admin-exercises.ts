@@ -27,11 +27,22 @@ export const AdminExercisesResponseSchema = z.strictObject({
   ownMatches: z.record(z.string(), z.number().int().nonnegative()),
   /** Story 6: members' own exercises not in the library yet, grouped by name. Counts only, never who (FR-024). */
   memberExercises: z.array(
-    z.strictObject({ name: z.string(), group: CatalogGroupSchema, members: z.number().int().positive(), days: z.number().int().nonnegative() }),
+    z.strictObject({
+      name: z.string(),
+      group: CatalogGroupSchema,
+      members: z.number().int().positive(),
+      days: z.number().int().nonnegative(),
+      /** Likely duplicate in the library (`suggestLibraryMatch`), or null. */
+      suggestion: z.strictObject({ exerciseId: z.string(), name: z.string(), group: MuscleGroupSchema }).nullable(),
+    }),
   ),
   limit: z.literal(CATALOG_LIMIT),
 });
 export type AdminExercisesResponse = z.infer<typeof AdminExercisesResponseSchema>;
+
+/** Story 6: optional body of the merge route: fold the member-made exercises with this name (any spelling) into the target. */
+export const AdminMergeInputSchema = z.strictObject({ sourceName: ExerciseNameSchema });
+export type AdminMergeInput = z.infer<typeof AdminMergeInputSchema>;
 
 const count = z.number().int().nonnegative();
 export const AdminMergeResponseSchema = z.strictObject({ members: count, moved: count, skipped: count, removed: count });

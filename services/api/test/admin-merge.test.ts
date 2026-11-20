@@ -41,11 +41,26 @@ describe("member-made exercises (feature 015, Story 6)", () => {
     const admin = makeEvent({ groups: "[admin]" });
 
     const before = (await list(admin, deps).then(parse)).body;
-    expect(before.memberExercises).toEqual([{ name: "Zercher Squat", group: "legs", members: 2, days: 2 }]);
+    expect(before.memberExercises).toEqual([{ name: "Zercher Squat", group: "legs", members: 2, days: 2, suggestion: null }]);
     expect(JSON.stringify(before)).not.toContain("user-");
 
     const created = await add(makeEvent({ groups: "[admin]", body: { name: "Zercher Squat", group: "legs" } }), deps).then(parse);
     expect((await run(deps, created.body.exercise.exerciseId)).body).toEqual({ members: 2, moved: 2, skipped: 0, removed: 2 });
     expect((await list(admin, deps).then(parse)).body.memberExercises).toEqual([]);
+  });
+});
+
+describe("merge a member-made exercise into a differently named one (Story 6)", () => {
+  it("suggests the likely duplicate and moves every copy with that name", async () => {
+    const { deps, profiles, gym, workouts } = makeDeps("2026-11-11T10:00:00.000Z");
+    await seedProfile(profiles);
+    await gym.putOwnExercise("user-1", { exerciseId: "gc-1", name: "DB Bench", group: "chest", createdAt: "t", updatedAt: "t" });
+    await gymPut(deps, "2026-11-10", "gc-1", { sets: sets(3, 20, 10, true) });
+    const admin = makeEvent({ groups: "[admin]" });
+    expect((await list(admin, deps).then(parse)).body.memberExercises[0].suggestion).toMatchObject({ exerciseId: "gx-flat-dumbbell-press" });
+
+    const r = await merge(makeEvent({ groups: "[admin]", pathParameters: { exerciseId: "gx-flat-dumbbell-press" }, body: { sourceName: "db  bench" } }), deps).then(parse);
+    expect(r.body).toEqual({ members: 1, moved: 1, skipped: 0, removed: 1 });
+    expect(await workouts.getEntry("user-1", "2026-11-10", "gx-flat-dumbbell-press")).toMatchObject({ name: "Flat Dumbbell Press" });
   });
 });

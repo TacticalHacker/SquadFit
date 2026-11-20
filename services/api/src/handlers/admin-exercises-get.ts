@@ -1,5 +1,5 @@
 import type { APIGatewayProxyEventV2WithJWTAuthorizer, APIGatewayProxyHandlerV2WithJWTAuthorizer } from "aws-lambda";
-import { CATALOG_LIMIT, GYM_EXERCISES, buildLibrary, type AdminExercisesResponse, type CatalogGroup } from "@calci/shared";
+import { CATALOG_LIMIT, GYM_EXERCISES, buildLibrary, suggestLibraryMatch, type AdminExercisesResponse, type CatalogGroup } from "@calci/shared";
 import { getCaller, requireAdmin } from "../lib/auth";
 import { getDeps, type Deps } from "../lib/deps";
 import { memberExercises } from "../lib/gym-merge";
@@ -18,7 +18,12 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
     // Counts of members only, never who (FR-017).
     ownMatches: Object.fromEntries([...matches].map(([id, owners]) => [id, new Set(owners.map((o) => o.userId)).size])),
     // Story 6: own exercises not in the library yet, grouped by name; counts only (FR-024).
-    memberExercises: fromMembers.filter((m) => m.group !== "cardio").map((m) => ({ ...m, group: m.group as CatalogGroup })),
+    memberExercises: fromMembers
+      .filter((m) => m.group !== "cardio")
+      .map((m) => {
+        const hit = suggestLibraryMatch(m.name, library);
+        return { ...m, group: m.group as CatalogGroup, suggestion: hit ? { exerciseId: hit.id, name: hit.name, group: hit.group } : null };
+      }),
     limit: CATALOG_LIMIT,
   };
   return ok(body);

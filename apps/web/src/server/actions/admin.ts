@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import {
   AdminExerciseInputSchema,
   AdminExercisePatchSchema,
+  AdminMergeInputSchema,
   AdminExerciseResponseSchema,
   AdminMergeResponseSchema,
   AdminUserCreatedSchema,
@@ -94,4 +95,17 @@ export async function promoteExercise(input: { name: string; group: string }): P
   refresh();
   if (!merged.ok) return { ok: false, error: `Added to the library, but moving members' days failed: ${merged.error} Use Merge in the library to retry.` };
   return { ok: true, value: merged.value };
+}
+
+/** Story 6: fold the member-made exercises named `sourceName` (any spelling) into a library exercise. */
+export async function mergeMemberExercise(targetId: string, sourceName: string): Promise<AdminResult<AdminMergeResponse>> {
+  if (!ID_RE.test(targetId)) return { ok: false, error: GENERIC };
+  const parsed = AdminMergeInputSchema.safeParse({ sourceName });
+  if (!parsed.success) return invalid(parsed.error.issues);
+  const r = await call(() =>
+    apiFetch(`/admin/exercises/${encodeURIComponent(targetId)}/merge`, { method: "POST", body: parsed.data, schema: AdminMergeResponseSchema }),
+  );
+  if (!r.ok) return r;
+  refresh();
+  return { ok: true, value: r.value };
 }

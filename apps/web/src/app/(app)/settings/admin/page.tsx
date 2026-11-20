@@ -44,7 +44,12 @@ async function Library() {
 
 async function MemberMade() {
   const data = await apiFetch("/admin/exercises", { schema: AdminExercisesResponseSchema });
-  return <AdminMemberExercises items={data.memberExercises} full={data.catalog.length >= data.limit} />;
+  // Merge targets: strength exercises members can log today (built-ins + active catalog).
+  const library = [
+    ...data.builtIn.filter((b) => b.kind === "strength").map((b) => ({ exerciseId: b.exerciseId, name: b.name, group: b.group })),
+    ...data.catalog.filter((c) => c.status === "active").map((c) => ({ exerciseId: c.exerciseId, name: c.name, group: c.group })),
+  ];
+  return <AdminMemberExercises items={data.memberExercises} library={library} full={data.catalog.length >= data.limit} />;
 }
 
 export default function AdminPage(props: PageProps<"/settings/admin">) {

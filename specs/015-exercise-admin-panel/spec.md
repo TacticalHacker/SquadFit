@@ -151,6 +151,7 @@ An admin opens the **Member-made** tab and sees every own exercise that isn't in
 **Member-made exercises (Story 6)**
 
 - **FR-024**: Admins MAY see the names, muscle group, number of members and number of logged days of members' own exercises whose name is not taken by the library or any catalog row (retired names are restored, not re-added). Responses MUST NOT identify members or carry sets, weights or dates.
+- **FR-026**: Each member-made row MUST show a suggested library match when one is clearly the closest (`suggestLibraryMatch`: abbreviations and plurals understood; no suggestion on an equipment or angle clash, weak movement overlap or a tie), with a one-tap **Merge**, plus **Merge into…** (searchable picker of library strength exercises, Enter takes the first result) and **Add to library**. Every merge shows its direction ("DB Bench" → Flat Dumbbell Press) and impact (logged days and member counts) before it runs. Member usernames are never shown (constitution: no usernames in responses about other members).
 - **FR-025**: Making one global MUST add it to the catalog under the same name (group chosen by the admin, never Cardio) and then run the FR-018 merge for that exercise.
 
 **Privacy and logging**

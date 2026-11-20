@@ -44,6 +44,12 @@ export async function findOwnMatches(library: GymLibrary, deps: Pick<Deps, "prof
   return matches;
 }
 
+/** Story 6: every member's active own exercise with this name (case, spacing, punctuation ignored). */
+export async function ownByName(name: string, deps: Pick<Deps, "profiles" | "gym">): Promise<OwnSource[]> {
+  const key = exerciseNameKey(name);
+  return (await listCommunityOwn(deps)).filter((o) => exerciseNameKey(o.name) === key).map(({ userId, exerciseId }) => ({ userId, exerciseId }));
+}
+
 export interface MemberExercise {
   name: string;
   group: MuscleGroup;
