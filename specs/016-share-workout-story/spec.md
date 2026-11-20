@@ -8,6 +8,18 @@
 
 **Input**: User description: "Share to Story for a workout day (Strava-style share card)": a member taps Share on a workout day and gets a 9:16 image made on their phone (three templates: Photo, Sticker, Card) to post to an Instagram Story or anywhere else, with an optional own photo that stays on the phone, plus a secondary "Post to squad feed" that puts that workout day in the squad feed (one post per day, optional photo shared with the squad only).
 
+## Clarifications
+
+### Session 2026-11-20
+
+Run autonomously at the owner's request (recommended option taken each time).
+
+- Q: Where does a posted workout day sit in the squad feed, and does re-posting move it? → A: It is placed by the time it was first posted; re-posting (e.g. adding or removing the photo) updates it in place without moving it.
+- Q: What does "Remove post" do to the day's reactions, given the same day item also carries reactions on the member's profile timeline? → A: Removing unlists it from the feed and deletes its posted photo; reactions are kept (they still show on the profile timeline card). Only a day that stops being a workout day loses its reactions (existing rule).
+- Q: What limits apply to a photo posted to the feed? → A: The same as food photos: shrunk on the device to a JPEG of at most 1.5 MB, checked on the server by its content (JPEG/WebP only), one photo per posted day, replaced on re-post.
+- Q: Is Share on the member's own profile timeline cards required or optional? → A: Required for the member's own cards (same sheet); never on other members' cards.
+- Q: How often can a member post or re-post? → A: No extra limit: one item per day by design, and posting is an idempotent update.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Share today's workout as a story image (Priority: P1)
@@ -92,11 +104,12 @@ In the same sheet, a secondary option **Post to squad feed** puts that workout d
 **Acceptance Scenarios**:
 
 1. **Given** the member posts a day, **Then** it appears at the top of the squad feed with the post time, and reactions that day already had are kept.
-2. **Given** the day is already posted, **When** they post again, **Then** no second item appears (the existing post is updated, e.g. to add or remove the photo).
+2. **Given** the day is already posted, **When** they post again, **Then** no second item appears and it keeps its place in the feed (the existing post is updated, e.g. to add or remove the photo).
 3. **Given** the member is hidden from the leaderboard, **Then** the option is shown disabled with "You're hidden from the squad, so you can't post." and the server refuses posts.
-4. **Given** a post has a photo, **Then** only signed-in members see it, through links that expire, and the photo is deleted when the post is removed or when the day stops being a workout day.
-5. **Given** the member later deletes every exercise of that day, **Then** the post disappears from the feed.
-6. **Given** the photo option is unchecked, **Then** nothing about the photo is sent.
+4. **Given** the member removes the post, **Then** it leaves the feed, its photo is deleted, and the day's reactions still show on their profile timeline.
+5. **Given** a post has a photo, **Then** only signed-in members see it, through links that expire, and the photo is deleted when the post is removed or when the day stops being a workout day.
+6. **Given** the member later deletes every exercise of that day, **Then** the post disappears from the feed.
+7. **Given** the photo option is unchecked, **Then** nothing about the photo is sent.
 
 ---
 
@@ -120,7 +133,7 @@ In the same sheet, a secondary option **Post to squad feed** puts that workout d
 **Entry point**
 
 - **FR-001**: The Gym tab day view MUST show a Share button (share icon, "Share") for the viewed day when that day is a workout day for the member (gym strength with a completed set, gym cardio, or any activity entry), for today and any past day.
-- **FR-002**: The member's own profile timeline day cards SHOULD offer the same Share action; other members' cards MUST NOT.
+- **FR-002**: The member's own profile timeline day cards MUST offer the same Share action; other members' cards MUST NOT.
 
 **Figures (server-computed)**
 
@@ -159,10 +172,10 @@ In the same sheet, a secondary option **Post to squad feed** puts that workout d
 
 **Squad feed post**
 
-- **FR-026**: "Post to squad feed" MUST make the member's workout day appear in the squad feed list as one item per workout day, keeping any reactions it already has; posting again MUST update, not duplicate.
+- **FR-026**: "Post to squad feed" MUST make the member's workout day appear in the squad feed list as one item per workout day, placed by the time it was first posted and keeping any reactions it already has; posting again MUST update in place, not duplicate or move it.
 - **FR-027**: The feed item MUST show the date, label, headline figures, up to 5 exercises with best sets and the day's personal bests, computed when the feed is read so later edits to that day are reflected.
-- **FR-028**: The member MUST be able to remove their post; removing it hides it from the feed and deletes any posted photo (reactions go with it, as for other removed feed items).
-- **FR-029**: The photo MUST be posted only when the member ticks "Also post this photo to your squad" (default unticked). It MUST be checked to be an image, limited in size, stored privately, shown only to signed-in members through links that expire within an hour, and deleted with the post or when the day stops being a workout day.
+- **FR-028**: The member MUST be able to remove their post; removing it hides it from the feed and deletes any posted photo. Reactions are kept, because they also belong to the day's profile timeline card.
+- **FR-029**: The photo MUST be posted only when the member ticks "Also post this photo to your squad" (default unticked). It MUST be shrunk on the device to a JPEG of at most 1.5 MB, checked on the server by its content (JPEG or WebP only), stored privately (one per posted day, replaced on re-post), shown only to signed-in members through links that expire within an hour, and deleted with the post or when the day stops being a workout day.
 - **FR-030**: A member hidden from the leaderboard MUST NOT be able to post (server-enforced); the feed already hides such members' items.
 - **FR-031**: Only the member's own workout days (today or past) can be posted; a day that is not a workout day MUST be refused.
 
