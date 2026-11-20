@@ -1,6 +1,7 @@
 import {
   STRENGTH_RATE,
-  cardioTotals,
+  cardioEntryTotals,
+  effectiveBodyWeight,
   findGymExercise,
   gymTotals,
   type ApiErrorCode,
@@ -10,6 +11,7 @@ import {
 } from "@calci/shared";
 import type { Deps } from "./deps";
 import type { GymEntryItem } from "./gym-repo";
+import { getLibrary } from "./gym-library";
 import { safeRefresh } from "./squad-stats";
 
 export type WriteFailure = { ok: false; status: number; code: ApiErrorCode; message: string; fields?: Record<string, string> };
@@ -20,6 +22,7 @@ interface Target {
   kind: ExerciseKind;
   rateMinutes: number;
   rateCalories: number;
+  treadmill: boolean;
 }
 
 /**
@@ -38,9 +41,10 @@ export async function saveGymEntry(
   const existing = await deps.gym.getGymEntry(userId, date, exerciseId);
   const existingGym = existing?.kind === "gym" ? existing : null;
 
-  // Current definition: built-in, or the caller's active own exercise.
+  // Current definition: library (built-in or active catalog, feature 015), or the caller's active own exercise.
+  // A retired catalog exercise is absent, so it falls back to the day's snapshot below like a removed own one.
   let target: Target | null = null;
-  const builtIn = findGymExercise(exerciseId);
+  const builtIn = findGymExercise(exerciseId, await getLibrary(deps));
   if (builtIn) {
     target = {
       name: builtIn.name,
@@ -48,10 +52,11 @@ export async function saveGymEntry(
       kind: builtIn.kind,
       rateMinutes: builtIn.rateMinutes ?? STRENGTH_RATE.rateMinutes,
       rateCalories: builtIn.rateCalories ?? STRENGTH_RATE.rateCalories,
+      treadmill: builtIn.treadmill === true,
     };
   } else if (exerciseId.startsWith("gc-")) {
     const own = await deps.gym.getOwnExercise(userId, exerciseId);
-    if (own && !own.removedAt) target = { name: own.name, group: own.group, kind: "strength", ...STRENGTH_RATE };
+    if (own && !own.removedAt) target = { name: own.name, group: own.group, kind: "strength", ...STRENGTH_RATE, treadmill: false };
   }
   // A removed own exercise can still be re-saved on a day it was logged, keeping its stored snapshot (006 FR-018).
   if (!target && existingGym) {
@@ -61,6 +66,7 @@ export async function saveGymEntry(
       kind: existingGym.exerciseKind ?? "strength",
       rateMinutes: existingGym.rateMinutes,
       rateCalories: existingGym.rateCalories,
+      treadmill: existingGym.inclinePct !== undefined || existingGym.speedKmh !== undefined,
     };
   }
   if (!target) return { ok: false, status: 404, code: "NOT_FOUND", message: "Exercise not found" };
@@ -70,6 +76,10 @@ export async function saveGymEntry(
   }
   if (target.kind === "cardio" && !("minutes" in data)) {
     return { ok: false, status: 400, code: "VALIDATION_FAILED", message: "This exercise is logged in minutes", fields: { minutes: "Enter the minutes" } };
+  }
+
+  if ("minutes" in data && (data.inclinePct !== undefined || data.speedKmh !== undefined) && !target.treadmill) {
+    return { ok: false, status: 400, code: "VALIDATION_FAILED", message: "Only treadmill exercises take incline and speed" };
   }
 
   const nowIso = deps.now().toISOString();
@@ -90,8 +100,22 @@ export async function saveGymEntry(
     const totals = gymTotals(data.sets);
     entry = { ...common, sets: data.sets, volumeKg: totals.volumeKg, minutes: totals.minutes, calories: totals.calories };
   } else {
-    const totals = cardioTotals(target.rateMinutes, target.rateCalories, data.minutes);
-    entry = { ...common, minutes: totals.minutes, calories: totals.calories };
+    // Treadmill with incline and speed: the ACSM equation at the member's body weight; otherwise minutes × rate.
+    const detailed = target.treadmill && data.inclinePct !== undefined && data.speedKmh !== undefined;
+    const bodyWeightKg = detailed ? effectiveBodyWeight((await deps.profiles.get(userId)) ?? {}).kg : 0;
+    const totals = cardioEntryTotals({
+      rateMinutes: target.rateMinutes,
+      rateCalories: target.rateCalories,
+      minutes: data.minutes,
+      treadmill: detailed ? { inclinePct: data.inclinePct, speedKmh: data.speedKmh, bodyWeightKg } : null,
+    });
+    entry = {
+      ...common,
+      minutes: totals.minutes,
+      calories: totals.calories,
+      ...(data.inclinePct !== undefined ? { inclinePct: data.inclinePct } : {}),
+      ...(data.speedKmh !== undefined ? { speedKmh: data.speedKmh } : {}),
+    };
   }
   await deps.gym.putGymEntry(userId, entry);
   // Feature 010: streaks, PRs and feed follow every gym save, from the app or the AI agent alike.

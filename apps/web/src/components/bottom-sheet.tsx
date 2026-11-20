@@ -124,6 +124,10 @@ export function BottomSheet({
       d.showModal();
       paint(height());
       springTo(0, 0);
+    } else if (open && !closing.current && !stop.current && !drag.current && pos.current.value !== 0) {
+      // Effects re-ran mid-entrance (Strict Mode, Activity) and the cleanup cancelled the spring:
+      // finish the entrance instead of leaving the sheet parked below the screen.
+      springTo(0, 0);
     }
     if (!open && d.open) {
       halt();
@@ -131,7 +135,13 @@ export function BottomSheet({
     }
   }, [open, paint, springTo, halt]);
 
-  useEffect(() => () => void stop.current?.(), []);
+  useEffect(
+    () => () => {
+      stop.current?.();
+      stop.current = null;
+    },
+    [],
+  );
 
   // Stop the page behind from scrolling while the sheet is open.
   useEffect(() => {
@@ -186,7 +196,7 @@ export function BottomSheet({
           // A click on the <dialog> itself (not the panel) is a click on the backdrop.
           if (e.target === dialogRef.current) dismiss();
         }}
-        className="fixed inset-x-0 top-auto bottom-0 m-0 h-auto max-h-none w-full max-w-none bg-transparent p-0 text-ink sm:mx-auto sm:max-w-lg"
+        className="fixed inset-x-0 top-auto bottom-0 m-0 h-auto max-h-none w-full max-w-none overflow-hidden bg-transparent p-0 text-ink sm:mx-auto sm:max-w-lg"
       >
         <div ref={panelRef} className="flex max-h-[85dvh] flex-col rounded-t-lg border border-b-0 border-line bg-surface">
           <div

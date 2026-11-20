@@ -5,8 +5,13 @@ import {
   GYM_MAX_REPS,
   GYM_MAX_SETS,
   GYM_MAX_WEIGHT,
+  GYM_MAX_INCLINE,
+  GYM_MAX_SPEED,
+  GYM_MIN_SPEED,
   GYM_MINUTES_MESSAGE,
+  INCLINE_MESSAGE,
   MuscleGroupSchema,
+  SPEED_MESSAGE,
   REPS_MESSAGE,
   WEIGHT_MESSAGE,
 } from "../domain/gym";
@@ -36,8 +41,22 @@ export const GymStrengthPutSchema = z.strictObject({
     .max(GYM_MAX_SETS, `At most ${GYM_MAX_SETS} sets`)
     .refine((sets) => sets.every((s, i) => s.setNumber === i + 1), "Sets must be numbered 1, 2, 3… in order"),
 });
+export const InclinePctSchema = z
+  .number({ error: INCLINE_MESSAGE })
+  .min(0, INCLINE_MESSAGE)
+  .max(GYM_MAX_INCLINE, INCLINE_MESSAGE)
+  .refine((n) => Number.isInteger(n * 2), INCLINE_MESSAGE);
+export const SpeedKmhSchema = z
+  .number({ error: SPEED_MESSAGE })
+  .min(GYM_MIN_SPEED, SPEED_MESSAGE)
+  .max(GYM_MAX_SPEED, SPEED_MESSAGE)
+  .refine((n) => Math.abs(n * 10 - Math.round(n * 10)) < 1e-9, SPEED_MESSAGE);
+
 export const GymCardioPutSchema = z.strictObject({
   minutes: z.number({ error: GYM_MINUTES_MESSAGE }).int(GYM_MINUTES_MESSAGE).min(1, GYM_MINUTES_MESSAGE).max(600, GYM_MINUTES_MESSAGE),
+  /** Treadmill only (Incline Treadmill Walk); each optional. */
+  inclinePct: InclinePctSchema.optional(),
+  speedKmh: SpeedKmhSchema.optional(),
 });
 export const GymEntryPutSchema = z.union([GymStrengthPutSchema, GymCardioPutSchema]);
 export type GymEntryPut = z.infer<typeof GymEntryPutSchema>;
@@ -54,6 +73,9 @@ export const GymEntryViewSchema = z.object({
   aiNote: z.string().nullable().default(null),
   /** Feature 010: an unusual jump awaiting "Looks right"; rollout-safe default. */
   jumpFlag: z.boolean().default(false),
+  /** Treadmill details; defaults cover an API deployed before them. */
+  inclinePct: z.number().nullable().default(null),
+  speedKmh: z.number().nullable().default(null),
   updatedAt: z.string(),
 });
 
@@ -61,6 +83,8 @@ export const GymLastSchema = z.object({
   date: DateSchema,
   sets: z.array(GymSetSchema).nullable(),
   minutes: z.number(),
+  inclinePct: z.number().nullable().default(null),
+  speedKmh: z.number().nullable().default(null),
   top: z.object({ weightKg: z.number(), reps: z.number() }).nullable(),
 });
 
@@ -70,6 +94,7 @@ export const GymExerciseSchema = z.object({
   group: MuscleGroupSchema,
   kind: ExerciseKindSchema,
   isBuiltIn: z.boolean(),
+  treadmill: z.boolean().default(false),
   rateMinutes: z.number().nullable(),
   rateCalories: z.number().nullable(),
   entry: GymEntryViewSchema.nullable(),
@@ -77,6 +102,8 @@ export const GymExerciseSchema = z.object({
 });
 
 export const GymViewSchema = z.object({
+  /** The caller's own effective body weight; default covers an API deployed before it. */
+  bodyWeightKg: z.number().default(75),
   date: DateSchema,
   today: DateSchema,
   timezone: z.string(),

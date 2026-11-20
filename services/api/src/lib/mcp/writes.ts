@@ -4,8 +4,8 @@ import {
   findGymExerciseByName,
   findStandardFood,
   formatLogId,
-  GYM_EXERCISES,
   isEditableDay,
+  exerciseNameKey,
   normalizeWorkoutName,
   parseLogId,
   STANDARD_FOODS,
@@ -22,6 +22,7 @@ import {
 } from "@calci/shared";
 import { createFoodEntry, patchFoodEntry } from "../food-write";
 import { ENTRY_ID_PATTERN } from "../food-repo";
+import { getLibrary } from "../gym-library";
 import { saveGymEntry, type WriteFailure } from "../gym-save";
 import { describeIssues, fail, stripUnknown, type Tool, type ToolContext, type ToolResult } from "./types";
 
@@ -93,23 +94,23 @@ const nf = new Intl.NumberFormat("en", { maximumFractionDigits: 1 });
 const upsertWorkoutLog: Tool = {
   name: "upsert_workout_log",
   description:
-    "Logs a gym exercise for the member, or replaces that exercise's entry for the day (one entry per exercise per day). exercise: an id (gx-..., gc-...) or the exact exercise name. Strength exercises take sets (reps, weightKg; completed defaults to true); cardio exercises take minutes. Minutes, calories and volume are computed by the app, so do not send them; call update_workout_calories afterwards for a body-weight-based estimate. Only today and the 2 previous days.",
+    "Logs a gym exercise for the member, or replaces that exercise's entry for the day (one entry per exercise per day). exercise: an id (gx-..., gc-...) or the exact exercise name. Strength exercises take sets (reps, weightKg; completed defaults to true); cardio exercises take minutes (Incline Treadmill Walk also takes optional inclinePct and speedKmh). Minutes, calories and volume are computed by the app, so do not send them; call update_workout_calories afterwards for a body-weight-based estimate. Only today and the 2 previous days.",
   shape: UpsertWorkoutShape,
   async run(args, ctx) {
     const parsed = UpsertWorkoutInputSchema.safeParse(stripUnknown(args, UpsertWorkoutShape));
     if (!parsed.success) return fail(describeIssues(parsed.error));
-    const { date, exercise, sets, minutes } = parsed.data;
+    const { date, exercise, sets, minutes, inclinePct, speedKmh } = parsed.data;
     const problem = writableDateProblem(date, ctx.today);
     if (problem) return fail(problem);
 
-    const own = await ctx.deps.gym.listOwnExercises(ctx.userId);
-    const isId = findGymExercise(exercise) || own.some((e) => e.exerciseId === exercise && !e.removedAt);
-    const exerciseId = isId ? exercise : findGymExerciseByName(exercise, own);
+    const [own, library] = await Promise.all([ctx.deps.gym.listOwnExercises(ctx.userId), getLibrary(ctx.deps)]);
+    const isId = findGymExercise(exercise, library) || own.some((e) => e.exerciseId === exercise && !e.removedAt);
+    const exerciseId = isId ? exercise : findGymExerciseByName(exercise, own, library);
     if (!exerciseId) {
-      const q = normalizeWorkoutName(exercise);
+      const q = exerciseNameKey(exercise);
       const words = q.split(" ").filter((w) => w.length > 2);
-      const close = [...GYM_EXERCISES.map((e) => e.name), ...own.filter((e) => !e.removedAt).map((e) => e.name)]
-        .filter((n) => words.some((w) => normalizeWorkoutName(n).includes(w)))
+      const close = [...library.map((e) => e.name), ...own.filter((e) => !e.removedAt).map((e) => e.name)]
+        .filter((n) => words.some((w) => exerciseNameKey(n).includes(w)))
         .slice(0, 5);
       return fail(`Exercise not found.${close.length ? ` Close matches: ${close.join(", ")}.` : ""}`);
     }
@@ -118,11 +119,14 @@ const upsertWorkoutLog: Tool = {
 
     const body: GymEntryPut = sets
       ? { sets: sets.map((s, i) => ({ setNumber: i + 1, reps: s.reps, weightKg: s.weightKg, completed: s.completed ?? true })) }
-      : { minutes: minutes! };
+      : { minutes: minutes!, ...(inclinePct !== undefined ? { inclinePct } : {}), ...(speedKmh !== undefined ? { speedKmh } : {}) };
     const saved = await saveGymEntry(ctx.userId, date, exerciseId, body, ctx.deps);
     if (!saved.ok) return failWrite(saved);
     const e = saved.entry;
-    const detail = e.sets ? `${e.sets.length} ${e.sets.length === 1 ? "set" : "sets"}, ${nf.format(e.volumeKg ?? 0)} kg volume` : `${e.minutes} min`;
+    const tread = [e.inclinePct !== undefined ? `${nf.format(e.inclinePct)}% incline` : "", e.speedKmh !== undefined ? `${nf.format(e.speedKmh)} km/h` : ""].filter(Boolean);
+    const detail = e.sets
+      ? `${e.sets.length} ${e.sets.length === 1 ? "set" : "sets"}, ${nf.format(e.volumeKg ?? 0)} kg volume`
+      : `${e.minutes} min${tread.length ? ` at ${tread.join(", ")}` : ""}`;
     return { text: `Saved ${e.name} on ${date}: ${detail}, ${e.calories} kcal. logId ${formatLogId(date, exerciseId)}` };
   },
 };

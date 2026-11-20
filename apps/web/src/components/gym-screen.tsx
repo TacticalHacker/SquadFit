@@ -139,6 +139,7 @@ export function GymScreen({ initialView, username, openId: initialOpenId }: { in
           date={date}
           editable={editable}
           username={username}
+          bodyWeightKg={view.bodyWeightKg}
           onClose={() => setOpenId(null)}
           onSaved={onSaved}
         />

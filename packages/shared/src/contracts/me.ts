@@ -36,6 +36,8 @@ export type OwnProfile = z.infer<typeof OwnProfileSchema>;
 export const MeResponseSchema = z.object({
   username: z.string(),
   profile: OwnProfileSchema.nullable(),
+  /** Feature 015: the caller's own admin flag (Cognito group); the default covers an API deployed before it. */
+  isAdmin: z.boolean().default(false),
 });
 export type MeResponse = z.infer<typeof MeResponseSchema>;
 

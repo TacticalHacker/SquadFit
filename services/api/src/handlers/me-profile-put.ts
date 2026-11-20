@@ -14,7 +14,7 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
 
   const item = await deps.profiles.upsert(caller.userId, caller.username, parsed.data, deps.now().toISOString());
   await safeRefreshProtein(caller.userId, deps);
-  const body: MeResponse = { username: caller.username, profile: await toOwnProfile(item, deps.avatars) };
+  const body: MeResponse = { username: caller.username, isAdmin: caller.isAdmin, profile: await toOwnProfile(item, deps.avatars) };
   return ok(body);
 }
 

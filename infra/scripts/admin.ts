@@ -10,18 +10,23 @@
  *   pnpm admin squad backfill [--stage dev|prod]                   (feature 010: build squad stats from history, no feed items)
  *   pnpm admin squad timezone <IANA> [--stage dev|prod]            (feature 013: month boundaries for the boards)
  *   pnpm admin squad migrate-reactions [--stage dev|prod]          (feature 013: high-fives become 💪, safe to re-run)
- *   pnpm admin gym merge <gx-id> <gc-id>... [--dry-run] [--stage dev|prod]  (members' own exercises → a built-in, history kept)
+ *   pnpm admin gym merge <gx-id> <gc-id>... [--dry-run] [--stage dev|prod]  (members' own exercises → a library exercise, history kept)
+ *   pnpm admin admins add|remove <username> [--stage dev|prod]     (feature 015: the Cognito group "admin" manages the exercise library)
+ *   pnpm admin admins list [--stage dev|prod]
  *
  * Needs AWS credentials for the target account (AWS_PROFILE etc).
  */
 import { CloudFormationClient, DescribeStacksCommand } from "@aws-sdk/client-cloudformation";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
+  AdminAddUserToGroupCommand,
   AdminCreateUserCommand,
+  AdminRemoveUserFromGroupCommand,
   AdminGetUserCommand,
   AdminSetUserPasswordCommand,
   CognitoIdentityProviderClient,
   ListUsersCommand,
+  ListUsersInGroupCommand,
   type UserType,
 } from "@aws-sdk/client-cognito-identity-provider";
 import { SQUAD_ID, UsernameSchema, isValidTimeZone } from "@calci/shared";
@@ -47,7 +52,11 @@ const USAGE = `Usage:
   pnpm admin squad backfill [--stage dev|prod]
   pnpm admin squad timezone <IANA> [--stage dev|prod]
   pnpm admin squad migrate-reactions [--stage dev|prod]
-  pnpm admin gym merge <gx-id> <gc-id>... [--dry-run] [--stage dev|prod]`;
+  pnpm admin gym merge <gx-id> <gc-id>... [--dry-run] [--stage dev|prod]
+  pnpm admin admins add|remove <username> [--stage dev|prod]
+  pnpm admin admins list [--stage dev|prod]`;
+
+const ADMIN_GROUP = "admin";
 
 function fail(message: string): never {
   console.error(message);
@@ -178,12 +187,8 @@ async function main() {
     const sources = rest.filter((a) => a !== "--dry-run");
     const table = await stackOutput("Data", "TableName", stage, region);
     const r = await mergeOwnExercises(ddb, table, third!, sources, dryRun);
-    if (!dryRun) {
-      const deps = { profiles: new DynamoProfileRepo(table, ddb), workouts: new DynamoWorkoutRepo(table, ddb), squad: new DynamoSquadRepo(table, ddb), now: () => new Date() };
-      for (const userId of r.members) await refreshSquadStats(userId, deps, { seed: true });
-    }
     // Counts only: never names or sets (constitution VI).
-    console.log(`${dryRun ? "[dry run] " : ""}members: ${r.members.size}, days moved: ${r.moved}, days left (already logged the built-in): ${r.conflicts}, own exercises retired: ${r.removed}${r.missing.length ? `, not found: ${r.missing.join(" ")}` : ""}`);
+    console.log(`${dryRun ? "[dry run] " : ""}members: ${r.members}, days moved: ${r.moved}, days left (already logged the target): ${r.skipped}, own exercises retired: ${r.removed}${r.missing.length ? `, not found: ${r.missing.join(" ")}` : ""}`);
     return;
   }
 
@@ -259,6 +264,29 @@ async function main() {
       }
       printCredentials(name, tempPassword);
       return;
+    }
+    // Feature 015: admins manage the gym exercise library. Usernames only; members re-sign-in to pick up the group.
+    case "admins": {
+      if (username === "list") {
+        const names: string[] = [];
+        let next: string | undefined;
+        do {
+          const res = await idp.send(new ListUsersInGroupCommand({ UserPoolId: userPoolId, GroupName: ADMIN_GROUP, NextToken: next }));
+          names.push(...(res.Users ?? []).map((u) => u.Username ?? ""));
+          next = res.NextToken;
+        } while (next);
+        return void console.log(names.length ? names.sort().join("\n") : "No admins yet.");
+      }
+      if (username !== "add" && username !== "remove") fail(USAGE);
+      const name = requireUsername(third);
+      try {
+        const input = { UserPoolId: userPoolId, Username: name, GroupName: ADMIN_GROUP };
+        await idp.send(username === "add" ? new AdminAddUserToGroupCommand(input) : new AdminRemoveUserFromGroupCommand(input));
+      } catch (err) {
+        if (err instanceof Error && err.name === "UserNotFoundException") fail("No such user");
+        throw err;
+      }
+      return void console.log(username === "add" ? `${name} is now an admin (sign in again to use it).` : `${name} is no longer an admin (takes effect within an hour).`);
     }
     case "ai-key":
       return aiKey(username, third, stage, region, idp, userPoolId);

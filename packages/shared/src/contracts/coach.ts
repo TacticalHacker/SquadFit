@@ -16,7 +16,7 @@ import { MinutesSchema } from "../domain/calories";
 import { FoodNameSchema } from "../domain/foods";
 import { GYM_MAX_SETS } from "../domain/gym";
 import { CaloriesSchema, MacrosSchema, MealSchema, ServingsSchema } from "../domain/nutrition";
-import { GymSetSchema } from "./gym";
+import { GymSetSchema, InclinePctSchema, SpeedKmhSchema } from "./gym";
 import { CalorieTargetSchema, ProteinTargetSchema } from "../domain/profile";
 
 /** Raw shapes are what the MCP SDK registers; the strict objects below are what handlers parse with. */
@@ -150,6 +150,8 @@ export const UpsertWorkoutShape = {
     .optional()
     .describe("Strength exercises: each set's reps and weightKg (0 = bodyweight, steps of 0.5)"),
   minutes: MinutesSchema.optional().describe("Cardio exercises only: minutes (1-600)"),
+  inclinePct: InclinePctSchema.optional().describe("Incline Treadmill Walk only: incline in % (0-15, steps of 0.5)"),
+  speedKmh: SpeedKmhSchema.optional().describe("Incline Treadmill Walk only: speed in km/h (0.5-25, one decimal)"),
 };
 export const UpsertWorkoutInputSchema = z.strictObject(UpsertWorkoutShape);
 

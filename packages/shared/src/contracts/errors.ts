@@ -11,6 +11,11 @@ export const ApiErrorCodeSchema = z.enum([
   "RATE_LIMITED",
   "LIMIT_REACHED",
   "MEMBER_PRIVATE",
+  // Feature 015 (exercise admin).
+  "FORBIDDEN",
+  "STALE",
+  "CATALOG_FULL",
+  "USERNAME_TAKEN",
 ]);
 export type ApiErrorCode = z.infer<typeof ApiErrorCodeSchema>;
 

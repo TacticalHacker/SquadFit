@@ -71,6 +71,10 @@ describe("stacks", () => {
     });
   });
 
+  it("has the admin group (feature 015)", () => {
+    authT.hasResourceProperties("AWS::Cognito::UserPoolGroup", { GroupName: "admin" });
+  });
+
   it("exposes the expected routes", () => {
     for (const key of ["GET /health", "GET /me", "PUT /me/profile", "PUT /me/avatar", "DELETE /me/avatar", "GET /people",
       "GET /workouts", "GET /workouts/summary", "PUT /workouts/entries/{date}/{workoutId}",
@@ -84,7 +88,8 @@ describe("stacks", () => {
       "PUT /coach-note/{date}/actions/{index}", "ANY /mcp/{key}", "GET /public/pulse", "POST /public/waitlist",
       "PUT /me/squad", "PUT /workouts/gym/entries/{date}/{exerciseId}/confirm", "GET /squad/boards", "GET /squad/hall-of-fame", "GET /squad/feed",
       "PUT /squad/feed/{id}/reactions/{type}", "DELETE /squad/feed/{id}/reactions/{type}", "PUT /me/targets",
-      "POST /integrations/activity", "GET /me/health-sync", "POST /me/health-token", "DELETE /me/health-token", "PUT /me/steps"]) {
+      "POST /integrations/activity", "GET /me/health-sync", "POST /me/health-token", "DELETE /me/health-token", "PUT /me/steps",
+      "GET /admin/exercises", "POST /admin/exercises", "PUT /admin/exercises/{exerciseId}", "POST /admin/exercises/{exerciseId}/merge", "POST /admin/users"]) {
       apiT.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: key });
     }
   });
@@ -122,6 +127,15 @@ describe("stacks", () => {
     // It may read food photos (feature 005) but has no other bucket access: no writes or deletes.
     expect(json).not.toContain("s3:PutObject");
     expect(json).not.toContain("s3:DeleteObject");
+  });
+
+  it("only admin-user-post may call Cognito, and only AdminCreateUser (feature 015)", () => {
+    const policies = Object.values(apiT.findResources("AWS::IAM::Policy"));
+    const withCognito = policies.filter((p) => JSON.stringify(p).includes("cognito-idp:"));
+    expect(withCognito).toHaveLength(1);
+    const json = JSON.stringify(withCognito[0]);
+    expect(json).toContain("adminuserpostFnServiceRole");
+    expect(json.match(/cognito-idp:[A-Za-z]+/g)).toEqual(["cognito-idp:AdminCreateUser"]);
   });
 
   it("gym-get reads the table and its indexes but cannot write; gym mutations can write (feature 006)", () => {

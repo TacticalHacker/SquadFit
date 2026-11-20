@@ -2,7 +2,7 @@ import { z } from "zod";
 import { caloriesFor, summarize, type Summary } from "./calories";
 import { isEditableDay } from "./day";
 import type { StoredEntry } from "./day-view";
-import { normalizeWorkoutName } from "./workouts";
+import { DEFAULT_BODY_WEIGHT_KG } from "./profile";
 
 /** Gym logger (feature 006). See specs/006-gym-set-logger/data-model.md. */
 
@@ -30,7 +30,18 @@ export interface GymExerciseDef {
   /** Cardio only: calories per this many minutes (research R4). */
   rateMinutes?: number;
   rateCalories?: number;
+  /** Treadmill cardio: entries may also log incline (%) and speed (km/h). */
+  treadmill?: true;
+  /** Feature 015: added by an admin at runtime (not in code). */
+  source?: "catalog";
 }
+
+/**
+ * Key for comparing and searching gym exercise names: case, spacing and punctuation are ignored, so
+ * "EZ Bar Curl", "ez-bar curl" and "EZ-Bar  Curl" are the same exercise. Letters and digits of any script are kept.
+ */
+export const exerciseNameKey = (name: string) =>
+  name.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 
 export const GYM_MAX_SETS = 20;
 export const GYM_MAX_OWN = 50;
@@ -57,11 +68,19 @@ export const GYM_EXERCISES: readonly GymExerciseDef[] = [
   strength("chest-dips", "Chest Dips", "chest"),
   strength("machine-chest-press", "Machine Chest Press", "chest"),
   strength("machine-pec-fly", "Machine Pec Fly", "chest"),
+  strength("flat-dumbbell-press", "Flat Dumbbell Press", "chest"),
+  strength("dumbbell-fly", "Dumbbell Fly", "chest"),
+  strength("dumbbell-pullover", "Dumbbell Pullover", "chest"),
   strength("deadlift", "Deadlift", "back"),
   strength("lat-pulldown", "Lat Pulldown", "back"),
   strength("barbell-row", "Barbell Row", "back"),
   strength("seated-cable-row", "Seated Cable Row", "back"),
   strength("pull-ups", "Pull-Ups", "back"),
+  strength("t-bar-row", "T-Bar Row", "back"),
+  strength("straight-arm-pulldown", "Straight Arm Pulldown", "back"),
+  strength("single-arm-dumbbell-row", "Single Arm Dumbbell Row", "back"),
+  strength("dumbbell-bent-over-row", "Dumbbell Bent-Over Row", "back"),
+  strength("back-extension", "Back Extension", "back"),
   strength("barbell-squat", "Barbell Squat", "legs"),
   strength("leg-press", "Leg Press", "legs"),
   strength("romanian-deadlift", "Romanian Deadlift", "legs"),
@@ -72,18 +91,37 @@ export const GYM_EXERCISES: readonly GymExerciseDef[] = [
   strength("lateral-raises", "Lateral Raises", "shoulders"),
   strength("face-pulls", "Face Pulls", "shoulders"),
   strength("rear-delt-flyes", "Rear Delt Flyes", "shoulders"),
+  strength("front-raises", "Front Raises", "shoulders"),
+  strength("seated-dumbbell-shoulder-press", "Seated Dumbbell Shoulder Press", "shoulders"),
+  strength("arnold-press", "Arnold Press", "shoulders"),
+  strength("upright-rows", "Upright Rows", "shoulders"),
   strength("barbell-curl", "Barbell Curl", "arms"),
   strength("hammer-curl", "Hammer Curl", "arms"),
   strength("tricep-pushdown", "Tricep Pushdown", "arms"),
   strength("skullcrushers", "Skullcrushers", "arms"),
+  strength("ez-bar-curl", "EZ-Bar Curl", "arms"),
+  strength("wrist-curl", "Wrist Curl", "arms"),
+  strength("reverse-wrist-curl", "Reverse Wrist Curl", "arms"),
+  strength("incline-dumbbell-curl", "Incline Dumbbell Curl", "arms"),
+  strength("overhead-cable-extension", "Overhead Cable Extension", "arms"),
+  strength("single-arm-cable-pushdown", "Single-Arm Cable Pushdown", "arms"),
   strength("hanging-leg-raises", "Hanging Leg Raises", "core"),
   strength("cable-crunch", "Cable Crunch", "core"),
   strength("sit-ups", "Sit-Ups", "core"),
-  { id: "gx-incline-treadmill-walk", name: "Incline Treadmill Walk", group: "cardio", kind: "cardio", rateMinutes: 20, rateCalories: 140 },
+  strength("russian-twists", "Russian Twists", "core"),
+  strength("bicycle-crunches", "Bicycle Crunches", "core"),
+  strength("palloff-press", "Pallof Press", "core"), // id keeps the old spelling: ids never change
+  strength("bird-dog", "Bird Dog", "core"),
+  strength("dead-bug", "Dead Bug", "core"),
+  strength("v-up", "V-Up", "core"),
+  { id: "gx-incline-treadmill-walk", name: "Incline Treadmill Walk", group: "cardio", kind: "cardio", rateMinutes: 20, rateCalories: 140, treadmill: true },
   { id: "gx-stairmaster", name: "Stairmaster", group: "cardio", kind: "cardio", rateMinutes: 20, rateCalories: 180 },
 ];
 
-export const findGymExercise = (id: string) => GYM_EXERCISES.find((e) => e.id === id);
+/** Built-ins plus active admin-added exercises (feature 015). Always pass it explicitly; only boards use built-ins alone. */
+export type GymLibrary = readonly GymExerciseDef[];
+
+export const findGymExercise = (id: string, library: GymLibrary) => library.find((e) => e.id === id);
 
 /** Gym exercise ids never collide with workout ids (`std-`, `c-`), research R2. */
 export const isGymId = (id: string) => id.startsWith("gx-") || id.startsWith("gc-");
@@ -101,6 +139,34 @@ export interface GymTotals {
   volumeKg: number;
   minutes: number;
   calories: number;
+}
+
+/**
+ * Treadmill burn from the ACSM metabolic equations (gross, so comparable with the other estimates):
+ * walking VO2 = 3.5 + 0.1·v + 1.8·v·grade, running (≥ 8 km/h) VO2 = 3.5 + 0.2·v + 0.9·v·grade (ml/kg/min, v in m/min);
+ * kcal/min = VO2 · kg / 1000 · 5. Used when both incline and speed are logged; otherwise the minutes × rate rule.
+ */
+export const TREADMILL_RUNNING_KMH = 8;
+export function treadmillCalories(input: { minutes: number; inclinePct: number; speedKmh: number; bodyWeightKg: number }): number {
+  const v = (input.speedKmh * 1000) / 60;
+  const grade = input.inclinePct / 100;
+  const running = input.speedKmh >= TREADMILL_RUNNING_KMH;
+  const vo2 = 3.5 + (running ? 0.2 : 0.1) * v + (running ? 0.9 : 1.8) * v * grade;
+  return Math.round(((vo2 * input.bodyWeightKg) / 1000) * 5 * input.minutes);
+}
+
+/** Cardio entry totals: the treadmill equation when incline and speed are both logged, else feature 002's rate rule. */
+export function cardioEntryTotals(input: {
+  rateMinutes: number;
+  rateCalories: number;
+  minutes: number;
+  treadmill?: { inclinePct?: number | null | undefined; speedKmh?: number | null | undefined; bodyWeightKg: number } | null;
+}): { minutes: number; calories: number } {
+  const t = input.treadmill;
+  if (t && t.inclinePct != null && t.speedKmh != null) {
+    return { minutes: input.minutes, calories: treadmillCalories({ minutes: input.minutes, inclinePct: t.inclinePct, speedKmh: t.speedKmh, bodyWeightKg: t.bodyWeightKg }) };
+  }
+  return cardioTotals(input.rateMinutes, input.rateCalories, input.minutes);
 }
 
 /** FR-013. Counts every set, completed or not (clarification 1). Volume is summed in tenths of a kg to avoid float drift. */
@@ -172,6 +238,29 @@ const wholeIn = (min: number, max: number, message: string) => (raw: string): Pa
 };
 
 export const parseReps = wholeIn(1, GYM_MAX_REPS, REPS_MESSAGE);
+
+// Treadmill details (optional, Incline Treadmill Walk only). Informational: calories still follow the minutes.
+export const GYM_MAX_INCLINE = 15;
+export const GYM_INCLINE_STEP = 0.5;
+export const GYM_MIN_SPEED = 0.5;
+export const GYM_MAX_SPEED = 25;
+export const GYM_SPEED_STEP = 0.5;
+export const GYM_DEFAULT_INCLINE = 10;
+export const GYM_DEFAULT_SPEED = 5;
+export const INCLINE_MESSAGE = `Incline must be 0–${GYM_MAX_INCLINE}% in 0.5% steps`;
+export const SPEED_MESSAGE = `Speed must be ${GYM_MIN_SPEED}–${GYM_MAX_SPEED} km/h with at most one decimal`;
+
+export function parseIncline(raw: string): ParseResult {
+  const n = toNumber(raw);
+  if (n === null || n > GYM_MAX_INCLINE || !Number.isInteger(n * 2)) return { ok: false, message: INCLINE_MESSAGE };
+  return { ok: true, value: n };
+}
+
+export function parseSpeed(raw: string): ParseResult {
+  const n = toNumber(raw);
+  if (n === null || n < GYM_MIN_SPEED || n > GYM_MAX_SPEED || Math.abs(n * 10 - Math.round(n * 10)) > 1e-9) return { ok: false, message: SPEED_MESSAGE };
+  return { ok: true, value: Math.round(n * 10) / 10 };
+}
 export const parseMinutes = wholeIn(1, 600, GYM_MINUTES_MESSAGE);
 
 // ---------------------------------------------------------------- own exercises
@@ -181,13 +270,59 @@ export const ExerciseNameSchema = z
   .transform((s) => s.trim().replace(/\s+/g, " "))
   .pipe(z.string().min(1, "Name is required").max(40, "Name must be at most 40 characters"));
 
-/** True if `name` clashes with a built-in exercise or one of `existingNames`, ignoring case and spacing (FR-005). */
-export function isExerciseNameTaken(name: string, existingNames: readonly string[]): boolean {
-  const n = normalizeWorkoutName(name);
+/** True if `name` clashes with a library exercise or one of `existingNames`, ignoring case and spacing (FR-005). */
+export function isExerciseNameTaken(name: string, existingNames: readonly string[], library: GymLibrary): boolean {
+  const n = exerciseNameKey(name);
   return (
-    GYM_EXERCISES.some((e) => normalizeWorkoutName(e.name) === n) ||
-    existingNames.some((e) => normalizeWorkoutName(e) === n)
+    library.some((e) => exerciseNameKey(e.name) === n) ||
+    existingNames.some((e) => exerciseNameKey(e) === n)
   );
+}
+
+// ---------------------------------------------------------------- admin catalog (feature 015)
+
+export const CATALOG_LIMIT = 200;
+export const CATALOG_GROUPS = ["chest", "back", "legs", "shoulders", "arms", "core"] as const;
+export const CatalogGroupSchema = z.enum(CATALOG_GROUPS);
+export type CatalogGroup = z.infer<typeof CatalogGroupSchema>;
+
+export const CatalogExerciseSchema = z
+  .object({
+    exerciseId: z.string().regex(/^gx-[a-z0-9-]+$/),
+    name: ExerciseNameSchema,
+    group: CatalogGroupSchema,
+    kind: z.literal("strength"),
+    status: z.enum(["active", "retired"]),
+    createdAt: z.string(),
+    createdBy: z.string(),
+    updatedAt: z.string(),
+    updatedBy: z.string(),
+  })
+  .strict();
+export type CatalogExercise = z.infer<typeof CatalogExerciseSchema>;
+
+/** Built-ins first (code order), then active catalog exercises A→Z; retired ones are hidden, never deleted. */
+export function buildLibrary(catalog: readonly CatalogExercise[]): GymLibrary {
+  const extra = catalog
+    .filter((c) => c.status === "active")
+    .sort((a, b) => a.name.localeCompare(b.name, "en"))
+    .map((c): GymExerciseDef => ({ id: c.exerciseId, name: c.name, group: c.group, kind: "strength", source: "catalog" }));
+  return [...GYM_EXERCISES, ...extra];
+}
+
+/** Permanent id for a new catalog exercise: `gx-<slug>`, then `-2`, `-3`… while taken (built-in ids always are). */
+export function catalogId(name: string, takenIds: readonly string[]): string {
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "exercise";
+  const taken = new Set([...GYM_EXERCISES.map((e) => e.id), ...takenIds]);
+  const base = `gx-${slug}`;
+  if (!taken.has(base)) return base;
+  for (let n = 2; ; n++) if (!taken.has(`${base}-${n}`)) return `${base}-${n}`;
+}
+
+/** Admin create/rename: a name is taken by any built-in or any catalog row, retired ones included. */
+export function isLibraryNameTaken(name: string, catalogAll: readonly { name: string }[]): boolean {
+  const n = exerciseNameKey(name);
+  return GYM_EXERCISES.some((e) => exerciseNameKey(e.name) === n) || catalogAll.some((c) => exerciseNameKey(c.name) === n);
 }
 
 // ---------------------------------------------------------------- views
@@ -205,6 +340,9 @@ export interface GymEntryView {
   aiNote: string | null;
   /** Feature 010: an unusual jump awaiting "Looks right"; set by the server from the member's squad stats. */
   jumpFlag: boolean;
+  /** Treadmill details, null when not logged. */
+  inclinePct: number | null;
+  speedKmh: number | null;
   updatedAt: string;
 }
 
@@ -212,6 +350,8 @@ export interface GymLast {
   date: string;
   sets: GymSet[] | null;
   minutes: number;
+  inclinePct: number | null;
+  speedKmh: number | null;
   top: { weightKg: number; reps: number } | null;
 }
 
@@ -221,6 +361,8 @@ export interface GymExerciseView {
   group: MuscleGroup;
   kind: ExerciseKind;
   isBuiltIn: boolean;
+  /** Logs incline and speed too (Incline Treadmill Walk). */
+  treadmill: boolean;
   /** Cardio rate (built-in cardio only). */
   rateMinutes: number | null;
   rateCalories: number | null;
@@ -229,6 +371,8 @@ export interface GymExerciseView {
 }
 
 export interface GymView {
+  /** The member's own effective body weight (treadmill calorie preview). */
+  bodyWeightKg: number;
   date: string;
   today: string;
   timezone: string;
@@ -258,6 +402,8 @@ export function toGymEntryView(e: StoredEntry): GymEntryView {
     calories: e.calories,
     aiNote: e.aiNote ?? null,
     jumpFlag: false,
+    inclinePct: e.inclinePct ?? null,
+    speedKmh: e.speedKmh ?? null,
     updatedAt: e.updatedAt ?? "",
   };
 }
@@ -265,7 +411,7 @@ export function toGymEntryView(e: StoredEntry): GymEntryView {
 export function toGymLast(e: StoredEntry & { date: string }): GymLast {
   const v = toGymEntryView(e);
   const top = v.sets ? topSet(v.sets) : null;
-  return { date: e.date, sets: v.sets, minutes: v.minutes, top: top ? { weightKg: top.weightKg, reps: top.reps } : null };
+  return { date: e.date, sets: v.sets, minutes: v.minutes, inclinePct: v.inclinePct, speedKmh: v.speedKmh, top: top ? { weightKg: top.weightKg, reps: top.reps } : null };
 }
 
 export function buildGymView(input: {
@@ -273,9 +419,11 @@ export function buildGymView(input: {
   today: string;
   timezone: string;
   ownExercises: readonly OwnExercise[];
+  library: GymLibrary;
   /** All of the day's entries (workouts and gym). */
   entries: readonly StoredEntry[];
   last: Readonly<Record<string, GymLast | null>>;
+  bodyWeightKg?: number;
 }): GymView {
   const byId = new Map(input.entries.filter(isGymEntry).map((e) => [e.workoutId, e]));
   const view = (
@@ -284,13 +432,14 @@ export function buildGymView(input: {
     const e = byId.get(def.exerciseId);
     return { ...def, entry: e ? toGymEntryView(e) : null, last: input.last[def.exerciseId] ?? null };
   };
-  const exercises: GymExerciseView[] = GYM_EXERCISES.map((d) =>
+  const exercises: GymExerciseView[] = input.library.map((d) =>
     view({
       exerciseId: d.id,
       name: d.name,
       group: d.group,
       kind: d.kind,
       isBuiltIn: true,
+      treadmill: d.treadmill === true,
       rateMinutes: d.rateMinutes ?? null,
       rateCalories: d.rateCalories ?? null,
     }),
@@ -298,7 +447,7 @@ export function buildGymView(input: {
   const own = [...input.ownExercises].sort((a, b) => a.name.localeCompare(b.name, "en"));
   for (const o of own) {
     exercises.push(
-      view({ exerciseId: o.exerciseId, name: o.name, group: o.group, kind: "strength", isBuiltIn: false, rateMinutes: null, rateCalories: null }),
+      view({ exerciseId: o.exerciseId, name: o.name, group: o.group, kind: "strength", isBuiltIn: false, treadmill: false, rateMinutes: null, rateCalories: null }),
     );
   }
   const shown = new Set(exercises.map((e) => e.exerciseId));
@@ -311,6 +460,7 @@ export function buildGymView(input: {
       group: v.muscleGroup,
       kind: v.exerciseKind,
       isBuiltIn: false,
+      treadmill: false,
       rateMinutes: e.rateMinutes,
       rateCalories: e.rateCalories,
       entry: v,
@@ -318,6 +468,7 @@ export function buildGymView(input: {
     });
   }
   return {
+    bodyWeightKg: input.bodyWeightKg ?? DEFAULT_BODY_WEIGHT_KG,
     date: input.date,
     today: input.today,
     timezone: input.timezone,
@@ -329,8 +480,8 @@ export function buildGymView(input: {
 
 /** A non-empty query searches every group by name (ignoring case and spacing); otherwise filter by group (FR-003, FR-004). */
 export function filterExercises<T extends { name: string; group: MuscleGroup }>(list: readonly T[], group: MuscleGroup, query: string): T[] {
-  const q = normalizeWorkoutName(query);
-  if (q) return list.filter((e) => normalizeWorkoutName(e.name).includes(q));
+  const q = exerciseNameKey(query);
+  if (q) return list.filter((e) => exerciseNameKey(e.name).includes(q));
   return list.filter((e) => e.group === group);
 }
 
@@ -340,16 +491,17 @@ export function dayGymVolume(entries: readonly StoredEntry[]): number {
 }
 
 /**
- * Exercise id for an exact name (case and spacing ignored) among the built-ins and the member's active own
+ * Exercise id for an exact name (case and spacing ignored) among the library and the member's active own
  * exercises, or null. Used by the AI's upsert_workout_log (feature 007, R12): no fuzzy matching, so a typo never
  * logs the wrong lift.
  */
 export function findGymExerciseByName(
   name: string,
   own: readonly { exerciseId: string; name: string; removedAt?: string }[],
+  library: GymLibrary,
 ): string | null {
-  const n = normalizeWorkoutName(name);
-  const builtIn = GYM_EXERCISES.find((e) => normalizeWorkoutName(e.name) === n);
+  const n = exerciseNameKey(name);
+  const builtIn = library.find((e) => exerciseNameKey(e.name) === n);
   if (builtIn) return builtIn.id;
-  return own.find((e) => !e.removedAt && normalizeWorkoutName(e.name) === n)?.exerciseId ?? null;
+  return own.find((e) => !e.removedAt && exerciseNameKey(e.name) === n)?.exerciseId ?? null;
 }

@@ -27,6 +27,9 @@ export interface StoredEntry {
   aiNote?: string;
   /** Feature 010: set when the member tapped "Looks right" on a flagged jump; dropped by any full save. */
   jumpConfirmedAt?: string;
+  /** Treadmill details (Incline Treadmill Walk); informational. */
+  inclinePct?: number;
+  speedKmh?: number;
   createdAt?: string;
   updatedAt?: string;
 }

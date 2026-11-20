@@ -44,7 +44,7 @@ describe("PUT gym entry", () => {
 
   it("logs cardio as minutes with the exercise rate", async () => {
     const { deps } = await setup();
-    const r = await gymPut(deps, "2026-11-11", "gx-incline-treadmill-walk", { minutes: 25 });
+    const r = await gymPut(deps, "2026-11-10", "gx-incline-treadmill-walk", { minutes: 25 });
     expect(r.body.entry).toMatchObject({ exerciseKind: "cardio", sets: null, volumeKg: null, minutes: 25, calories: 175 });
   });
 
@@ -185,5 +185,26 @@ describe("PUT gym entry confirm (unusual jump, feature 010)", () => {
     await seedProfile(profiles, "user-2", "Asia/Kolkata", "bob");
     await gymPut(deps, "2026-11-11", "gx-bench-press", { sets: sets(1, 60, 8, true) });
     expect((await confirm(deps, "user-2", "2026-11-11T10:00:00.000Z")).status).toBe(404);
+  });
+});
+
+describe("treadmill incline and speed", () => {
+  it("stores them on Incline Treadmill Walk and refuses them elsewhere", async () => {
+    const { deps } = await setup();
+    const r = await gymPut(deps, "2026-11-10", "gx-incline-treadmill-walk", { minutes: 20, inclinePct: 12, speedKmh: 5.5 });
+    expect(r.body.entry).toMatchObject({ minutes: 20, inclinePct: 12, speedKmh: 5.5 });
+    expect(exercise(await gymGet(deps, "2026-11-11"), "gx-incline-treadmill-walk")?.last).toMatchObject({ inclinePct: 12, speedKmh: 5.5 });
+    expect((await gymPut(deps, "2026-11-11", "gx-stairmaster", { minutes: 20, inclinePct: 5 })).status).toBe(400);
+  });
+});
+
+describe("treadmill calories", () => {
+  it("follow incline, speed and body weight when both are logged; minutes × rate otherwise", async () => {
+    const { deps, profiles } = await setup();
+    await profiles.upsert("user-1", "alice", { displayName: "Alice", timezone: "Asia/Kolkata", dailyCalorieTarget: 2200, bodyWeightKg: 90 }, "t");
+    const r = await gymPut(deps, "2026-11-11", "gx-incline-treadmill-walk", { minutes: 30, inclinePct: 12, speedKmh: 5 });
+    expect(r.body.entry.calories).toBe(403);
+    expect(r.body.summary.totalCalories).toBe(403);
+    expect((await gymPut(deps, "2026-11-11", "gx-incline-treadmill-walk", { minutes: 30, inclinePct: 12 })).body.entry.calories).toBe(210);
   });
 });

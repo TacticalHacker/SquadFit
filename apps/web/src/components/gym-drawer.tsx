@@ -2,7 +2,12 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import {
+  GYM_DEFAULT_INCLINE,
+  GYM_DEFAULT_SPEED,
+  GYM_MAX_INCLINE,
   GYM_MAX_REPS,
+  GYM_MAX_SPEED,
+  GYM_MIN_SPEED,
   GYM_MAX_SETS,
   GYM_MAX_WEIGHT,
   MUSCLE_GROUP_LABELS,
@@ -42,6 +47,7 @@ export function GymDrawer({
   date,
   editable,
   username,
+  bodyWeightKg,
   onClose,
   onSaved,
 }: {
@@ -49,6 +55,8 @@ export function GymDrawer({
   date: string;
   editable: boolean;
   username: string;
+  /** Own effective body weight, for the treadmill calorie preview (the server computes the stored value). */
+  bodyWeightKg: number;
   onClose: () => void;
   onSaved: (result: GymSaveResult) => void;
 }) {
@@ -135,7 +143,7 @@ export function GymDrawer({
     finish(() => removeGymEntry(date, id));
   };
 
-  const totals = drawerTotals(state, exercise);
+  const totals = drawerTotals(state, { ...exercise, bodyWeightKg });
   const savedElsewhere =
     hasDraft && exercise.entry !== null && initialDraft !== null && initialDraft.baseUpdatedAt !== exercise.entry.updatedAt;
   const lastTop = exercise.last?.top;
@@ -148,7 +156,11 @@ export function GymDrawer({
           {MUSCLE_GROUP_LABELS[exercise.group]}
           {lastTop ? <span className="ml-2">{formatLast(lastTop)}</span> : null}
           {exercise.kind === "cardio" && exercise.last ? (
-            <span className="ml-2">Last: {exercise.last.minutes} min</span>
+            <span className="ml-2">
+              Last: {exercise.last.minutes} min
+              {exercise.last.inclinePct != null ? ` · ${nf.format(exercise.last.inclinePct)}%` : ""}
+              {exercise.last.speedKmh != null ? ` · ${nf.format(exercise.last.speedKmh)} km/h` : ""}
+            </span>
           ) : null}
         </p>
       </div>
@@ -226,7 +238,7 @@ export function GymDrawer({
         </div>
 
         {state.mode === "cardio" ? (
-          <CardioBody state={state} disabled={locked} dispatch={dispatch} onError={setError} name={exercise.name} />
+          <CardioBody state={state} disabled={locked} dispatch={dispatch} onError={setError} name={exercise.name} treadmill={exercise.treadmill} />
         ) : (
           <StrengthBody state={state} disabled={locked} dispatch={dispatch} onError={setError} />
         )}
@@ -368,14 +380,17 @@ function CardioBody({
   dispatch,
   onError,
   name,
+  treadmill,
 }: {
   state: DrawerState;
   disabled: boolean;
   dispatch: (a: DrawerAction) => void;
   onError: (m: string | null) => void;
   name: string;
+  treadmill: boolean;
 }) {
   return (
+    <>
     <div className="flex flex-col items-center gap-2 rounded-md border border-line py-4">
       <span className="eyebrow">Minutes</span>
       <Stepper
@@ -396,6 +411,77 @@ function CardioBody({
           onError={onError}
         />
       </Stepper>
+    </div>
+    {treadmill ? <TreadmillFields state={state} disabled={disabled} dispatch={dispatch} onError={onError} /> : null}
+    </>
+  );
+}
+
+/** Optional incline and speed (Incline Treadmill Walk). Unset shows "–"; the first tap starts at 10% / 5 km/h. */
+function TreadmillFields({
+  state,
+  disabled,
+  dispatch,
+  onError,
+}: {
+  state: DrawerState;
+  disabled: boolean;
+  dispatch: (a: DrawerAction) => void;
+  onError: (m: string | null) => void;
+}) {
+  const incline = state.inclinePct ?? null;
+  const speed = state.speedKmh ?? null;
+  const fields = [
+    {
+      key: "incline",
+      title: "Incline %",
+      value: incline,
+      fallback: GYM_DEFAULT_INCLINE,
+      dec: () => dispatch({ type: "incline", delta: -1 }),
+      inc: () => dispatch({ type: "incline", delta: 1 }),
+      decOff: incline === null || incline <= 0,
+      incOff: incline !== null && incline >= GYM_MAX_INCLINE,
+      set: (v: number | null) => dispatch({ type: "setIncline", value: v }),
+    },
+    {
+      key: "speed",
+      title: "Speed km/h",
+      value: speed,
+      fallback: GYM_DEFAULT_SPEED,
+      dec: () => dispatch({ type: "speed", delta: -1 }),
+      inc: () => dispatch({ type: "speed", delta: 1 }),
+      decOff: speed === null || speed <= GYM_MIN_SPEED,
+      incOff: speed !== null && speed >= GYM_MAX_SPEED,
+      set: (v: number | null) => dispatch({ type: "setSpeed", value: v }),
+    },
+  ] as const;
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {fields.map((f) => (
+        <div key={f.key} className="flex flex-col items-center gap-1 rounded-md border border-line py-2">
+          <span className="eyebrow">{f.title}</span>
+          <Stepper label={f.title} onDec={f.dec} onInc={f.inc} decDisabled={disabled || f.decOff} incDisabled={disabled || f.incOff}>
+            <NumberField
+              value={f.value ?? f.fallback}
+              display={f.value === null ? "–" : nf.format(f.value)}
+              field={f.key}
+              label={f.title}
+              widthClass="w-12"
+              unset={f.value === null}
+              disabled={disabled}
+              onCommit={(v) => f.set(v)}
+              onError={onError}
+            />
+          </Stepper>
+          {f.value !== null && !disabled ? (
+            <button type="button" onClick={() => f.set(null)} className="min-h-8 px-2 text-xs text-muted underline underline-offset-4 hover:text-ink">
+              Don&apos;t log
+            </button>
+          ) : (
+            <span className="min-h-8 px-2 text-xs leading-8 text-faint">Optional</span>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

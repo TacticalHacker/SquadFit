@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { StoredEntry } from "../src/domain/day-view";
 import { GYM_EXERCISES, buildGymView, filterExercises, type GymExerciseView } from "../src/domain/gym";
 
-const base = { date: "2026-11-11", today: "2026-11-11", timezone: "Asia/Kolkata" };
+const base = { date: "2026-11-11", today: "2026-11-11", timezone: "Asia/Kolkata", library: GYM_EXERCISES };
 const gymEntry = (id: string, name: string, group = "legs"): StoredEntry => ({
   workoutId: id, name, rateMinutes: 5, rateCalories: 30, minutes: 8, calories: 45,
   kind: "gym", muscleGroup: group as "legs", exerciseKind: "strength",
@@ -19,7 +19,7 @@ describe("buildGymView", () => {
   });
 
   it("attaches the day's entry, `last`, and the whole-day summary", () => {
-    const last = { date: "2026-11-09", sets: [{ setNumber: 1, reps: 8, weightKg: 80, completed: true }], minutes: 3, top: { weightKg: 80, reps: 8 } };
+    const last = { date: "2026-11-09", sets: [{ setNumber: 1, reps: 8, weightKg: 80, completed: true }], minutes: 3, inclinePct: null, speedKmh: null, top: { weightKg: 80, reps: 8 } };
     const v = buildGymView({
       ...base, ownExercises: [],
       entries: [gymEntry("gx-barbell-squat", "Barbell Squat"), { workoutId: "std-running", name: "Running", rateMinutes: 30, rateCalories: 300, minutes: 30, calories: 300 }],
@@ -51,7 +51,7 @@ describe("filterExercises", () => {
   });
 
   it("searches every group, ignoring case and spaces", () => {
-    expect(names(filterExercises(list, "chest", "  CURL "))).toEqual(["Hamstring Curl", "Barbell Curl", "Hammer Curl", "Cable Curl Machine"]);
+    expect(names(filterExercises(list, "chest", "  CURL "))).toEqual(["Hamstring Curl", "Barbell Curl", "Hammer Curl", "EZ-Bar Curl", "Wrist Curl", "Reverse Wrist Curl", "Incline Dumbbell Curl", "Cable Curl Machine"]);
   });
 });
 

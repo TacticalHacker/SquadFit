@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { loadDayContext, resolveReadDate, resolveWriteDate } from "../src/lib/day-context";
 import { makeDeps, parse, seedProfile } from "./fakes";
 
-const caller = { userId: "user-1", username: "alice" };
+const caller = { userId: "user-1", username: "alice", isAdmin: false };
 
 describe("loadDayContext", () => {
   it("computes today from the profile timezone", async () => {
@@ -10,7 +10,7 @@ describe("loadDayContext", () => {
     await seedProfile(profiles, "user-1", "Asia/Kolkata");
     await seedProfile(profiles, "user-2", "America/Los_Angeles");
     const a = await loadDayContext(caller, deps);
-    const b = await loadDayContext({ userId: "user-2", username: "bob" }, deps);
+    const b = await loadDayContext({ userId: "user-2", username: "bob", isAdmin: false }, deps);
     expect(a).toEqual({ ok: true, ctx: { timezone: "Asia/Kolkata", today: "2026-11-12", target: 2200, proteinTarget: null } });
     expect(b).toEqual({ ok: true, ctx: { timezone: "America/Los_Angeles", today: "2026-11-11", target: 2200, proteinTarget: null } });
   });

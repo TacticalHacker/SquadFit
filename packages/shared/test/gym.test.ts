@@ -14,6 +14,7 @@ import {
   topSet,
   dayGymVolume,
   findGymExerciseByName,
+  treadmillCalories,
 } from "../src/domain/gym";
 import { normalizeWorkoutName } from "../src/domain/workouts";
 
@@ -21,29 +22,29 @@ const sets = (n: number, weightKg: number, reps: number) =>
   Array.from({ length: n }, (_, i) => ({ setNumber: i + 1, weightKg, reps, completed: false }));
 
 describe("GYM_EXERCISES", () => {
-  it("has the 30 built-in exercises in their groups", () => {
+  it("has the 54 built-in exercises in their groups", () => {
     const byGroup = (g: string) => GYM_EXERCISES.filter((e) => e.group === g).map((e) => e.name);
-    expect(GYM_EXERCISES).toHaveLength(30);
-    expect(byGroup("chest")).toEqual(["Bench Press", "Incline Dumbbell Press", "Cable Flyes", "Chest Dips", "Machine Chest Press", "Machine Pec Fly"]);
-    expect(byGroup("back")).toEqual(["Deadlift", "Lat Pulldown", "Barbell Row", "Seated Cable Row", "Pull-Ups"]);
+    expect(GYM_EXERCISES).toHaveLength(54);
+    expect(byGroup("chest")).toEqual(["Bench Press", "Incline Dumbbell Press", "Cable Flyes", "Chest Dips", "Machine Chest Press", "Machine Pec Fly", "Flat Dumbbell Press", "Dumbbell Fly", "Dumbbell Pullover"]);
+    expect(byGroup("back")).toEqual(["Deadlift", "Lat Pulldown", "Barbell Row", "Seated Cable Row", "Pull-Ups", "T-Bar Row", "Straight Arm Pulldown", "Single Arm Dumbbell Row", "Dumbbell Bent-Over Row", "Back Extension"]);
     expect(byGroup("legs")).toEqual(["Barbell Squat", "Leg Press", "Romanian Deadlift", "Leg Extension", "Hamstring Curl", "Calf Raises"]);
-    expect(byGroup("shoulders")).toEqual(["Overhead Press", "Lateral Raises", "Face Pulls", "Rear Delt Flyes"]);
-    expect(byGroup("arms")).toEqual(["Barbell Curl", "Hammer Curl", "Tricep Pushdown", "Skullcrushers"]);
-    expect(byGroup("core")).toEqual(["Hanging Leg Raises", "Cable Crunch", "Sit-Ups"]);
+    expect(byGroup("shoulders")).toEqual(["Overhead Press", "Lateral Raises", "Face Pulls", "Rear Delt Flyes", "Front Raises", "Seated Dumbbell Shoulder Press", "Arnold Press", "Upright Rows"]);
+    expect(byGroup("arms")).toEqual(["Barbell Curl", "Hammer Curl", "Tricep Pushdown", "Skullcrushers", "EZ-Bar Curl", "Wrist Curl", "Reverse Wrist Curl", "Incline Dumbbell Curl", "Overhead Cable Extension", "Single-Arm Cable Pushdown"]);
+    expect(byGroup("core")).toEqual(["Hanging Leg Raises", "Cable Crunch", "Sit-Ups", "Russian Twists", "Bicycle Crunches", "Pallof Press", "Bird Dog", "Dead Bug", "V-Up"]);
     expect(byGroup("cardio")).toEqual(["Incline Treadmill Walk", "Stairmaster"]);
   });
 
   it("uses unique gx- ids and names that clash with nothing", () => {
     expect(GYM_EXERCISES.every((e) => /^gx-[a-z0-9-]+$/.test(e.id))).toBe(true);
-    expect(new Set(GYM_EXERCISES.map((e) => e.id)).size).toBe(30);
+    expect(new Set(GYM_EXERCISES.map((e) => e.id)).size).toBe(54);
     const names = GYM_EXERCISES.map((e) => normalizeWorkoutName(e.name));
     expect(new Set(names).size).toBe(names.length);
   });
 
   it("only cardio items are cardio, with their rates", () => {
     expect(GYM_EXERCISES.filter((e) => e.kind === "cardio").map((e) => e.id)).toEqual(["gx-incline-treadmill-walk", "gx-stairmaster"]);
-    expect(findGymExercise("gx-incline-treadmill-walk")).toMatchObject({ rateMinutes: 20, rateCalories: 140 });
-    expect(findGymExercise("gx-stairmaster")).toMatchObject({ rateMinutes: 20, rateCalories: 180 });
+    expect(findGymExercise("gx-incline-treadmill-walk", GYM_EXERCISES)).toMatchObject({ rateMinutes: 20, rateCalories: 140 });
+    expect(findGymExercise("gx-stairmaster", GYM_EXERCISES)).toMatchObject({ rateMinutes: 20, rateCalories: 180 });
   });
 
   it("isGymId recognises gx- and gc- only", () => {
@@ -122,9 +123,9 @@ describe("parsers", () => {
 
 describe("own exercise names", () => {
   it("clash with built-ins and own names ignoring case and spaces", () => {
-    expect(isExerciseNameTaken("  bench   press ", [])).toBe(true);
-    expect(isExerciseNameTaken("Hip Thrust", ["hip thrust"])).toBe(true);
-    expect(isExerciseNameTaken("Hip Thrust", ["Cable Kickback"])).toBe(false);
+    expect(isExerciseNameTaken("  bench   press ", [], GYM_EXERCISES)).toBe(true);
+    expect(isExerciseNameTaken("Hip Thrust", ["hip thrust"], GYM_EXERCISES)).toBe(true);
+    expect(isExerciseNameTaken("Hip Thrust", ["Cable Kickback"], GYM_EXERCISES)).toBe(false);
   });
 });
 
@@ -149,13 +150,22 @@ describe("findGymExerciseByName (feature 007)", () => {
     { exerciseId: "gc-2", name: "Old Move", removedAt: "t" },
   ];
   it("matches built-ins ignoring case and spacing", () => {
-    expect(findGymExerciseByName("  bench   PRESS ", own)).toBe("gx-bench-press");
+    expect(findGymExerciseByName("  bench   PRESS ", own, GYM_EXERCISES)).toBe("gx-bench-press");
   });
   it("matches the member's active own exercises", () => {
-    expect(findGymExerciseByName("zercher squat", own)).toBe("gc-1");
+    expect(findGymExerciseByName("zercher squat", own, GYM_EXERCISES)).toBe("gc-1");
   });
   it("ignores removed own exercises and unknown names", () => {
-    expect(findGymExerciseByName("Old Move", own)).toBeNull();
-    expect(findGymExerciseByName("Benchpress", own)).toBeNull();
+    expect(findGymExerciseByName("Old Move", own, GYM_EXERCISES)).toBeNull();
+    expect(findGymExerciseByName("Benchpress", own, GYM_EXERCISES)).toBeNull();
+  });
+});
+
+describe("treadmillCalories (ACSM)", () => {
+  it("walking: incline and body weight raise the burn; running speeds use the running equation", () => {
+    expect(treadmillCalories({ minutes: 30, inclinePct: 12, speedKmh: 5, bodyWeightKg: 75 })).toBe(336);
+    expect(treadmillCalories({ minutes: 30, inclinePct: 0, speedKmh: 5, bodyWeightKg: 75 })).toBe(133);
+    expect(treadmillCalories({ minutes: 30, inclinePct: 12, speedKmh: 5, bodyWeightKg: 90 })).toBe(403);
+    expect(treadmillCalories({ minutes: 30, inclinePct: 1, speedKmh: 10, bodyWeightKg: 75 })).toBe(431);
   });
 });
