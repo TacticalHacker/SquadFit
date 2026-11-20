@@ -61,6 +61,8 @@ export interface LiftStats {
   dayBests: Record<string, { weightKg: number; reps: number; e1rm: number }>;
   /** Feature 013: best eligible estimate per "YYYY-MM" (month of the entry's local date). */
   monthBests: Record<string, { e1rm: number; date: string }>;
+  /** Feature 016: dates whose top set beat the previous session ("Lifts improved" for one day). Absent on old stats. */
+  improvedDays?: string[];
 }
 export interface MonthRecord {
   workoutDays: number;
@@ -259,6 +261,7 @@ export function buildMemberStats(
       prDays: walked.prDays,
       dayBests: walked.dayBests,
       monthBests: walked.monthBests,
+      improvedDays: walked.improved,
     };
     steps.set(exerciseId, walked.bestSteps);
     for (const d of walked.improved) month(d.slice(0, 7)).liftsImproved++;

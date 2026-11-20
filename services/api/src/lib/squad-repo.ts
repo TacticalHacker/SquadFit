@@ -29,6 +29,10 @@ export interface FeedItem {
   createdAt: string;
   /** false = a reaction target that never appears in the squad feed (feature 011 day cards); default true. */
   listed?: boolean;
+  /** Feature 016: a workout day the member posted to the feed (first post time); absent = not posted. */
+  postedAt?: string;
+  /** Feature 016: `share-photos/<sub>/<date>.<ext>` while posted with a photo. */
+  photoKey?: string;
 }
 
 export type FeedKey = { userId: string; eventId: string };
@@ -45,7 +49,15 @@ export interface SquadRepo {
   batchGetStats(userIds: readonly string[]): Promise<Map<string, SquadStats>>;
   listMemberFeed(userId: string): Promise<FeedItem[]>;
   getFeed(userId: string, eventId: string): Promise<FeedItem | null>;
-  putFeed(item: FeedItem): Promise<void>;
+  /** `ifAbsent`: write only if no item exists (the lazy day-card target must never overwrite a post). */
+  putFeed(item: FeedItem, opts?: { ifAbsent?: boolean }): Promise<void>;
+  /**
+   * Feature 016: list `day#<date>` in the squad feed, creating the item if needed. Keeps the first post time,
+   * reactions and `createdAt`. `photoKey`: a key sets it, null removes it, "keep" leaves it. Returns the item.
+   */
+  postDay(userId: string, squadId: string, date: string, nowIso: string, photoKey: string | null | "keep"): Promise<FeedItem>;
+  /** Feature 016: take `day#<date>` out of the squad feed (reactions kept); returns the item before, or null. */
+  unpostDay(userId: string, date: string): Promise<FeedItem | null>;
   /** Updates the shown figures only; keeps `createdAt` and the reaction counts. */
   updateFeed(userId: string, eventId: string, eventDate: string, payload: Record<string, unknown>): Promise<void>;
   /** Removes the item and every reaction on it. */
@@ -99,6 +111,8 @@ function toFeed(i: Record<string, unknown>): FeedItem {
     },
     createdAt: i.createdAt as string,
     ...(i.gsi1pk === undefined ? { listed: false } : {}),
+    ...(typeof i.postedAt === "string" ? { postedAt: i.postedAt } : {}),
+    ...(typeof i.photoKey === "string" ? { photoKey: i.photoKey } : {}),
   };
 }
 
@@ -178,10 +192,19 @@ export class DynamoSquadRepo implements SquadRepo {
     return res.Item ? toFeed(res.Item) : null;
   }
 
-  async putFeed(item: FeedItem) {
+  async putFeed(item: FeedItem, opts: { ifAbsent?: boolean } = {}) {
     const { reactions, ...rest } = item;
+    try {
+      await this.put(item, rest, reactions, opts.ifAbsent === true);
+    } catch (err) {
+      if (!(opts.ifAbsent && isConditionFailure(err))) throw err;
+    }
+  }
+
+  private async put(item: FeedItem, rest: Omit<FeedItem, "reactions">, reactions: ReactionCounts, ifAbsent: boolean) {
     await this.doc.send(
       new PutCommand({
+        ...(ifAbsent ? { ConditionExpression: "attribute_not_exists(sk)" } : {}),
         TableName: this.tableName,
         Item: {
           pk: pk(item.userId),
@@ -196,6 +219,67 @@ export class DynamoSquadRepo implements SquadRepo {
         },
       }),
     );
+  }
+
+  async postDay(userId: string, squadId: string, date: string, nowIso: string, photoKey: string | null | "keep") {
+    const eventId = `day#${date}`;
+    const sets = [
+      "squadId = if_not_exists(squadId, :sq)",
+      "userId = if_not_exists(userId, :u)",
+      "eventId = if_not_exists(eventId, :e)",
+      "#k = if_not_exists(#k, :kind)",
+      "eventDate = :d",
+      "payload = if_not_exists(payload, :empty)",
+      "createdAt = if_not_exists(createdAt, :now)",
+      "rxFire = if_not_exists(rxFire, :zero)",
+      "rxMuscle = if_not_exists(rxMuscle, :zero)",
+      "rxCrown = if_not_exists(rxCrown, :zero)",
+      "postedAt = if_not_exists(postedAt, :now)",
+      "gsi1pk = :gpk",
+      "gsi1sk = if_not_exists(gsi1sk, :gsk)",
+      ...(typeof photoKey === "string" && photoKey !== "keep" ? ["photoKey = :photo"] : []),
+    ];
+    const res = await this.doc.send(
+      new UpdateCommand({
+        TableName: this.tableName,
+        Key: { pk: pk(userId), sk: feedSk(eventId) },
+        UpdateExpression: `SET ${sets.join(", ")}${photoKey === null ? " REMOVE photoKey" : ""}`,
+        ExpressionAttributeNames: { "#k": "kind" },
+        ExpressionAttributeValues: {
+          ":sq": squadId,
+          ":u": userId,
+          ":e": eventId,
+          ":kind": "workout_day",
+          ":d": date,
+          ":empty": {},
+          ":now": nowIso,
+          ":zero": 0,
+          ":gpk": feedGsiPk(squadId),
+          ":gsk": `${nowIso}#${userId}#${eventId}`,
+          ...(typeof photoKey === "string" && photoKey !== "keep" ? { ":photo": photoKey } : {}),
+        },
+        ReturnValues: "ALL_NEW",
+      }),
+    );
+    return toFeed(res.Attributes ?? {});
+  }
+
+  async unpostDay(userId: string, date: string) {
+    try {
+      const res = await this.doc.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: { pk: pk(userId), sk: feedSk(`day#${date}`) },
+          ConditionExpression: "attribute_exists(sk)",
+          UpdateExpression: "REMOVE gsi1pk, gsi1sk, postedAt, photoKey",
+          ReturnValues: "ALL_OLD",
+        }),
+      );
+      return res.Attributes ? toFeed(res.Attributes) : null;
+    } catch (err) {
+      if (isConditionFailure(err)) return null;
+      throw err;
+    }
   }
 
   async updateFeed(userId: string, eventId: string, eventDate: string, payload: Record<string, unknown>) {

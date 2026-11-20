@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { DateSchema } from "../domain/day";
 import { SQUAD_MAX_TARGET, SQUAD_MIN_TARGET } from "../domain/squad";
+import { FeedWorkoutSchema } from "./share";
 
 /** Feature 010 API shapes. See specs/010-squad-leaderboard/contracts/api.md. */
 
@@ -44,7 +45,7 @@ export type WeeklyStreak = z.infer<typeof WeeklyStreakSchema>;
 export const SquadFeedItemSchema = z.strictObject({
   id: z.string(),
   member: SquadMemberSchema,
-  kind: z.enum(["pr", "streak_week", "first_workout", "protein_streak", "step_streak", "badge"]),
+  kind: z.enum(["pr", "streak_week", "first_workout", "protein_streak", "step_streak", "badge", "workout_day"]),
   date: DateSchema,
   pr: z
     .strictObject({
@@ -59,6 +60,8 @@ export const SquadFeedItemSchema = z.strictObject({
   week: z.number().int().nullable(),
   /** Feature 013: badge items only. */
   club: z.enum(["club225", "club300", "club400", "club450", "club500"]).nullable(),
+  /** Feature 016: a workout day the member posted; computed on read. Absent/null for other kinds. */
+  workout: FeedWorkoutSchema.nullable().default(null),
   reactions: z.strictObject({
     fire: z.strictObject({ count: z.number().int().min(0), mine: z.boolean() }),
     muscle: z.strictObject({ count: z.number().int().min(0), mine: z.boolean() }),

@@ -89,7 +89,8 @@ describe("stacks", () => {
       "PUT /me/squad", "PUT /workouts/gym/entries/{date}/{exerciseId}/confirm", "GET /squad/boards", "GET /squad/hall-of-fame", "GET /squad/feed",
       "PUT /squad/feed/{id}/reactions/{type}", "DELETE /squad/feed/{id}/reactions/{type}", "PUT /me/targets",
       "POST /integrations/activity", "GET /me/health-sync", "POST /me/health-token", "DELETE /me/health-token", "PUT /me/steps",
-      "GET /admin/exercises", "POST /admin/exercises", "PUT /admin/exercises/{exerciseId}", "POST /admin/exercises/{exerciseId}/merge", "POST /admin/users"]) {
+      "GET /admin/exercises", "POST /admin/exercises", "PUT /admin/exercises/{exerciseId}", "POST /admin/exercises/{exerciseId}/merge", "POST /admin/users",
+      "GET /me/share/{date}", "PUT /squad/posts/{date}", "DELETE /squad/posts/{date}"]) {
       apiT.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: key });
     }
   });
@@ -148,7 +149,9 @@ describe("stacks", () => {
     expect(get).not.toContain("s3:");
     for (const role of ["gymentryputFnServiceRole", "gymentrydeleteFnServiceRole", "gymexercisepostFnServiceRole"]) {
       expect(forRole(role), role).toContain("dynamodb:PutItem");
-      expect(forRole(role), role).not.toContain("s3:");
+      // Feature 016: entry writes may only delete a posted day's photo when the day stops being a workout day.
+      const s3 = forRole(role).match(/"s3:[A-Za-z*]+"/g) ?? [];
+      expect(s3.every((a) => a.startsWith('"s3:DeleteObject')), role).toBe(true);
     }
   });
 
@@ -187,6 +190,19 @@ describe("stacks", () => {
       expect(json, role).not.toContain("s3:PutObject");
       expect(json, role).not.toContain("s3:DeleteObject");
     }
+  });
+
+  it("scopes share photos to share-photos/: only posting writes, the feed reads, entry writes may delete (feature 016)", () => {
+    const policies = Object.values(apiT.findResources("AWS::IAM::Policy"));
+    const forRole = (role: string) => JSON.stringify(policies.filter((p) => JSON.stringify(p).includes(role)));
+    expect(forRole("squadpostputFnServiceRole")).toContain("s3:PutObject");
+    expect(forRole("squadpostputFnServiceRole")).toContain("/share-photos/*");
+    expect(forRole("squadfeedgetFnServiceRole")).toContain("/share-photos/*");
+    expect(forRole("squadfeedgetFnServiceRole")).not.toContain("s3:PutObject");
+    const del = forRole("gymentrydeleteFnServiceRole");
+    expect(del).toContain("s3:DeleteObject");
+    expect(del).not.toContain("s3:PutObject");
+    expect(forRole("mesharegetFnServiceRole")).not.toContain("s3:");
   });
 
   it("runs on Node 24 / arm64", () => {

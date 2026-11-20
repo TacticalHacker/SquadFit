@@ -74,6 +74,11 @@ export class ApiStack extends Stack {
       avatars?: "read" | "readwrite";
       /** Access to food photos (feature 005), limited to the `food-photos/*` prefix of the private bucket. */
       photos?: "read" | "readwrite";
+      /**
+       * Feature 016: photos posted with a workout day, limited to `share-photos/*`. "delete" is for functions whose
+       * entry writes can turn a posted day into a rest day (the stats refresh removes its photo).
+       */
+      sharePhotos?: "read" | "readwrite" | "delete";
       /** Override the default function size/timeout (the MCP function). */
       memorySize?: number;
       timeoutSeconds?: number;
@@ -96,6 +101,9 @@ export class ApiStack extends Stack {
       if (opts.avatars === "readwrite") avatarBucket.grantReadWrite(fn);
       if (opts.photos === "read") avatarBucket.grantRead(fn, "food-photos/*");
       if (opts.photos === "readwrite") avatarBucket.grantReadWrite(fn, "food-photos/*");
+      if (opts.sharePhotos === "read") avatarBucket.grantRead(fn, "share-photos/*");
+      if (opts.sharePhotos === "readwrite") avatarBucket.grantReadWrite(fn, "share-photos/*");
+      if (opts.sharePhotos === "delete") avatarBucket.grantDelete(fn, "share-photos/*");
       this.api.addRoutes({
         path: routePath,
         methods: [method],
@@ -114,15 +122,15 @@ export class ApiStack extends Stack {
     // Workouts (feature 002)
     route("workouts-get", HttpMethod.GET, "/workouts");
     route("workouts-summary-get", HttpMethod.GET, "/workouts/summary");
-    route("entry-put", HttpMethod.PUT, "/workouts/entries/{date}/{workoutId}", { write: true });
-    route("entry-delete", HttpMethod.DELETE, "/workouts/entries/{date}/{workoutId}", { write: true });
+    route("entry-put", HttpMethod.PUT, "/workouts/entries/{date}/{workoutId}", { write: true, sharePhotos: "delete" });
+    route("entry-delete", HttpMethod.DELETE, "/workouts/entries/{date}/{workoutId}", { write: true, sharePhotos: "delete" });
     route("custom-post", HttpMethod.POST, "/workouts/custom", { write: true });
     route("custom-put", HttpMethod.PUT, "/workouts/custom/{workoutId}", { write: true });
     route("custom-delete", HttpMethod.DELETE, "/workouts/custom/{workoutId}", { write: true });
     // Gym logger (feature 006): read-only list (queries gsi1 for "last time"), write-only for mutations.
     route("gym-get", HttpMethod.GET, "/workouts/gym");
-    route("gym-entry-put", HttpMethod.PUT, "/workouts/gym/entries/{date}/{exerciseId}", { write: true });
-    route("gym-entry-delete", HttpMethod.DELETE, "/workouts/gym/entries/{date}/{exerciseId}", { write: true });
+    route("gym-entry-put", HttpMethod.PUT, "/workouts/gym/entries/{date}/{exerciseId}", { write: true, sharePhotos: "delete" });
+    route("gym-entry-delete", HttpMethod.DELETE, "/workouts/gym/entries/{date}/{exerciseId}", { write: true, sharePhotos: "delete" });
     route("gym-exercise-post", HttpMethod.POST, "/workouts/gym/exercises", { write: true });
     route("gym-exercise-put", HttpMethod.PUT, "/workouts/gym/exercises/{exerciseId}", { write: true });
     route("gym-exercise-delete", HttpMethod.DELETE, "/workouts/gym/exercises/{exerciseId}", { write: true });
@@ -133,13 +141,17 @@ export class ApiStack extends Stack {
     // Feature 013: boards and Hall of Fame replace /squad/leaderboard; reactions replace high-fives.
     route("squad-boards-get", HttpMethod.GET, "/squad/boards", { avatars: "read" });
     route("squad-hall-of-fame-get", HttpMethod.GET, "/squad/hall-of-fame", { avatars: "read" });
-    route("squad-feed-get", HttpMethod.GET, "/squad/feed", { avatars: "read" });
+    route("squad-feed-get", HttpMethod.GET, "/squad/feed", { avatars: "read", sharePhotos: "read" });
     route("squad-member-get", HttpMethod.GET, "/squad/members/{memberId}", { avatars: "read" });
     route("squad-member-timeline-get", HttpMethod.GET, "/squad/members/{memberId}/timeline", { photos: "read" });
     route("squad-member-day-get", HttpMethod.GET, "/squad/members/{memberId}/days/{date}", { photos: "read" });
     route("squad-today-get", HttpMethod.GET, "/squad/today", { avatars: "read" });
     route("squad-reaction-put", HttpMethod.PUT, "/squad/feed/{id}/reactions/{type}", { write: true });
     route("squad-reaction-delete", HttpMethod.DELETE, "/squad/feed/{id}/reactions/{type}", { write: true });
+    // Share a workout day (feature 016): own figures, and posting a day (optional photo under share-photos/).
+    route("me-share-get", HttpMethod.GET, "/me/share/{date}");
+    route("squad-post-put", HttpMethod.PUT, "/squad/posts/{date}", { write: true, sharePhotos: "readwrite", memorySize: 512, timeoutSeconds: 15 });
+    route("squad-post-delete", HttpMethod.DELETE, "/squad/posts/{date}", { write: true, sharePhotos: "readwrite" });
     // Nutrition (feature 003)
     route("food-get", HttpMethod.GET, "/food", { photos: "read" });
     route("food-recent-get", HttpMethod.GET, "/food/recent");
@@ -172,7 +184,7 @@ export class ApiStack extends Stack {
     route("admin-exercises-get", HttpMethod.GET, "/admin/exercises");
     route("admin-exercise-post", HttpMethod.POST, "/admin/exercises", { write: true });
     route("admin-exercise-put", HttpMethod.PUT, "/admin/exercises/{exerciseId}", { write: true });
-    route("admin-exercise-merge-post", HttpMethod.POST, "/admin/exercises/{exerciseId}/merge", { write: true, timeoutSeconds: 60 });
+    route("admin-exercise-merge-post", HttpMethod.POST, "/admin/exercises/{exerciseId}/merge", { write: true, timeoutSeconds: 60, sharePhotos: "delete" });
     // Story 5: admins create member accounts. The only function with the pool id and a Cognito admin permission,
     // and only AdminCreateUser on this pool (FR-023). No table access is needed beyond the default read.
     const adminUserFn = route("admin-user-post", HttpMethod.POST, "/admin/users");

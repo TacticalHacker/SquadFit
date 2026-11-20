@@ -38,7 +38,7 @@ export async function toggleReaction(event: APIGatewayProxyEventV2WithJWTAuthori
     const trained = (await deps.workouts.listEntriesForDay(author, date)).some((e) => isWorkoutEntry(e));
     if (!trained) return apiError(404, "NOT_FOUND", "Feed item not found");
     const nowIso = deps.now().toISOString();
-    await deps.squad.putFeed({ userId: author, squadId: SQUAD_ID, eventId, kind: "workout_day", eventDate: date, payload: {}, reactions: { ...NO_REACTIONS }, createdAt: nowIso, listed: false });
+    await deps.squad.putFeed({ userId: author, squadId: SQUAD_ID, eventId, kind: "workout_day", eventDate: date, payload: {}, reactions: { ...NO_REACTIONS }, createdAt: nowIso, listed: false }, { ifAbsent: true });
   }
   const counts = on
     ? await deps.squad.addReaction(key, type.data, caller.userId, deps.now().toISOString())

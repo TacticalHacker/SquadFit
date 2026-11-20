@@ -6,6 +6,7 @@ import { apiError, ok } from "../lib/http";
 import { feedId, type FeedItem } from "../lib/squad-repo";
 import { sharedLevel, stepsShared } from "../lib/member-access";
 import { reactionsView } from "../lib/member-view";
+import { feedWorkout } from "../lib/share-summary";
 import { squadMember, visibleTo } from "../lib/squad-view";
 
 const PAGE = 50;
@@ -24,7 +25,8 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
     for (const item of page.items) {
       const author = byId.get(item.userId);
       if (!author || !visibleTo(author, caller.userId)) continue;
-      if (item.kind === "workout_day") continue;
+      // Day reaction targets (feature 011) list only once posted (feature 016).
+      if (item.kind === "workout_day" && item.postedAt === undefined) continue;
       // PRs on members' own exercises stay on their profile (day cards), not in the squad feed.
       if (item.kind === "pr" && !item.eventId.startsWith("pr#gx-")) continue;
       if (item.kind === "protein_streak" && sharedLevel(author) === "off") continue;
@@ -36,6 +38,8 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
   } while (startKey);
 
   const mine = await deps.squad.myReactions(caller.userId, picked);
+  const posters = [...new Set(picked.filter((f) => f.kind === "workout_day").map((f) => f.userId))];
+  const stats = posters.length ? await deps.squad.batchGetStats(posters) : new Map();
   const items: SquadFeedItem[] = await Promise.all(
     picked.map(async (f) => {
       const p = f.payload;
@@ -56,9 +60,10 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
             : null,
         week: f.kind === "streak_week" ? (p.week as number) : null,
         club: f.kind === "badge" ? (p.club as SquadFeedItem["club"]) : null,
+        workout: f.kind === "workout_day" ? await feedWorkout(byId.get(f.userId)!, f, stats.get(f.userId) ?? null, deps) : null,
         reactions: reactionsView(f.reactions, mine, f.userId, f.eventId),
         canReact: f.userId !== caller.userId,
-        createdAt: f.createdAt,
+        createdAt: f.postedAt ?? f.createdAt,
       };
     }),
   );

@@ -165,6 +165,8 @@ describe("months", () => {
     expect(improved([[60, 8], [62.5, 6]])).toBe(0); // more weight but fewer reps
     expect(improved([[60, 8], [60, 8]])).toBe(0); // same session again
     expect(improved([[60, 8], [55, 12], [57.5, 12]])).toBe(1); // compares with the previous session, not the best ever
+    // Feature 016: the same dates are kept per lift, for one day's share card.
+    expect(build(sessions([[60, 8], [62.5, 8], [62.5, 7]])).stats.lifts["gx-bench-press"]?.improvedDays).toEqual(["2026-11-02"]);
     // Cardio and other exercises never count, and each exercise compares only with itself.
     const cardio: SquadEntry = { date: "2026-11-02", workoutId: "gx-stairmaster", name: "Stairmaster", kind: "gym", exerciseKind: "cardio" };
     expect(build([...sessions([[60, 8]]), lift("2026-11-02", [[100, 5]], "gx-deadlift"), cardio]).stats.months["2026-11"]?.liftsImproved).toBe(0);
