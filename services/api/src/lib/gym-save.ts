@@ -1,6 +1,7 @@
 import {
   STRENGTH_RATE,
-  cardioTotals,
+  cardioEntryTotals,
+  effectiveBodyWeight,
   findGymExercise,
   gymTotals,
   type ApiErrorCode,
@@ -99,8 +100,15 @@ export async function saveGymEntry(
     const totals = gymTotals(data.sets);
     entry = { ...common, sets: data.sets, volumeKg: totals.volumeKg, minutes: totals.minutes, calories: totals.calories };
   } else {
-    const totals = cardioTotals(target.rateMinutes, target.rateCalories, data.minutes);
-    // Incline and speed are informational: calories still follow the minutes (feature 006 rate rule).
+    // Treadmill with incline and speed: the ACSM equation at the member's body weight; otherwise minutes × rate.
+    const detailed = target.treadmill && data.inclinePct !== undefined && data.speedKmh !== undefined;
+    const bodyWeightKg = detailed ? effectiveBodyWeight((await deps.profiles.get(userId)) ?? {}).kg : 0;
+    const totals = cardioEntryTotals({
+      rateMinutes: target.rateMinutes,
+      rateCalories: target.rateCalories,
+      minutes: data.minutes,
+      treadmill: detailed ? { inclinePct: data.inclinePct, speedKmh: data.speedKmh, bodyWeightKg } : null,
+    });
     entry = {
       ...common,
       minutes: totals.minutes,

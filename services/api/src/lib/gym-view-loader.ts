@@ -1,5 +1,6 @@
 import {
   buildGymView,
+  effectiveBodyWeight,
   isEditableDay,
   isGymEntry,
   summarize,
@@ -21,13 +22,14 @@ async function flaggedOn(userId: string, date: string, deps: Deps): Promise<Set<
 
 /** GET /workouts/gym: the day's gym list plus, per exercise, the latest earlier entry (research R5). */
 export async function loadGymView(userId: string, ctx: DayContext, date: string, deps: Deps): Promise<GymView> {
-  const [ownExercises, entries, flagged, library] = await Promise.all([
+  const [ownExercises, entries, flagged, library, profile] = await Promise.all([
     deps.gym.listOwnExercises(userId),
     deps.workouts.listEntriesForDay(userId, date),
     flaggedOn(userId, date, deps),
     getLibrary(deps),
+    deps.profiles.get(userId),
   ]);
-  const base = buildGymView({ date, today: ctx.today, timezone: ctx.timezone, ownExercises, library, entries, last: {} });
+  const base = buildGymView({ date, today: ctx.today, timezone: ctx.timezone, ownExercises, library, entries, last: {}, bodyWeightKg: effectiveBodyWeight(profile ?? {}).kg });
   const lasts = await Promise.all(
     base.exercises.map(async (e) => {
       const hit = await deps.gym.lastBefore(userId, e.exerciseId, date);

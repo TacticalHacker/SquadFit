@@ -2,6 +2,7 @@ import { z } from "zod";
 import { caloriesFor, summarize, type Summary } from "./calories";
 import { isEditableDay } from "./day";
 import type { StoredEntry } from "./day-view";
+import { DEFAULT_BODY_WEIGHT_KG } from "./profile";
 
 /** Gym logger (feature 006). See specs/006-gym-set-logger/data-model.md. */
 
@@ -138,6 +139,34 @@ export interface GymTotals {
   volumeKg: number;
   minutes: number;
   calories: number;
+}
+
+/**
+ * Treadmill burn from the ACSM metabolic equations (gross, so comparable with the other estimates):
+ * walking VO2 = 3.5 + 0.1·v + 1.8·v·grade, running (≥ 8 km/h) VO2 = 3.5 + 0.2·v + 0.9·v·grade (ml/kg/min, v in m/min);
+ * kcal/min = VO2 · kg / 1000 · 5. Used when both incline and speed are logged; otherwise the minutes × rate rule.
+ */
+export const TREADMILL_RUNNING_KMH = 8;
+export function treadmillCalories(input: { minutes: number; inclinePct: number; speedKmh: number; bodyWeightKg: number }): number {
+  const v = (input.speedKmh * 1000) / 60;
+  const grade = input.inclinePct / 100;
+  const running = input.speedKmh >= TREADMILL_RUNNING_KMH;
+  const vo2 = 3.5 + (running ? 0.2 : 0.1) * v + (running ? 0.9 : 1.8) * v * grade;
+  return Math.round(((vo2 * input.bodyWeightKg) / 1000) * 5 * input.minutes);
+}
+
+/** Cardio entry totals: the treadmill equation when incline and speed are both logged, else feature 002's rate rule. */
+export function cardioEntryTotals(input: {
+  rateMinutes: number;
+  rateCalories: number;
+  minutes: number;
+  treadmill?: { inclinePct?: number | null | undefined; speedKmh?: number | null | undefined; bodyWeightKg: number } | null;
+}): { minutes: number; calories: number } {
+  const t = input.treadmill;
+  if (t && t.inclinePct != null && t.speedKmh != null) {
+    return { minutes: input.minutes, calories: treadmillCalories({ minutes: input.minutes, inclinePct: t.inclinePct, speedKmh: t.speedKmh, bodyWeightKg: t.bodyWeightKg }) };
+  }
+  return cardioTotals(input.rateMinutes, input.rateCalories, input.minutes);
 }
 
 /** FR-013. Counts every set, completed or not (clarification 1). Volume is summed in tenths of a kg to avoid float drift. */
@@ -342,6 +371,8 @@ export interface GymExerciseView {
 }
 
 export interface GymView {
+  /** The member's own effective body weight (treadmill calorie preview). */
+  bodyWeightKg: number;
   date: string;
   today: string;
   timezone: string;
@@ -392,6 +423,7 @@ export function buildGymView(input: {
   /** All of the day's entries (workouts and gym). */
   entries: readonly StoredEntry[];
   last: Readonly<Record<string, GymLast | null>>;
+  bodyWeightKg?: number;
 }): GymView {
   const byId = new Map(input.entries.filter(isGymEntry).map((e) => [e.workoutId, e]));
   const view = (
@@ -436,6 +468,7 @@ export function buildGymView(input: {
     });
   }
   return {
+    bodyWeightKg: input.bodyWeightKg ?? DEFAULT_BODY_WEIGHT_KG,
     date: input.date,
     today: input.today,
     timezone: input.timezone,

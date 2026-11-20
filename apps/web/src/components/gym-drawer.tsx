@@ -47,6 +47,7 @@ export function GymDrawer({
   date,
   editable,
   username,
+  bodyWeightKg,
   onClose,
   onSaved,
 }: {
@@ -54,6 +55,8 @@ export function GymDrawer({
   date: string;
   editable: boolean;
   username: string;
+  /** Own effective body weight, for the treadmill calorie preview (the server computes the stored value). */
+  bodyWeightKg: number;
   onClose: () => void;
   onSaved: (result: GymSaveResult) => void;
 }) {
@@ -140,7 +143,7 @@ export function GymDrawer({
     finish(() => removeGymEntry(date, id));
   };
 
-  const totals = drawerTotals(state, exercise);
+  const totals = drawerTotals(state, { ...exercise, bodyWeightKg });
   const savedElsewhere =
     hasDraft && exercise.entry !== null && initialDraft !== null && initialDraft.baseUpdatedAt !== exercise.entry.updatedAt;
   const lastTop = exercise.last?.top;

@@ -14,7 +14,7 @@ import {
   GYM_MAX_SETS,
   GYM_MAX_WEIGHT,
   GYM_WEIGHT_STEP,
-  cardioTotals,
+  cardioEntryTotals,
   gymTotals,
   parseIncline,
   parseMinutes,
@@ -25,6 +25,7 @@ import {
   type GymSet,
   type ParseResult,
 } from "./gym";
+import { DEFAULT_BODY_WEIGHT_KG } from "./profile";
 
 /**
  * Pure state machine behind the gym drawer (research R7). Shared so the steppers are unit-tested
@@ -72,6 +73,9 @@ export interface DrawerExercise {
   kind: ExerciseKind;
   rateMinutes?: number | null;
   rateCalories?: number | null;
+  /** Incline Treadmill Walk: calories follow incline, speed and the member's body weight once both are set. */
+  treadmill?: boolean;
+  bodyWeightKg?: number;
 }
 
 type Source = { sets?: readonly GymSet[] | null; minutes?: number; inclinePct?: number | null; speedKmh?: number | null };
@@ -190,7 +194,14 @@ export function drawerToBody(state: DrawerState): { sets: GymSet[] } | { minutes
 /** Footer preview. Same functions the server uses. */
 export function drawerTotals(state: DrawerState, exercise: DrawerExercise): { volumeKg: number | null; minutes: number; calories: number } {
   if (state.mode === "cardio") {
-    const t = cardioTotals(exercise.rateMinutes ?? 1, exercise.rateCalories ?? 0, state.minutes);
+    const t = cardioEntryTotals({
+      rateMinutes: exercise.rateMinutes ?? 1,
+      rateCalories: exercise.rateCalories ?? 0,
+      minutes: state.minutes,
+      treadmill: exercise.treadmill
+        ? { inclinePct: state.inclinePct, speedKmh: state.speedKmh, bodyWeightKg: exercise.bodyWeightKg ?? DEFAULT_BODY_WEIGHT_KG }
+        : null,
+    });
     return { volumeKg: null, ...t };
   }
   return gymTotals(state.rows);

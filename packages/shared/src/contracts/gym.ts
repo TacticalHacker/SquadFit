@@ -102,6 +102,8 @@ export const GymExerciseSchema = z.object({
 });
 
 export const GymViewSchema = z.object({
+  /** The caller's own effective body weight; default covers an API deployed before it. */
+  bodyWeightKg: z.number().default(75),
   date: DateSchema,
   today: DateSchema,
   timezone: z.string(),

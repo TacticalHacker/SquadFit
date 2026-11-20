@@ -14,6 +14,7 @@ import {
   topSet,
   dayGymVolume,
   findGymExerciseByName,
+  treadmillCalories,
 } from "../src/domain/gym";
 import { normalizeWorkoutName } from "../src/domain/workouts";
 
@@ -157,5 +158,14 @@ describe("findGymExerciseByName (feature 007)", () => {
   it("ignores removed own exercises and unknown names", () => {
     expect(findGymExerciseByName("Old Move", own, GYM_EXERCISES)).toBeNull();
     expect(findGymExerciseByName("Benchpress", own, GYM_EXERCISES)).toBeNull();
+  });
+});
+
+describe("treadmillCalories (ACSM)", () => {
+  it("walking: incline and body weight raise the burn; running speeds use the running equation", () => {
+    expect(treadmillCalories({ minutes: 30, inclinePct: 12, speedKmh: 5, bodyWeightKg: 75 })).toBe(336);
+    expect(treadmillCalories({ minutes: 30, inclinePct: 0, speedKmh: 5, bodyWeightKg: 75 })).toBe(133);
+    expect(treadmillCalories({ minutes: 30, inclinePct: 12, speedKmh: 5, bodyWeightKg: 90 })).toBe(403);
+    expect(treadmillCalories({ minutes: 30, inclinePct: 1, speedKmh: 10, bodyWeightKg: 75 })).toBe(431);
   });
 });
