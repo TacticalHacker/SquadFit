@@ -22,6 +22,9 @@ function workoutLine(w: StoredEntry & { date: string }) {
     ...(lift && w.sets
       ? { sets: w.sets.map((s) => ({ set: s.setNumber, reps: s.reps, weightKg: s.weightKg, done: s.completed })), volumeKg: w.volumeKg ?? 0 }
       : {}),
+    // Treadmill details: with both, the app already computed calories from them (ACSM, body weight).
+    ...(w.inclinePct !== undefined ? { inclinePct: w.inclinePct } : {}),
+    ...(w.speedKmh !== undefined ? { speedKmh: w.speedKmh } : {}),
   };
 }
 
