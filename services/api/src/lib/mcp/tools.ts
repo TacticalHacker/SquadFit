@@ -17,6 +17,7 @@ import { weeklyStreakOf } from "../squad-view";
 import { buildHistoryDays, noteSummary, pendingHint, profileBlock } from "./history";
 import { photoTools } from "./photos";
 import { activityTools } from "./activity";
+import { weightTools } from "./weight";
 import { writeTools } from "./writes";
 import { describeIssues, fail, stripUnknown, type Tool, type ToolContext, type ToolResult } from "./types";
 import { safeRefreshProtein } from "../protein-events";
@@ -56,7 +57,7 @@ const DEFAULT_CONTEXT_DAYS = 7;
 const getFullContext: Tool = {
   name: "get_full_context",
   description:
-    "Everything for a daily review in one call: the member's profile (body weight in kg, 75 default when unset; calorie and protein targets), every workout (gym sets, reps, weightKg, volume; activities) and food entry with its logId, daily totals (eaten, burned, net, macros, gym volume), the day's coach note headline, the weekly workout streak ({ current, best, weekDays, target }: weeks that reached the member's weekly target, with this week's progress), and editableFrom (the oldest date write tools accept). Window: startDate/endDate (YYYY-MM-DD, at most 31 days, not after today); default is the last 7 days. The squad leaderboard is not available to agents.",
+    "Everything for a daily review in one call: the member's profile (body weight in kg = latest weigh-in, 75 default when unset; use get_weight_log for the weight history; calorie and protein targets), every workout (gym sets, reps, weightKg, volume; activities) and food entry with its logId, daily totals (eaten, burned, net, macros, gym volume), the day's coach note headline, the weekly workout streak ({ current, best, weekDays, target }: weeks that reached the member's weekly target, with this week's progress), and editableFrom (the oldest date write tools accept). Window: startDate/endDate (YYYY-MM-DD, at most 31 days, not after today); default is the last 7 days. The squad leaderboard is not available to agents.",
   shape: FullContextShape,
   async run(args, ctx) {
     const parsed = FullContextInputSchema.safeParse(stripUnknown(args, FullContextShape));
@@ -145,4 +146,4 @@ const updateUserTargets: Tool = {
   },
 };
 
-export const TOOLS: readonly Tool[] = [getFullContext, getUserHistory, postOverallCoachNote, postDailyCoachNote, updateUserTargets, ...writeTools, ...photoTools, ...activityTools];
+export const TOOLS: readonly Tool[] = [getFullContext, getUserHistory, postOverallCoachNote, postDailyCoachNote, updateUserTargets, ...writeTools, ...photoTools, ...activityTools, ...weightTools];

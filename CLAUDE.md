@@ -108,7 +108,7 @@ AWS runs only in **ap-south-1** (`AWS_REGION` in `infra/lib/config.ts`): CDK sta
 
 ## AI Coach v2 (feature 007)
 
-- MCP tools: `get_full_context` (profile incl. body weight, all logs with `logId`, totals incl. gym volume, streak, `leaderboard: null`), `get_user_history`, `update_workout_calories`, `upsert_workout_log`, `upsert_food_log`, `post_overall_coach_note`, `update_user_targets`, plus the photo tools. `post_daily_coach_note` is retired (always errors). AI writes are limited to the member's edit window (today + 2 previous days).
+- MCP tools: `get_full_context` (profile incl. body weight, all logs with `logId`, totals incl. gym volume, streak, `leaderboard: null`), `get_user_history`, `update_workout_calories`, `upsert_workout_log`, `upsert_food_log`, `post_overall_coach_note`, `update_user_targets`, plus the photo, activity and weight tools. `post_daily_coach_note` is retired (always errors). AI writes are limited to the member's edit window (today + 2 previous days).
 - `logId = "<date>#<id>"` (`formatLogId` / `parseLogId` in `@calci/shared`), id = workout `workoutId` or food `entryId`.
 - AI writes go through the same services as the HTTP handlers: `lib/gym-save.ts` (`saveGymEntry`) and `lib/food-write.ts` (`createFoodEntry`, `patchFoodEntry`). Don't duplicate validation in tools.
 - Workout entries may carry `aiNote` (≤ 120 chars): set by `update_workout_calories` through `WorkoutRepo.setAiAdjustment`, conditional on the `updatedAt` the agent read. Any member edit clears it (`updateEntryMinutes` removes it; gym saves are full puts). Totals are derived on read, so nothing else needs updating.
@@ -182,12 +182,13 @@ AWS runs only in **ap-south-1** (`AWS_REGION` in `infra/lib/config.ts`): CDK sta
 - Items `USER#<sub>/WEIGHT#<date>#<entryId>`, id = save time (`yyyyMMddTHHmmssSSSZ`) + 6 base36, so key order is date then save time and the latest is one descending query; a backfill never wins over today.
 - `lib/weight-write.ts` is the only write path. After every create/delete `syncProfileWeight` sets profile `bodyWeightKg` to the latest entry (left alone when none remain; best effort, repaired by the next write). `PUT /me/profile` with a *changed* weight records an entry for today; `null` is ignored once weigh-ins exist. Treadmill calories, MCP and the squad ratio keep reading `bodyWeightKg`.
 - All chart math (`rangeWindow`, `buildWeightView`, `weightAxis`, `latestEntry`) is in `packages/shared/src/domain/bodyweight.ts`: day average = mean of entries, slot average = mean of day averages, trend = 7-day mean of day averages (W/M, with a 6-day lead-in), axis `[floor(min−1), ceil(max+1)]` with 3–4 lines.
-- Never log weights; weigh-ins never appear in squad (except feature 017's kg change), public, feed, share or MCP responses.
+- Never log weights; weigh-ins never appear in squad (except feature 017's kg change), public, feed or share responses; MCP gets only the key member's own (feature 017).
 
 ## Squad weight trend (feature 017)
 
 - `/squad` has a compact `BodyweightSquadCard` under "Latest" (own latest weight, sparkline, **Log weight**, link to `/squad/weight`). `/squad/weight` = SegmentLinks **Me | Squad** (`?view=squad`): Me = the 014 `BodyweightCard`, Squad = `SquadWeightChart` (one line per member, one in focus, tap a row to switch).
 - `GET /squad/weight?range=` (Cognito): members with profile `shareBodyWeight` (Settings "Share my weight trend with the squad", default off) who are visible to the caller, each as `deltas` (kg change per slot from their first slot with data, `weightChangeLine` in `domain/bodyweight.ts`) and `change`; at least 2 slots with data. The window is the caller's. Strict `SquadWeightSchema`: never absolute weight (constitution VI 2.6.0).
+- MCP (`lib/mcp/weight.ts`): `get_weight_log` (`range` W|M|6M|Y: latest, summary, slots with data, and raw weigh-ins for W/M) and `log_weight` (`{ weightKg, date? }` through `weight-write.ts` `logWeight`, edit window, syncs profile `bodyWeightKg`). Own weight only; the squad trend is not exposed to agents.
 
 ## Exercise admin (feature 015)
 
