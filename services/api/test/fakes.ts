@@ -2,6 +2,7 @@ import type { APIGatewayProxyEventV2WithJWTAuthorizer, APIGatewayProxyStructured
 import { exerciseNameKey, type CatalogExercise } from "@calci/shared";
 import type { ActivitySource, ActivityValues, GymLastIndex, OverallNoteInput, ProfileInput, ReactionType, SquadSettingsInput, SquadStats, StepSettings } from "@calci/shared";
 import { toActivityItem, type ActivityItem, type ActivityRepo } from "../src/lib/activity-repo";
+import type { WeightItem, WeightRepo } from "../src/lib/weight-repo";
 import type { HealthTokenRepo } from "../src/lib/health-token-repo";
 import type { UserDirectory } from "../src/lib/user-directory";
 import type { CatalogPatch, CatalogRepo, CatalogUpdateResult } from "../src/lib/catalog-repo";
@@ -97,6 +98,14 @@ export class InMemoryProfileRepo implements ProfileRepo {
     const existing = this.items.get(userId);
     if (!existing) return null;
     const next: ProfileItem = { ...existing, ...settings, updatedAt: nowIso };
+    this.items.set(userId, next);
+    return next;
+  }
+
+  async setBodyWeight(userId: string, kg: number, nowIso: string) {
+    const existing = this.items.get(userId);
+    if (!existing) return null;
+    const next: ProfileItem = { ...existing, bodyWeightKg: kg, updatedAt: nowIso };
     this.items.set(userId, next);
     return next;
   }
@@ -598,6 +607,29 @@ export class InMemoryActivityRepo implements ActivityRepo {
   }
 }
 
+/** Feature 014: sorted like the table (date, then id), scoped to the owner's partition. */
+export class InMemoryWeightRepo implements WeightRepo {
+  readonly items = new Map<string, WeightItem>();
+  private mine(userId: string) {
+    return [...this.items.values()].filter((i) => i.userId === userId).sort((a, b) => (a.date === b.date ? a.entryId.localeCompare(b.entryId) : a.date.localeCompare(b.date)));
+  }
+  async create(item: WeightItem) {
+    this.items.set(`${item.userId}#${item.date}#${item.entryId}`, item);
+  }
+  async delete(userId: string, date: string, entryId: string) {
+    this.items.delete(`${userId}#${date}#${entryId}`);
+  }
+  async listRange(userId: string, from: string, to: string) {
+    return this.mine(userId).filter((i) => i.date >= from && i.date <= to);
+  }
+  async latest(userId: string) {
+    return this.mine(userId).at(-1) ?? null;
+  }
+  async countDay(userId: string, date: string) {
+    return this.mine(userId).filter((i) => i.date === date).length;
+  }
+}
+
 export class InMemoryHealthTokenRepo implements HealthTokenRepo {
   readonly byHash = new Map<string, string>();
   readonly byUser = new Map<string, { tokenHash: string; createdAt: string; lastUsedAt: string | null }>();
@@ -692,10 +724,11 @@ export function makeDeps(now = "2026-11-11T10:00:00.000Z") {
   const activity = new InMemoryActivityRepo();
   const healthTokens = new InMemoryHealthTokenRepo();
   const catalog = new InMemoryCatalogRepo();
+  const weights = new InMemoryWeightRepo();
   const users = new InMemoryUserDirectory();
   let clock = new Date(now);
-  const deps: Deps = { profiles, workouts, gym, food, coach, credentials, avatars, photos, sharePhotos, waitlist, squad, activity, healthTokens, catalog, users, now: () => clock };
-  return { deps, profiles, workouts, gym, food, coach, credentials, avatars, photos, sharePhotos, waitlist, squad, activity, healthTokens, catalog, users, setNow: (iso: string) => (clock = new Date(iso)) };
+  const deps: Deps = { profiles, workouts, gym, food, coach, credentials, avatars, photos, sharePhotos, waitlist, squad, activity, healthTokens, weights, catalog, users, now: () => clock };
+  return { deps, profiles, workouts, gym, food, coach, credentials, avatars, photos, sharePhotos, waitlist, squad, activity, healthTokens, weights, catalog, users, setNow: (iso: string) => (clock = new Date(iso)) };
 }
 
 export function makeEvent(opts: {

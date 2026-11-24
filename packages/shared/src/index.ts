@@ -44,3 +44,5 @@ export * from "./contracts/squad-profile";
 export * from "./contracts/squad-boards";
 export * from "./domain/activity";
 export * from "./contracts/activity";
+export * from "./domain/bodyweight";
+export * from "./contracts/weight";

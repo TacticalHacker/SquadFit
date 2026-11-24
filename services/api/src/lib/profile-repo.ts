@@ -67,6 +67,8 @@ export interface ProfileRepo {
   setSquadSettings(userId: string, settings: SquadSettingsInput, nowIso: string): Promise<ProfileItem | null>;
   /** Feature 012: save the step goal and "Share my steps". Returns null if there is no profile. */
   setStepSettings(userId: string, settings: StepSettings, nowIso: string): Promise<ProfileItem | null>;
+  /** Feature 014: the profile body weight follows the latest weight entry. Returns null if there is no profile. */
+  setBodyWeight(userId: string, kg: number, nowIso: string): Promise<ProfileItem | null>;
   /** Set or clear the avatar key; returns the previous key. Throws ProfileMissingError if no profile. */
   setAvatarKey(userId: string, key: string | null, nowIso: string): Promise<string | null>;
   /** Everyone with a completed profile, in join order. */
@@ -244,6 +246,25 @@ export class DynamoProfileRepo implements ProfileRepo {
           ConditionExpression: "attribute_exists(pk)",
           UpdateExpression: "SET dailyStepGoal = :g, shareSteps = :s, updatedAt = :now",
           ExpressionAttributeValues: { ":g": settings.dailyStepGoal, ":s": settings.shareSteps, ":now": nowIso },
+          ReturnValues: "ALL_NEW",
+        }),
+      );
+      return fromItem(res.Attributes ?? {});
+    } catch (err) {
+      if (err instanceof Error && err.name === "ConditionalCheckFailedException") return null;
+      throw err;
+    }
+  }
+
+  async setBodyWeight(userId: string, kg: number, nowIso: string) {
+    try {
+      const res = await this.doc.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: { pk: pk(userId), sk: "PROFILE" },
+          ConditionExpression: "attribute_exists(pk)",
+          UpdateExpression: "SET bodyWeightKg = :bw, updatedAt = :now",
+          ExpressionAttributeValues: { ":bw": kg, ":now": nowIso },
           ReturnValues: "ALL_NEW",
         }),
       );

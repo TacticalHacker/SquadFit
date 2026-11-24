@@ -90,7 +90,8 @@ describe("stacks", () => {
       "PUT /squad/feed/{id}/reactions/{type}", "DELETE /squad/feed/{id}/reactions/{type}", "PUT /me/targets",
       "POST /integrations/activity", "GET /me/health-sync", "POST /me/health-token", "DELETE /me/health-token", "PUT /me/steps",
       "GET /admin/exercises", "POST /admin/exercises", "PUT /admin/exercises/{exerciseId}", "POST /admin/exercises/{exerciseId}/merge", "POST /admin/users",
-      "GET /me/share/{date}", "PUT /squad/posts/{date}", "DELETE /squad/posts/{date}"]) {
+      "GET /me/share/{date}", "PUT /squad/posts/{date}", "DELETE /squad/posts/{date}",
+      "GET /me/weight", "POST /me/weight", "DELETE /me/weight/{date}/{entryId}"]) {
       apiT.hasResourceProperties("AWS::ApiGatewayV2::Route", { RouteKey: key });
     }
   });

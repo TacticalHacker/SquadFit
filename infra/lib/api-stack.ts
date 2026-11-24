@@ -180,6 +180,10 @@ export class ApiStack extends Stack {
     route("me-health-token-post", HttpMethod.POST, "/me/health-token", { write: true });
     route("me-health-token-delete", HttpMethod.DELETE, "/me/health-token", { write: true });
     route("me-steps-put", HttpMethod.PUT, "/me/steps", { write: true });
+    // Bodyweight log (feature 014): owner-only weigh-ins; writes re-sync the profile body weight.
+    route("weight-get", HttpMethod.GET, "/me/weight");
+    route("weight-post", HttpMethod.POST, "/me/weight", { write: true });
+    route("weight-delete", HttpMethod.DELETE, "/me/weight/{date}/{entryId}", { write: true });
     // Exercise admin (feature 015): Cognito-authorized; each handler also requires the "admin" group (403 otherwise).
     route("admin-exercises-get", HttpMethod.GET, "/admin/exercises");
     route("admin-exercise-post", HttpMethod.POST, "/admin/exercises", { write: true });

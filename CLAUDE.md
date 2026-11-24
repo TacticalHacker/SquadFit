@@ -175,6 +175,15 @@ AWS runs only in **ap-south-1** (`AWS_REGION` in `infra/lib/config.ts`): CDK sta
 - Total weight lifted is never a board: profiles show this week vs last week (`weekVolumes`, `weightLifted` on `GET /squad/members/{id}`).
 - The body-weight ratio switch is hidden until feature 014 (relative strength, bodyweight log and privacy).
 
+## Bodyweight (feature 014)
+
+- Bodyweight card on `/food`, right below the ledger (`FoodScreen` `afterLedger` slot): latest weight, **Log weight** sheet (`weight-sheet.tsx`: day chips for the edit window, ±0.1 steppers via `stepWeightKg`, `inputMode="decimal"`, the day's entries with delete) and the Apple Health-style chart (`weight-chart.tsx`, hand-written SVG, W | M | 6M | Y, scrubbing via `nearestSlot`, "7-day trend" chip stored at `sf:weighttrend:v1`).
+- API (Cognito, owner-only): `GET /me/weight?range=`, `POST /me/weight?range=` (`{ weightKg, date? }`, 409 `DAY_LOCKED` / `DAY_FULL` at 10 a day), `DELETE /me/weight/{date}/{entryId}?range=` (idempotent). Writes return the fresh `WeightView`; Server Actions in `server/actions/weight.ts`.
+- Items `USER#<sub>/WEIGHT#<date>#<entryId>`, id = save time (`yyyyMMddTHHmmssSSSZ`) + 6 base36, so key order is date then save time and the latest is one descending query; a backfill never wins over today.
+- `lib/weight-write.ts` is the only write path. After every create/delete `syncProfileWeight` sets profile `bodyWeightKg` to the latest entry (left alone when none remain; best effort, repaired by the next write). `PUT /me/profile` with a *changed* weight records an entry for today; `null` is ignored once weigh-ins exist. Treadmill calories, MCP and the squad ratio keep reading `bodyWeightKg`.
+- All chart math (`rangeWindow`, `buildWeightView`, `weightAxis`, `latestEntry`) is in `packages/shared/src/domain/bodyweight.ts`: day average = mean of entries, slot average = mean of day averages, trend = 7-day mean of day averages (W/M, with a 6-day lead-in), axis `[floor(min−1), ceil(max+1)]` with 3–4 lines.
+- Never log weights; weigh-ins never appear in squad, public, feed, share or MCP responses.
+
 ## Exercise admin (feature 015)
 
 - Admin = Cognito group `admin` (CDK `CfnUserPoolGroup` in `auth-stack.ts`), managed with `pnpm admin admins add|remove <username>` / `admins list`. The access token's `cognito:groups` (string `"[admin]"` from the HTTP API authorizer, or an array) becomes `Caller.isAdmin` (`isAdminClaim`); `GET /me` returns the caller's own `isAdmin`. Members sign in again to pick it up; removal takes effect on the next token refresh (≤ 1 h).
