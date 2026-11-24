@@ -190,3 +190,15 @@ export function nearestSlot(slots: readonly { count: number }[], pos: number): n
 export function stepWeightKg(value: number, dir: 1 | -1): number {
   return Math.min(400, Math.max(20, round1(value + dir * WEIGHT_STEP_KG)));
 }
+
+/**
+ * Feature 017: one member's line on the squad weight chart. Slot averages become kg change from that member's first
+ * slot with data in the window, so real body weight never leaves the server. Null with fewer than 2 slots of data.
+ */
+export function weightChangeLine(range: WeightRange, today: string, entries: readonly WeightEntryLike[]): { deltas: (number | null)[]; change: number } | null {
+  const avgs = buildWeightView({ range, today, entries, latest: null, profileWeightKg: null }).slots.map((s) => s.average);
+  const data = avgs.filter((a): a is number => a !== null);
+  if (data.length < 2) return null;
+  const base = data[0]!;
+  return { deltas: avgs.map((a) => (a === null ? null : round1(a - base))), change: round1(data.at(-1)! - base) };
+}

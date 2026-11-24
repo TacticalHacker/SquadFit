@@ -184,6 +184,8 @@ export class ApiStack extends Stack {
     route("weight-get", HttpMethod.GET, "/me/weight");
     route("weight-post", HttpMethod.POST, "/me/weight", { write: true });
     route("weight-delete", HttpMethod.DELETE, "/me/weight/{date}/{entryId}", { write: true });
+    // Squad weight chart (feature 017): opted-in members as kg change only.
+    route("squad-weight-get", HttpMethod.GET, "/squad/weight", { avatars: "read" });
     // Exercise admin (feature 015): Cognito-authorized; each handler also requires the "admin" group (403 otherwise).
     route("admin-exercises-get", HttpMethod.GET, "/admin/exercises");
     route("admin-exercise-post", HttpMethod.POST, "/admin/exercises", { write: true });

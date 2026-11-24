@@ -301,7 +301,18 @@ export const WEIGHT_COPY = {
   trend: "7-day trend",
   dayEntries: "Logged this day",
   dayEmpty: "Nothing logged this day yet",
+  // Feature 017: squad view.
+  me: "Me",
+  squad: "Squad",
+  squadTrend: "See the squad's trend",
+  change: "CHANGE",
+  squadEmpty: "Nobody sharing has 2 weigh-ins in this period yet",
+  notSharing: "You're not sharing your weight trend, so the squad doesn't see your line.",
+  shareInfo: "Members who share appear as kg gained or lost since their first weigh-in in the period, never their actual weight.",
 } as const;
+
+/** Signed kg change, always one decimal: "−1.3 kg", "+0.4 kg", "0.0 kg". */
+export const weightChange = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${Math.abs(n).toFixed(1)} kg`;
 
 /** Always one decimal: "78.0 kg". */
 export const weightKg = (n: number) => `${n.toFixed(1)} kg`;

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { DateSchema } from "../domain/day";
 import { BodyWeightSchema } from "../domain/profile";
 import { WEIGHT_RANGES } from "../domain/bodyweight";
+import { SquadMemberSchema } from "./squad";
 
 /** Feature 014 shapes. See specs/014-bodyweight-tracker/contracts/api.md. Owner-only: never in squad/public views. */
 
@@ -43,3 +44,23 @@ export const WeightLogInputSchema = z.strictObject({
   date: DateSchema.optional(),
 });
 export type WeightLogInput = z.infer<typeof WeightLogInputSchema>;
+
+/**
+ * Feature 017: GET /squad/weight. Only members who share their weight (and are on the leaderboard) appear, and only as
+ * kg change from their first weigh-in in the window: never absolute weight. `sharing` = the caller shares theirs.
+ */
+export const SquadWeightSchema = z.strictObject({
+  range: z.enum(WEIGHT_RANGES),
+  start: DateSchema,
+  end: DateSchema,
+  slots: z.array(z.strictObject({ start: DateSchema, end: DateSchema })),
+  sharing: z.boolean(),
+  members: z.array(
+    z.strictObject({
+      member: SquadMemberSchema,
+      deltas: z.array(z.number().nullable()),
+      change: z.number(),
+    }),
+  ),
+});
+export type SquadWeight = z.infer<typeof SquadWeightSchema>;

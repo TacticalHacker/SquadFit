@@ -173,16 +173,21 @@ AWS runs only in **ap-south-1** (`AWS_REGION` in `infra/lib/config.ts`): CDK sta
 - Wording: every squad-area phrase and formatter lives in `apps/web/src/lib/plain.ts` (no "e1RM", always units, "per dumbbell", zero streak hidden). Change wording there, not in components.
 - Rollout: deploy, `pnpm admin squad migrate-reactions`, then `pnpm admin squad backfill`.
 - Total weight lifted is never a board: profiles show this week vs last week (`weekVolumes`, `weightLifted` on `GET /squad/members/{id}`).
-- The body-weight ratio switch is hidden until feature 014 (relative strength, bodyweight log and privacy).
+- `shareBodyWeight` is shown in Settings as "Share my weight trend with the squad" (feature 017). The e1RM ÷ body weight ratio is still not shown anywhere; if it returns, decide whether it needs its own switch.
 
 ## Bodyweight (feature 014)
 
-- Bodyweight card on `/food`, right below the ledger (`FoodScreen` `afterLedger` slot): latest weight, **Log weight** sheet (`weight-sheet.tsx`: day chips for the edit window, ±0.1 steppers via `stepWeightKg`, `inputMode="decimal"`, the day's entries with delete) and the Apple Health-style chart (`weight-chart.tsx`, hand-written SVG, W | M | 6M | Y, scrubbing via `nearestSlot`, "7-day trend" chip stored at `sf:weighttrend:v1`).
+- Bodyweight lives under Squad since feature 017 (no longer on `/food`): `BodyweightCard` on `/squad/weight` (Me): latest weight, **Log weight** sheet (`weight-sheet.tsx`: day chips for the edit window, ±0.1 steppers via `stepWeightKg`, `inputMode="decimal"`, the day's entries with delete) and the Apple Health-style chart (`weight-chart.tsx`, hand-written SVG, W | M | 6M | Y, scrubbing via `nearestSlot`, "7-day trend" chip stored at `sf:weighttrend:v1`).
 - API (Cognito, owner-only): `GET /me/weight?range=`, `POST /me/weight?range=` (`{ weightKg, date? }`, 409 `DAY_LOCKED` / `DAY_FULL` at 10 a day), `DELETE /me/weight/{date}/{entryId}?range=` (idempotent). Writes return the fresh `WeightView`; Server Actions in `server/actions/weight.ts`.
 - Items `USER#<sub>/WEIGHT#<date>#<entryId>`, id = save time (`yyyyMMddTHHmmssSSSZ`) + 6 base36, so key order is date then save time and the latest is one descending query; a backfill never wins over today.
 - `lib/weight-write.ts` is the only write path. After every create/delete `syncProfileWeight` sets profile `bodyWeightKg` to the latest entry (left alone when none remain; best effort, repaired by the next write). `PUT /me/profile` with a *changed* weight records an entry for today; `null` is ignored once weigh-ins exist. Treadmill calories, MCP and the squad ratio keep reading `bodyWeightKg`.
 - All chart math (`rangeWindow`, `buildWeightView`, `weightAxis`, `latestEntry`) is in `packages/shared/src/domain/bodyweight.ts`: day average = mean of entries, slot average = mean of day averages, trend = 7-day mean of day averages (W/M, with a 6-day lead-in), axis `[floor(min−1), ceil(max+1)]` with 3–4 lines.
-- Never log weights; weigh-ins never appear in squad, public, feed, share or MCP responses.
+- Never log weights; weigh-ins never appear in squad (except feature 017's kg change), public, feed, share or MCP responses.
+
+## Squad weight trend (feature 017)
+
+- `/squad` has a compact `BodyweightSquadCard` under "Latest" (own latest weight, sparkline, **Log weight**, link to `/squad/weight`). `/squad/weight` = SegmentLinks **Me | Squad** (`?view=squad`): Me = the 014 `BodyweightCard`, Squad = `SquadWeightChart` (one line per member, one in focus, tap a row to switch).
+- `GET /squad/weight?range=` (Cognito): members with profile `shareBodyWeight` (Settings "Share my weight trend with the squad", default off) who are visible to the caller, each as `deltas` (kg change per slot from their first slot with data, `weightChangeLine` in `domain/bodyweight.ts`) and `change`; at least 2 slots with data. The window is the caller's. Strict `SquadWeightSchema`: never absolute weight (constitution VI 2.6.0).
 
 ## Exercise admin (feature 015)
 

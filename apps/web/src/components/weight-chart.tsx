@@ -24,7 +24,7 @@ const mon = new Intl.DateTimeFormat("en-GB", { month: "short", timeZone: "UTC" }
 const monNarrow = new Intl.DateTimeFormat("en-GB", { month: "narrow", timeZone: "UTC" });
 
 /** Sparse x labels: every day in W, weekly in M, month starts in 6M, month initials in Y. */
-function xLabel(range: WeightRange, slot: WeightSlot, i: number, n: number): string | null {
+export function xLabel(range: WeightRange, slot: { start: string; end: string }, i: number, n: number): string | null {
   if (range === "W") return wk.format(utc(slot.start));
   if (range === "M") return (n - 1 - i) % 7 === 0 ? String(+slot.start.slice(8, 10)) : null;
   if (range === "6M") return i === 0 || slot.start.slice(5, 7) !== slot.end.slice(5, 7) || slot.start.endsWith("-01") ? mon.format(utc(slot.end)) : null;

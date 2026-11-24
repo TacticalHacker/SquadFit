@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { BodyWeightSchema, WeightRangeSchema, WeightViewSchema, DateSchema, type WeightView } from "@calci/shared";
+import { BodyWeightSchema, SquadWeightSchema, WeightRangeSchema, WeightViewSchema, DateSchema, type SquadWeight, type WeightView } from "@calci/shared";
 import { ApiRequestError, apiFetch, UnauthorizedError } from "../api";
 
 /** Feature 014 actions. The browser never calls the API; every view is validated against WeightViewSchema. */
@@ -48,4 +48,14 @@ export async function deleteWeight(range: string, date: string, entryId: string)
   return call(() =>
     apiFetch(`/me/weight/${date}/${encodeURIComponent(entryId)}?range=${rangeOf(range)}`, { method: "DELETE", schema: WeightViewSchema }),
   );
+}
+
+/** Feature 017: the squad chart (kg change of members who share). */
+export async function loadSquadWeight(range: string): Promise<{ ok: true; data: SquadWeight } | { ok: false; error: string }> {
+  try {
+    return { ok: true, data: await apiFetch(`/squad/weight?range=${rangeOf(range)}`, { schema: SquadWeightSchema }) };
+  } catch (err) {
+    if (err instanceof UnauthorizedError) redirect("/sign-in");
+    return { ok: false, error: "Couldn't load the squad chart. Check your connection and try again." };
+  }
 }

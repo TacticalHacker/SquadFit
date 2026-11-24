@@ -9,7 +9,7 @@ import { cardClass, noticeErrorClass, secondaryButtonClass } from "./form-bits";
 import { WeightChart } from "./weight-chart";
 import { WeightSheet } from "./weight-sheet";
 
-/** Feature 014: the member's own Bodyweight card on /food (owner-only; never in squad views). */
+/** Feature 014: the member's own Bodyweight card (owner-only), on /squad/weight "Me" since feature 017. */
 export function BodyweightCard({ initialView, timezone }: { initialView: WeightView; timezone: string }) {
   const [view, setView] = useState(initialView);
   const [open, setOpen] = useState(false);

@@ -9,7 +9,7 @@ import { Stepper } from "./stepper";
 
 const initialState: ActionState = {};
 
-/** Weekly target, leaderboard visibility and nutrition sharing (features 010, 011). */
+/** Weekly target, leaderboard visibility, weight trend and nutrition sharing (features 010, 011, 017). */
 export function SquadSettingsForm({ initial }: { initial: SquadSettings }) {
   const [state, action, pending] = useActionState(saveSquadSettings, initialState);
   const [target, setTarget] = useState(initial.weeklyTarget);
@@ -43,8 +43,13 @@ export function SquadSettingsForm({ initial }: { initial: SquadSettings }) {
         </span>
       </label>
 
-      {/* The body-weight ratio returns with feature 014's relative strength board; keep the stored choice meanwhile. */}
-      {initial.shareBodyWeight ? <input type="hidden" name="shareBodyWeight" value="on" /> : null}
+      <label className="flex min-h-11 items-start gap-3">
+        <input type="checkbox" name="shareBodyWeight" defaultChecked={initial.shareBodyWeight} className="mt-1 size-5 shrink-0 accent-accent" />
+        <span className="flex flex-col">
+          <span className="text-sm font-medium text-ink">Share my weight trend with the squad</span>
+          <span className="text-sm text-muted">Others see only how many kg you&apos;ve gained or lost over a period, never your actual weight.</span>
+        </span>
+      </label>
 
       <fieldset className="flex flex-col gap-1">
         <legend className="text-sm font-medium text-ink">Share my nutrition with the squad</legend>

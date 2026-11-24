@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useOptimistic, useRef, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import {
   MEALS,
   applyFoodChange,
@@ -38,13 +38,10 @@ export function FoodScreen({
   initialView,
   own,
   recent,
-  afterLedger,
 }: {
   initialView: FoodDayView;
   own: readonly OwnFood[];
   recent: readonly RecentFood[];
-  /** Feature 014: the Bodyweight card, rendered right below the ledger. */
-  afterLedger?: ReactNode;
 }) {
   const router = useRouter();
   const [view, setView] = useState(initialView);
@@ -163,8 +160,6 @@ export function FoodScreen({
       ) : null}
 
       <FoodLedgerCard ledger={optimistic.ledger} />
-
-      {afterLedger}
 
       <div role="alert">
         {error ? <p className={noticeErrorClass}>{error}</p> : null}

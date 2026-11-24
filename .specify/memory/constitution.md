@@ -1,6 +1,9 @@
 <!--
 Sync Impact Report
-- Version change: 2.4.0 → 2.5.0 (MINOR: principle VI allows sharing daily steps under "Share my steps", feature 012)
+- Version change: 2.5.0 → 2.6.0 (MINOR: principle VI allows an opt-in body weight trend as kg change only, feature 017)
+- Modified principles: VI. Members-Only Visibility (members who opt in to "Share my weight trend" appear on the squad weight chart as kg change since their first weigh-in in the period; never absolute weight)
+- Templates requiring updates: none ✅
+- Previous: 2.4.0 → 2.5.0 (MINOR: principle VI allows sharing daily steps under "Share my steps", feature 012)
 - Modified principles: VI. Members-Only Visibility (steps, step goal, goal hits, step-run feed items; active calories and distance on the profile only; no ranking by active calories)
 - Templates requiring updates: none ✅
 - Previous: 2.3.0 → 2.4.0 (MINOR: principle VI allows opt-in nutrition sharing at two levels, feature 011)
@@ -81,7 +84,8 @@ with a completed profile and the number of workout entries logged in the last 7 
 else (no names, weights, streaks, food or per-member figures) is served to anonymous requests. Each user's own data
 (food entries, calorie target, body weight, credentials) is visible only to them unless a spec explicitly
 publishes a derived figure; body weight may be shown to other members only as an e1RM ÷ body weight
-ratio, and only for members who opted in. Food may be shown to other members only through a member's own
+ratio or as kg change since the member's first weigh-in in a chart period (never absolute weight), and only for
+members who opted in ("Share my weight trend with the squad", default off) and are on the leaderboard. Food may be shown to other members only through a member's own
 "Share my nutrition with the squad" setting (default off), enforced on the server, per day, computed when requested
 so a change applies to past days at once, and never for a member hidden from the leaderboard. **Daily totals** exposes
 exactly: calories in, protein, carbs, fat, calories burned in workouts (with whether it includes an AI adjustment),
@@ -122,4 +126,4 @@ principle or section is added; PATCH: wording only), and propagates the change t
 `.specify/templates/*`. Reviewers check plans against the "Constitution Check" gate. Runtime
 guidance for agents lives in `CLAUDE.md`.
 
-**Version**: 2.5.0 | **Ratified**: 2026-11-11 | **Last Amended**: 2026-11-18
+**Version**: 2.6.0 | **Ratified**: 2026-11-11 | **Last Amended**: 2026-11-24

@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { ArrowRight } from "lucide-react";
-import { HallOfFameSchema, SquadBoardsSchema, SquadFeedSchema } from "@calci/shared";
+import { HallOfFameSchema, SquadBoardsSchema, SquadFeedSchema, WeightViewSchema } from "@calci/shared";
 import { BoardCard } from "@/components/board-card";
+import { BodyweightSquadCard } from "@/components/bodyweight-squad-card";
 import { linkClass, noticeWarnClass } from "@/components/form-bits";
 import { HallOfFame } from "@/components/hall-of-fame";
 import { NutritionCard } from "@/components/nutrition-card";
@@ -25,11 +26,13 @@ async function SquadContent({ searchParams }: { searchParams: PageProps<"/squad"
   const { profile } = await requireProfile();
   const fame = first((await searchParams).view) === "fame";
 
-  const [data, feed, records] = await Promise.all([
+  const [data, feed, records, weight] = await Promise.all([
     apiFetch("/squad/boards", { schema: SquadBoardsSchema }),
     // The feed is secondary: a failed fetch must not take the boards down.
     apiFetch("/squad/feed?limit=5", { schema: SquadFeedSchema }).catch(() => null),
     fame ? apiFetch("/squad/hall-of-fame", { schema: HallOfFameSchema }) : Promise.resolve(null),
+    // Feature 017: your own weigh-ins for the compact card; optional like the feed.
+    apiFetch("/me/weight?range=M", { schema: WeightViewSchema }).catch(() => null),
   ]);
 
   return (
@@ -62,6 +65,8 @@ async function SquadContent({ searchParams }: { searchParams: PageProps<"/squad"
           <ArrowRight aria-hidden size={16} strokeWidth={1.75} />
         </Link>
       </section>
+
+      {weight ? <BodyweightSquadCard initialView={weight} timezone={profile.timezone} /> : null}
 
       <SegmentLinks
         label="Boards view"
