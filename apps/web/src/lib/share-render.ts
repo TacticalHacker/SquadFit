@@ -37,7 +37,7 @@ export interface ShareOptions {
 export const DEFAULT_SHARE_OPTIONS: ShareOptions = { exercises: true, prs: true, streak: true, duration: true, improved: true, steps: false };
 
 /** The site's dark tokens (globals.css, prefers-color-scheme: dark). The Card is always dark; canvas can't read CSS variables per theme. */
-const DARK = { bg: "#1a1917", surface: "#23221f", border: "#35332e", text: "#ece9e2", muted: "#a8a49a", accent: "#79c09c" };
+const DARK = { bg: "#15130e", surface: "#1f1c15", border: "#3b3529", text: "#f5f2ea", muted: "#a39882", accent: "#ffbe0b" };
 
 interface Palette {
   text: string;

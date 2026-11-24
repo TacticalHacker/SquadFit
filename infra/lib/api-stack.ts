@@ -44,7 +44,7 @@ export class ApiStack extends Stack {
     const fnDefaults: Omit<NodejsFunctionProps, "entry"> = {
       runtime: Runtime.NODEJS_24_X,
       architecture: Architecture.ARM_64,
-      memorySize: 256,
+      memorySize: 1024,
       timeout: Duration.seconds(10),
       projectRoot: repoRoot,
       depsLockFilePath: path.join(repoRoot, "pnpm-lock.yaml"),
@@ -150,7 +150,7 @@ export class ApiStack extends Stack {
     route("squad-reaction-delete", HttpMethod.DELETE, "/squad/feed/{id}/reactions/{type}", { write: true });
     // Share a workout day (feature 016): own figures, and posting a day (optional photo under share-photos/).
     route("me-share-get", HttpMethod.GET, "/me/share/{date}");
-    route("squad-post-put", HttpMethod.PUT, "/squad/posts/{date}", { write: true, sharePhotos: "readwrite", memorySize: 512, timeoutSeconds: 15 });
+    route("squad-post-put", HttpMethod.PUT, "/squad/posts/{date}", { write: true, sharePhotos: "readwrite", timeoutSeconds: 15 });
     route("squad-post-delete", HttpMethod.DELETE, "/squad/posts/{date}", { write: true, sharePhotos: "readwrite" });
     // Nutrition (feature 003)
     route("food-get", HttpMethod.GET, "/food", { photos: "read" });
@@ -159,7 +159,7 @@ export class ApiStack extends Stack {
     route("food-entry-put", HttpMethod.PUT, "/food/entries/{date}/{entryId}", { write: true, photos: "read" });
     route("food-entry-delete", HttpMethod.DELETE, "/food/entries/{date}/{entryId}", { write: true, photos: "readwrite" });
     // Photo food log (feature 005): pictures are private objects under food-photos/ in the same bucket.
-    route("food-photo-post", HttpMethod.POST, "/food/photos/{date}", { write: true, photos: "readwrite", memorySize: 512, timeoutSeconds: 15 });
+    route("food-photo-post", HttpMethod.POST, "/food/photos/{date}", { write: true, photos: "readwrite", timeoutSeconds: 15 });
     route("own-foods-get", HttpMethod.GET, "/food/foods");
     route("own-foods-post", HttpMethod.POST, "/food/foods", { write: true });
     route("own-foods-put", HttpMethod.PUT, "/food/foods/{foodId}", { write: true });
@@ -169,7 +169,7 @@ export class ApiStack extends Stack {
     // verified in the handler. ANY so the handler can answer OPTIONS (CORS) and 405.
     route("coach-note-get", HttpMethod.GET, "/coach-note");
     route("coach-action-put", HttpMethod.PUT, "/coach-note/{date}/actions/{index}", { write: true });
-    const mcpFn = route("mcp", HttpMethod.ANY, "/mcp", { auth: false, write: true, photos: "read", memorySize: 512, timeoutSeconds: 15 });
+    const mcpFn = route("mcp", HttpMethod.ANY, "/mcp", { auth: false, write: true, photos: "read", timeoutSeconds: 15 });
     // Feature 008: same function, key in the path for clients that can't send headers (ChatGPT "No authentication").
     this.api.addRoutes({ path: "/mcp/{key}", methods: [HttpMethod.ANY], integration: new HttpLambdaIntegration("mcpKeyIntegration", mcpFn) });
 

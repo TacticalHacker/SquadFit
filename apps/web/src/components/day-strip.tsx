@@ -37,7 +37,7 @@ export function DayStrip({
                 <span className="text-base font-semibold leading-none">{dayNum.format(new Date(`${d.date}T00:00:00Z`))}</span>
                 <span
                   aria-hidden="true"
-                  className={`size-1.5 rounded-full ${goal ? "bg-accent" : active ? "bg-muted" : "border border-line-strong"}`}
+                  className={`size-1.5 rounded-full ${goal ? "bg-ink-2" : active ? "bg-faint" : "border border-line-strong"}`}
                 />
               </Link>
             </li>

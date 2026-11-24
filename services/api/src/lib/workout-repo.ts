@@ -7,7 +7,7 @@ import {
   QueryCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
-import type { StoredCustomWorkout, StoredEntry } from "@calci/shared";
+import type { GymLastIndex, StoredCustomWorkout, StoredEntry } from "@calci/shared";
 
 /** Key layout: see specs/002-workout-tracker/data-model.md. */
 export interface EntryItem extends StoredEntry {
@@ -82,11 +82,15 @@ export interface WorkoutRepo {
   ): Promise<boolean>;
   /** Soft remove. Returns false if it does not exist. Idempotent. */
   markCustomRemoved(userId: string, workoutId: string, nowIso: string): Promise<boolean>;
+  /** The Gym tab's "last time" index (`USER#<sub>/GYMLAST`), rebuilt with the squad stats; null before the first rebuild. */
+  getGymLastIndex(userId: string): Promise<GymLastIndex | null>;
+  putGymLastIndex(userId: string, index: GymLastIndex, nowIso: string): Promise<void>;
 }
 
 const pk = (userId: string) => `USER#${userId}`;
 const entrySk = (date: string, workoutId: string) => `ENTRY#${date}#${workoutId}`;
 const workoutSk = (workoutId: string) => `WORKOUT#${workoutId}`;
+const GYMLAST_SK = "GYMLAST";
 
 const isConditionFailure = (err: unknown) => err instanceof Error && err.name === "ConditionalCheckFailedException";
 
@@ -326,5 +330,14 @@ export class DynamoWorkoutRepo implements WorkoutRepo {
       if (isConditionFailure(err)) return false;
       throw err;
     }
+  }
+
+  async getGymLastIndex(userId: string) {
+    const res = await this.doc.send(new GetCommand({ TableName: this.tableName, Key: { pk: pk(userId), sk: GYMLAST_SK } }));
+    return res.Item ? (res.Item.exercises as GymLastIndex) : null;
+  }
+
+  async putGymLastIndex(userId: string, index: GymLastIndex, nowIso: string) {
+    await this.doc.send(new PutCommand({ TableName: this.tableName, Item: { pk: pk(userId), sk: GYMLAST_SK, exercises: index, updatedAt: nowIso } }));
   }
 }

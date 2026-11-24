@@ -54,7 +54,9 @@ AWS runs only in **ap-south-1** (`AWS_REGION` in `infra/lib/config.ts`): CDK sta
 
 ## Theme ("Training Log")
 
-- Colours exist only as CSS variables in `apps/web/src/app/globals.css` (light + OS dark mode). Tailwind's default palette is removed (`--color-*: initial`), so use the token utilities: `bg-paper|surface|surface-2`, `text-ink|muted|faint`, `border-line|line-strong`, `accent`, `accent-soft`, `success|warning|danger` (with `/10`-style opacity for tints).
+- Colours exist only as CSS variables in `apps/web/src/app/globals.css` (light + OS dark mode). Tailwind's default palette is removed (`--color-*: initial`), so use the token utilities: `bg-paper|surface|surface-2`, `text-ink|ink-2|muted|faint`, `border-line|line-strong`, `accent`, `accent-soft`, `accent-fill` + `on-accent-fill`, `success|warning|danger` (with `/10`-style opacity for tints).
+- Palette: warm paper (light) / desaturated espresso (dark), one turmeric accent. `--accent` is the text-safe shade (dark amber `#8A5A00` in light, `#FFBE0B` in dark); `--accent-fill` is always turmeric `#FFBE0B` with dark text. `--warning` is copper so it never reads as the accent.
+- Accent hierarchy: solid `bg-accent-fill` only on the primary CTA (`buttonClass`); `text-accent`/`border-accent` for the selected day, active nav tab, rank #1, PRs and data marks; `bg-accent-soft` + accent border for selected chips and active reactions. Text links (`linkClass`) and past-day dots are neutral `ink-2`, never yellow.
 - Reuse the class strings in `components/form-bits.tsx` (`buttonClass` = the one primary per section, `secondaryButtonClass`, `inputClass`, `cardClass`, `chipClass`, `segmentClass`, `notice*Class`, `iconButtonClass`). Focus rings are global (`:focus-visible`); don't add per-element outlines.
 - Icons are `lucide-react` (size 16–20, `strokeWidth={1.75}`); no emoji as icons, no gradients, glows, blur or scale animations. Radius is 6–8 px (`rounded-md`/`rounded-lg`); `rounded-full` only for tiny badges/chips and avatars.
 - Press feedback is colour on `:active` (touch has no hover). `BottomSheet` motion runs through the spring in `lib/spring.ts` (interruptible, velocity hand-off, momentum projection); close buttons in a sheet header must be `<SheetClose />` so the sheet slides out before `onClose`.
@@ -97,6 +99,9 @@ AWS runs only in **ap-south-1** (`AWS_REGION` in `infra/lib/config.ts`): CDK sta
 - Ids: built-in `gx-<slug>` (`GYM_EXERCISES`, 54 items), own `gc-<uuid>`. Feature 002's entry routes return 404 for these ids.
 - `gymTotals` / `cardioTotals` in `packages/shared/src/domain/gym.ts` are the only gym math (2.5 min/set, 15 kcal/set, every set counts); the server recomputes and rejects client totals. `drawerReducer` (`gym-drawer.ts`) drives the steppers.
 - Save/remove return `GymSaveResult` (no per-exercise "last" fan-out); the client keeps its `last` values.
+- "Last time" on `GET /workouts/gym` reads one item, `USER#<sub>/GYMLAST` (latest 3 entries per exercise, `buildGymLastIndex` / `pickGymLast`), rebuilt by `refreshSquadStats` and the backfill. It falls back to a per-exercise `gsi1` query only when the item is missing or a past day is older than every kept entry.
+- Weight steppers follow `stepWeight`: 2.5 kg steps to 25 kg, then 5 kg.
+- Lambdas default to 1024 MB (`fnDefaults` in `api-stack.ts`).
 - Unsaved drawer values are drafts in `localStorage` (`sf:gymdraft:v1:<username>:<date>:<id>`, `lib/gym-draft.ts`), read via `useSyncExternalStore`, never sent to the server.
 - Treadmill details: built-ins with `treadmill: true` (Incline Treadmill Walk) accept optional `inclinePct` (0–15, 0.5 steps) and `speedKmh` (0.5–25, 1 decimal) on the cardio PUT and MCP `upsert_workout_log`; stored flat on the entry, shown in the drawer and "last time". With both logged, calories use the ACSM treadmill equation at the member's effective body weight (`treadmillCalories` / `cardioEntryTotals` in `domain/gym.ts`; walking below 8 km/h, running at or above; server-computed in `gym-save.ts`, previewed in the drawer from `GymView.bodyWeightKg`); with either missing, minutes × rate. Other exercises get 400.
 - Never log sets, weights or exercise names.

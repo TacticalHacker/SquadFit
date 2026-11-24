@@ -9,8 +9,8 @@ const motion = "transition-colors duration-150";
 
 export const inputClass = `w-full min-h-11 rounded-md border border-line-strong bg-surface px-3 py-2 text-base text-ink placeholder:text-faint ${motion} focus:border-accent aria-[invalid=true]:border-danger disabled:text-faint`;
 
-/** Filled green: at most one per screen section. */
-export const buttonClass = `inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-accent px-4 py-2 font-medium text-on-accent ${motion} hover:bg-accent-hover active:bg-accent-hover active:duration-0 disabled:opacity-50`;
+/** Solid turmeric: the only solid accent fill, at most one per screen section. */
+export const buttonClass = `inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-accent-fill px-4 py-2 font-semibold text-on-accent-fill ${motion} hover:bg-accent-fill-hover active:bg-accent-fill-hover active:duration-0 disabled:opacity-50`;
 
 export const secondaryButtonClass = `inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-line-strong bg-surface px-4 py-2 font-medium text-ink ${motion} hover:bg-surface-2 active:bg-line active:duration-0 disabled:opacity-50`;
 
@@ -42,7 +42,8 @@ export const noticeOkClass = "rounded-md border border-success/30 bg-success/10 
 /** Small outlined label (pills only for tiny badges). */
 export const badgeClass = "inline-flex items-center gap-1 rounded-full border border-line px-2 py-0.5 text-xs font-medium text-muted";
 
-export const linkClass = "text-accent underline underline-offset-4 decoration-accent/40 hover:decoration-accent";
+/** Text link: neutral ink, never the accent (the accent is kept for selection and rank #1). */
+export const linkClass = `text-ink-2 underline underline-offset-4 decoration-line-strong ${motion} hover:text-ink hover:decoration-ink-2`;
 
 /** Label + control + linked error/hint text. Pair the control with `describedBy(id, error, hint)`. */
 export function Field({

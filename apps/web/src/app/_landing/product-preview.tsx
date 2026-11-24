@@ -99,7 +99,7 @@ function GymMock() {
       <p className="text-sm text-muted">
         3 sets × 8 · <span className="font-semibold text-accent">top set 82.5 kg</span> · 1,940 kg volume
       </p>
-      <div className="mt-auto rounded-md bg-accent py-3 text-center text-sm font-medium text-on-accent">Save</div>
+      <div className="mt-auto rounded-md bg-accent-fill py-3 text-center text-sm font-semibold text-on-accent-fill">Save</div>
     </div>
   );
 }

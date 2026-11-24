@@ -3,6 +3,7 @@ import {
   effectiveBodyWeight,
   isEditableDay,
   isGymEntry,
+  pickGymLast,
   summarize,
   toGymEntryView,
   toGymLast,
@@ -20,18 +21,23 @@ async function flaggedOn(userId: string, date: string, deps: Deps): Promise<Set<
   return new Set((stats?.flags ?? []).filter((f) => f.date === date).map((f) => f.exerciseId));
 }
 
-/** GET /workouts/gym: the day's gym list plus, per exercise, the latest earlier entry (research R5). */
+/** GET /workouts/gym: the day's gym list plus, per exercise, the latest earlier entry (research R5, from the GYMLAST index). */
 export async function loadGymView(userId: string, ctx: DayContext, date: string, deps: Deps): Promise<GymView> {
-  const [ownExercises, entries, flagged, library, profile] = await Promise.all([
+  const [ownExercises, entries, flagged, library, profile, index] = await Promise.all([
     deps.gym.listOwnExercises(userId),
     deps.workouts.listEntriesForDay(userId, date),
     flaggedOn(userId, date, deps),
     getLibrary(deps),
     deps.profiles.get(userId),
+    deps.workouts.getGymLastIndex(userId),
   ]);
   const base = buildGymView({ date, today: ctx.today, timezone: ctx.timezone, ownExercises, library, entries, last: {}, bodyWeightKg: effectiveBodyWeight(profile ?? {}).kg });
   const lasts = await Promise.all(
     base.exercises.map(async (e) => {
+      // One index read covers almost every exercise; query only when the index is missing (stats never rebuilt)
+      // or can't tell (a past day older than every kept entry).
+      const known = index ? pickGymLast(index, e.exerciseId, date) : undefined;
+      if (known !== undefined) return [e.exerciseId, known] as const;
       const hit = await deps.gym.lastBefore(userId, e.exerciseId, date);
       return [e.exerciseId, hit ? toGymLast(hit) : null] as const;
     }),

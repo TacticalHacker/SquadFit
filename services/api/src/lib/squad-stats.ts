@@ -1,4 +1,4 @@
-import { SQUAD_ID, buildMemberStats, isWorkoutEntry, localDate } from "@calci/shared";
+import { SQUAD_ID, buildGymLastIndex, buildMemberStats, isWorkoutEntry, localDate } from "@calci/shared";
 import type { Deps } from "./deps";
 import { NO_REACTIONS } from "./squad-repo";
 import { squadSettingsOf } from "./profile-repo";
@@ -43,6 +43,8 @@ export async function refreshSquadStats(userId: string, deps: StatsDeps, opts: {
     }
 
     if ((await deps.squad.putStats(userId, stats, prev?.version ?? null)) === "conflict") continue;
+    // The Gym tab's "last time" index comes from the same full read of the member's entries.
+    await deps.workouts.putGymLastIndex(userId, buildGymLastIndex(entries), nowIso);
 
     const derived = new Set(events.map((e) => e.id));
     // Day high-five targets (feature 011) stay while that date is still a workout day; they are never created here.

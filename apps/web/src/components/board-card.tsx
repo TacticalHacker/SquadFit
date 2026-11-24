@@ -31,7 +31,7 @@ export function BoardRow({ board, row, mode, rank }: { board: SquadBoardView; ro
   const muted = rank === null;
   return (
     <div className={`flex min-h-12 items-center gap-3 py-2 ${muted ? "opacity-60" : ""}`}>
-      <span className="w-6 shrink-0 text-center text-sm font-semibold tabular-nums text-muted">{rank ?? "–"}</span>
+      <span className={`w-6 shrink-0 text-center text-sm font-semibold tabular-nums ${rank === 1 ? "text-accent" : "text-muted"}`}>{rank ?? "–"}</span>
       <Link href={`/squad/${row.member.userId}`} className="relative z-10 flex min-h-11 min-w-0 flex-1 items-center gap-2">
         <Avatar displayName={row.member.displayName} avatarUrl={row.member.avatarUrl} size={32} />
         <span className="flex min-w-0 flex-col">

@@ -1,35 +1,45 @@
 @import "tailwindcss";
 
 /*
- * "Training Log" theme: warm paper, ink text, one deep green accent.
+ * "Training Log" theme: warm paper / espresso, ink text, one turmeric accent.
  * These variables are the ONLY place colours are defined. Components use them through the Tailwind
  * colours mapped below (bg-paper, bg-surface, text-ink, text-muted, border-line, bg-accent, ...).
+ *
+ * Accent hierarchy (one primary per section):
+ *   bg-accent-fill + text-on-accent-fill   solid: primary CTA only (buttonClass)
+ *   text-accent / border-accent            selected day, active nav tab, rank #1, PRs, data marks
+ *   bg-accent-soft + border-accent         selected chips, active reactions
+ *   text-ink-2                             text links and past-day dots: never yellow
+ * In light mode --accent is a dark amber (readable as text); the fill stays turmeric in both modes.
  */
 :root {
   /* paper & ink */
-  --bg: #f6f4ef; /* page background: warm paper */
+  --bg: #faf8f3; /* page background: warm paper */
   --surface: #ffffff; /* cards, inputs */
-  --surface-2: #efece5; /* subtle fills: table header, stepper buttons, hover rows */
-  --border: #e2ded5; /* 1px hairlines */
-  --border-strong: #cfcac0; /* input borders, dividers that need more weight */
-  --text: #1c1b19; /* main ink */
-  --muted: #6b6860; /* labels, helper text, "Last" values */
-  --faint: #9a968c; /* placeholders, disabled text only (fails AA for body text) */
+  --surface-2: #f1ede4; /* subtle fills: table header, stepper buttons, hover rows */
+  --border: #e6e0d4; /* 1px hairlines */
+  --border-strong: #d2cab9; /* input borders, dividers that need more weight */
+  --text: #1a1813; /* main ink (text-primary) */
+  --text-2: #5c5649; /* secondary ink: text links, supporting copy */
+  --muted: #78705f; /* labels, helper text, "Last" values */
+  --faint: #9e9582; /* placeholders, disabled text only (fails AA for body text) */
 
-  /* accent: deep green ink */
-  --accent: #1f5e46;
-  --accent-hover: #174a37;
-  --accent-soft: #e3eee8; /* selected chip / badge background */
-  --on-accent: #ffffff;
+  /* accent: turmeric. --accent is the text-safe shade, --accent-fill the solid CTA */
+  --accent: #8a5a00; /* ~5.8:1 on paper */
+  --accent-hover: #6f4800;
+  --accent-soft: #fff6dd; /* 14% turmeric over white: selected chip / badge background */
+  --accent-fill: #ffbe0b;
+  --accent-fill-hover: #f0ae00;
+  --on-accent-fill: #1a1813;
 
   /* status */
   --success: #2f7a4f; /* saved, PR */
-  --warning: #a86a12; /* "adjusted" calorie values */
+  --warning: #b84718; /* "adjusted" calorie values: copper, kept apart from the accent */
   --danger: #b23a2e; /* errors, delete */
 
-  --scrim: rgba(28, 27, 25, 0.4); /* dialog backdrop */
-  --backdrop: #2c2b27; /* behind the white share sticker preview (feature 016); dark in both modes */
-  --focus-ring: 0 0 0 3px rgba(31, 94, 70, 0.25);
+  --scrim: rgba(26, 24, 19, 0.4); /* dialog backdrop */
+  --backdrop: #2a261d; /* behind the white share sticker preview (feature 016); dark in both modes */
+  --focus-ring: 0 0 0 3px rgba(138, 90, 0, 0.45);
   --shadow-card: 0 1px 2px rgba(28, 27, 25, 0.04);
   --radius: 8px;
   --radius-sm: 6px;
@@ -37,29 +47,32 @@
   color-scheme: light;
 }
 
-/* Dark mode follows the OS, as before; the same paper/ink idea in warm charcoal. */
+/* Dark mode follows the OS, as before; the same paper/ink idea in desaturated warm espresso. */
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #1a1917;
-    --surface: #23221f;
-    --surface-2: #2c2b27;
-    --border: #35332e;
-    --border-strong: #4a4740;
-    --text: #ece9e2;
-    --muted: #a8a49a;
-    --faint: #77736b;
+    --bg: #15130e;
+    --surface: #1f1c15;
+    --surface-2: #2a261d; /* elevated: sheets, steppers, nested cards */
+    --border: #3b3529;
+    --border-strong: #4f4736;
+    --text: #f5f2ea;
+    --text-2: #c4bba6;
+    --muted: #a39882;
+    --faint: #736a58;
 
-    --accent: #79c09c;
-    --accent-hover: #93cfb0;
-    --accent-soft: #233a2f;
-    --on-accent: #10201a;
+    --accent: #ffbe0b;
+    --accent-hover: #ffcb3d;
+    --accent-soft: #3e3314; /* 14% turmeric over the surface */
+    --accent-fill: #ffbe0b;
+    --accent-fill-hover: #ffcb3d;
+    --on-accent-fill: #15130e;
 
     --success: #74c391;
-    --warning: #dba653;
+    --warning: #e86f3a;
     --danger: #e8877b;
 
     --scrim: rgba(0, 0, 0, 0.55);
-    --focus-ring: 0 0 0 3px rgba(121, 192, 156, 0.35);
+    --focus-ring: 0 0 0 3px rgba(255, 190, 11, 0.45);
     --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.2);
 
     color-scheme: dark;
@@ -76,13 +89,16 @@
   --color-line: var(--border);
   --color-line-strong: var(--border-strong);
   --color-ink: var(--text);
+  --color-ink-2: var(--text-2);
   --color-muted: var(--muted);
   --color-faint: var(--faint);
   --color-backdrop: var(--backdrop);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-soft: var(--accent-soft);
-  --color-on-accent: var(--on-accent);
+  --color-accent-fill: var(--accent-fill);
+  --color-accent-fill-hover: var(--accent-fill-hover);
+  --color-on-accent-fill: var(--on-accent-fill);
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
@@ -159,7 +175,7 @@
 
 /* The bottom sheet sets --sheet-dim (0–1) so the scrim follows the drag. */
 dialog::backdrop {
-  background: var(--scrim, rgba(28, 27, 25, 0.4));
+  background: var(--scrim, rgba(26, 24, 19, 0.4));
   opacity: var(--sheet-dim, 1);
 }
 

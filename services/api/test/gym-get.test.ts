@@ -28,7 +28,7 @@ describe("GET /workouts/gym", () => {
   });
 
   it("`last` is the latest entry strictly before the viewed date, with its top set", async () => {
-    const { deps, setNow } = await setup();
+    const { deps, gym, setNow } = await setup();
     setNow("2026-11-09T10:00:00.000Z");
     await gymPut(deps, "2026-11-08", "gx-barbell-squat", { sets: sets(3, 70, 8) });
     await gymPut(deps, "2026-11-09", "gx-barbell-squat", { sets: [...sets(2, 80, 8), { setNumber: 3, weightKg: 80, reps: 6, completed: true }] });
@@ -39,10 +39,13 @@ describe("GET /workouts/gym", () => {
     expect(today.entry).toMatchObject({ volumeKg: 270 });
     expect(today.last).toMatchObject({ date: "2026-11-09", minutes: 8, top: { weightKg: 80, reps: 8 } });
     expect((today.last as { sets: unknown[] }).sets).toHaveLength(3);
+    expect(gym.lastQueries).toBe(0); // served from the GYMLAST index, no per-exercise queries
 
     const nov9 = exercise(await gymGet(deps, "2026-11-09"), "gx-barbell-squat")!;
     expect(nov9.last).toMatchObject({ date: "2026-11-08", top: { weightKg: 70, reps: 8 } });
+    // Older than every kept entry: the index can't tell, so that one exercise falls back to a query.
     expect(exercise(await gymGet(deps, "2026-11-08"), "gx-barbell-squat")!.last).toBeNull();
+    expect(gym.lastQueries).toBe(1);
   });
 
   it("bodyweight top set and cardio last minutes", async () => {

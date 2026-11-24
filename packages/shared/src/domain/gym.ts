@@ -425,6 +425,33 @@ export function toGymLast(e: StoredEntry & { date: string }): GymLast {
   return { date: e.date, sets: v.sets, minutes: v.minutes, inclinePct: v.inclinePct, speedKmh: v.speedKmh, top: top ? { weightKg: top.weightKg, reps: top.reps } : null };
 }
 
+/** Latest gym entries kept per exercise in the member's "last time" index. */
+export const GYM_LAST_KEEP = 3;
+/** exerciseId → that exercise's latest entries, newest first (at most GYM_LAST_KEEP). */
+export type GymLastIndex = Record<string, GymLast[]>;
+
+/** Built from all of a member's entries on every workout write, so the Gym tab needs one read instead of one per exercise. */
+export function buildGymLastIndex(entries: readonly (StoredEntry & { date: string })[]): GymLastIndex {
+  const out: GymLastIndex = {};
+  const sorted = entries.filter(isGymEntry).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  for (const e of sorted) {
+    const list = (out[e.workoutId] ??= []);
+    if (list.length < GYM_LAST_KEEP) list.push(toGymLast(e));
+  }
+  return out;
+}
+
+/**
+ * The latest entry before `date` from the index: `null` when there is none, `undefined` when the index can't tell
+ * (every kept entry is on or after `date` and older ones may exist), so the caller queries.
+ */
+export function pickGymLast(index: GymLastIndex, exerciseId: string, date: string): GymLast | null | undefined {
+  const list = index[exerciseId] ?? [];
+  const hit = list.find((l) => l.date < date);
+  if (hit) return hit;
+  return list.length < GYM_LAST_KEEP ? null : undefined;
+}
+
 export function buildGymView(input: {
   date: string;
   today: string;

@@ -1,6 +1,6 @@
 import type { APIGatewayProxyEventV2WithJWTAuthorizer, APIGatewayProxyStructuredResultV2 } from "aws-lambda";
 import { exerciseNameKey, type CatalogExercise } from "@calci/shared";
-import type { ActivitySource, ActivityValues, OverallNoteInput, ProfileInput, ReactionType, SquadSettingsInput, SquadStats, StepSettings } from "@calci/shared";
+import type { ActivitySource, ActivityValues, GymLastIndex, OverallNoteInput, ProfileInput, ReactionType, SquadSettingsInput, SquadStats, StepSettings } from "@calci/shared";
 import { toActivityItem, type ActivityItem, type ActivityRepo } from "../src/lib/activity-repo";
 import type { HealthTokenRepo } from "../src/lib/health-token-repo";
 import type { UserDirectory } from "../src/lib/user-directory";
@@ -117,6 +117,14 @@ export class InMemoryProfileRepo implements ProfileRepo {
 export class InMemoryWorkoutRepo implements WorkoutRepo {
   /** key = `${userId}|${sk}` so ordering by sk mirrors DynamoDB. */
   readonly entries = new Map<string, EntryItem>();
+  readonly gymLast = new Map<string, GymLastIndex>();
+
+  async getGymLastIndex(userId: string) {
+    return this.gymLast.get(userId) ?? null;
+  }
+  async putGymLastIndex(userId: string, index: GymLastIndex) {
+    this.gymLast.set(userId, structuredClone(index));
+  }
   readonly customs = new Map<string, CustomWorkoutItem>();
 
   private k = (userId: string, id: string) => `${userId}|${id}`;
