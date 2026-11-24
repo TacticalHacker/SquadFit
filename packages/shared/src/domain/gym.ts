@@ -48,6 +48,17 @@ export const GYM_MAX_OWN = 50;
 export const GYM_MAX_WEIGHT = 500;
 export const GYM_MAX_REPS = 100;
 export const GYM_WEIGHT_STEP = 2.5;
+
+/**
+ * Weight stepper ladder: 2.5 kg steps up to 25 kg, then 5 kg steps. A typed value off the ladder
+ * (e.g. 27.5) steps to the next ladder value in that direction.
+ */
+export function stepWeight(current: number, direction: 1 | -1): number {
+  const step = (w: number) => (w < 25 || (direction < 0 && w <= 25) ? GYM_WEIGHT_STEP : 5);
+  const s = step(current);
+  const next = direction > 0 ? Math.floor(current / s + 1e-9) * s + s : Math.ceil(current / s - 1e-9) * s - s;
+  return Math.min(GYM_MAX_WEIGHT, Math.max(0, next));
+}
 export const GYM_DEFAULT_SETS = 3;
 export const GYM_DEFAULT_REPS = 10;
 export const GYM_DEFAULT_CARDIO_MINUTES = 20;

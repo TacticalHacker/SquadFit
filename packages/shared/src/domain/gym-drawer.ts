@@ -13,7 +13,6 @@ import {
   GYM_MAX_REPS,
   GYM_MAX_SETS,
   GYM_MAX_WEIGHT,
-  GYM_WEIGHT_STEP,
   cardioEntryTotals,
   gymTotals,
   parseIncline,
@@ -21,6 +20,7 @@ import {
   parseReps,
   parseSpeed,
   parseWeight,
+  stepWeight,
   type ExerciseKind,
   type GymSet,
   type ParseResult,
@@ -139,7 +139,7 @@ function reduce(state: DrawerState, action: DrawerAction): DrawerState {
     case "setDefaultReps":
       return withDefaultReps(state, action.value);
     case "weight":
-      return { ...state, rows: updateRow(state, action.index, (r) => ({ ...r, weightKg: clampWeight(r.weightKg + action.delta * GYM_WEIGHT_STEP) })) };
+      return { ...state, rows: updateRow(state, action.index, (r) => ({ ...r, weightKg: clampWeight(stepWeight(r.weightKg, action.delta < 0 ? -1 : 1)) })) };
     case "setWeight":
       return { ...state, rows: updateRow(state, action.index, (r) => ({ ...r, weightKg: clampWeight(action.value) })) };
     case "reps":

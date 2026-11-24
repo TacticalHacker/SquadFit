@@ -92,6 +92,13 @@ describe("drawerReducer", () => {
     expect(s.rows[0]!.weightKg).toBe(500);
   });
 
+  it("weight steps 2.5 up to 25, then 5; off-ladder values snap", () => {
+    const up = (w: number) => run(initDrawer({ exercise: strength }), { type: "setWeight", index: 0, value: w }, { type: "weight", index: 0, delta: 1 }).rows[0]!.weightKg;
+    const down = (w: number) => run(initDrawer({ exercise: strength }), { type: "setWeight", index: 0, value: w }, { type: "weight", index: 0, delta: -1 }).rows[0]!.weightKg;
+    expect([up(22.5), up(25), up(30), up(27.5)]).toEqual([25, 30, 35, 30]);
+    expect([down(35), down(30), down(25), down(27.5)]).toEqual([30, 25, 22.5, 25]);
+  });
+
   it("reps move by 1 within 1–100 and mark the row edited", () => {
     let s = run(initDrawer({ exercise: strength }), { type: "reps", index: 1, delta: -1 });
     expect(s.rows[1]).toMatchObject({ reps: 9, repsEdited: true });
