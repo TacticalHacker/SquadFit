@@ -2,14 +2,27 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { filterExercises, type GymExerciseView, type GymSaveResult, type GymView, type MuscleGroup } from "@calci/shared";
+import { X } from "lucide-react";
+import {
+  MUSCLE_REGION_LABELS,
+  dayMuscleLoad,
+  exercisesForRegion,
+  filterExercises,
+  hasMuscleLoad,
+  type GymExerciseView,
+  type GymSaveResult,
+  type GymView,
+  type MuscleGroup,
+  type MuscleRegion,
+} from "@calci/shared";
 import { browserStorage, listDraftExerciseIds, pruneDrafts, subscribeDrafts } from "@/lib/gym-draft";
 import { hasDayChanged } from "@/lib/rollover";
 import { CustomExerciseSheet } from "./custom-exercise-form";
 import { ExerciseList } from "./exercise-list";
 import { ExerciseSearch } from "./exercise-search";
 import { GymDrawer } from "./gym-drawer";
-import { noticeWarnClass } from "./form-bits";
+import { chipClass, noticeWarnClass } from "./form-bits";
+import { MuscleHeatmap } from "./muscle-heatmap";
 import { MusclePills } from "./muscle-pills";
 import { ShareButton } from "./share-button";
 
@@ -26,6 +39,8 @@ export function GymScreen({ initialView, username, openId: initialOpenId }: { in
     return target?.group ?? "chest";
   });
   const [query, setQuery] = useState("");
+  // Feature 018: "Show exercises" from the muscle heatmap; cleared by a pill, a search or another day.
+  const [region, setRegion] = useState<MuscleRegion | null>(null);
   // `?open=<id>` (from the Activities tab) opens that drawer; it renders only after hydration (drafts are browser-only).
   const [openId, setOpenId] = useState<string | null>(() =>
     initialOpenId && initialView.exercises.some((e) => e.exerciseId === initialOpenId) ? initialOpenId : null,
@@ -35,6 +50,8 @@ export function GymScreen({ initialView, username, openId: initialOpenId }: { in
 
   // A refresh or navigation delivered a new server view: adopt it.
   if (seen !== initialView) {
+    // Saves also deliver a new view (router.refresh); only a different day drops the muscle filter.
+    if (initialView.date !== seen.date) setRegion(null);
     setSeen(initialView);
     setView(initialView);
   }
@@ -67,7 +84,11 @@ export function GymScreen({ initialView, username, openId: initialOpenId }: { in
 
   // Feature 016: a workout day (a completed set or any cardio) can be shared.
   const trained = view.exercises.some((e) => e.entry && (e.entry.exerciseKind === "cardio" || (e.entry.sets ?? []).some((s) => s.completed)));
-  const shown = useMemo(() => filterExercises(view.exercises, group, query), [view.exercises, group, query]);
+  const shown = useMemo(
+    () => (region ? exercisesForRegion(view.exercises, region) : filterExercises(view.exercises, group, query)),
+    [view.exercises, group, query, region],
+  );
+  const muscleLoad = useMemo(() => dayMuscleLoad(view.exercises.flatMap((e) => (e.entry ? [e.entry] : []))), [view.exercises]);
   const open = hydrated && openId ? (view.exercises.find((e) => e.exerciseId === openId) ?? null) : null;
 
   const onSaved = useCallback(
@@ -94,6 +115,7 @@ export function GymScreen({ initialView, username, openId: initialOpenId }: { in
     });
     setQuery("");
     setGroup(ex.group);
+    setRegion(null);
   };
 
   const onExerciseRemoved = (id: string) => {
@@ -110,6 +132,15 @@ export function GymScreen({ initialView, username, openId: initialOpenId }: { in
         </p>
         {trained ? <ShareButton key={date} date={date} className="-mr-3" /> : null}
       </div>
+      {hasMuscleLoad(muscleLoad) ? (
+        <MuscleHeatmap
+          load={muscleLoad}
+          onShowExercises={(r) => {
+            setRegion(r);
+            setQuery("");
+          }}
+        />
+      ) : null}
       {!editable ? (
         <p role="status" className={noticeWarnClass}>
           This day can no longer be edited
@@ -117,21 +148,36 @@ export function GymScreen({ initialView, username, openId: initialOpenId }: { in
       ) : null}
 
       <div className="sticky top-0 z-10 -mx-4 flex flex-col gap-1 border-b border-line bg-paper px-4 pt-2">
-        <ExerciseSearch value={query} onChange={setQuery} />
+        <ExerciseSearch
+          value={query}
+          onChange={(q) => {
+            setQuery(q);
+            setRegion(null);
+          }}
+        />
         <MusclePills
           value={group}
-          dimmed={query.trim() !== ""}
+          dimmed={query.trim() !== "" || region !== null}
           onChange={(g) => {
             setGroup(g);
             setQuery("");
+            setRegion(null);
           }}
         />
+        {region ? (
+          <div className="pb-2">
+            <button type="button" aria-label={`Clear ${MUSCLE_REGION_LABELS[region]} filter`} className={chipClass(true)} onClick={() => setRegion(null)}>
+              {MUSCLE_REGION_LABELS[region]}
+              <X size={16} strokeWidth={1.75} aria-hidden className="ml-1.5" />
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <ExerciseList
         exercises={shown}
         drafts={drafts}
-        showGroup={query.trim() !== ""}
+        showGroup={query.trim() !== "" || region !== null}
         canAdd={editable}
         onOpen={setOpenId}
         onEdit={(id) => setSheet({ editing: view.exercises.find((e) => e.exerciseId === id) ?? null })}
