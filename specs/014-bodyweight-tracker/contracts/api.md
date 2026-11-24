@@ -34,7 +34,7 @@ Body `WeightLogInput`. The date defaults to today in the member's timezone.
 
 ## `DELETE /me/weight/{date}/{entryId}?range=…`
 
-Idempotent: a missing entry or a malformed id that matches nothing still returns 200. The handler can only reach the caller's own `pk`, so other members' entries can't be addressed (spec US3 #3).
+Idempotent: a missing entry, another member's id or a malformed id changes nothing and still returns 200 with the caller's view. The handler can only reach the caller's own `pk` (spec US3 #3).
 
 - 200 → `WeightView`. The profile body weight is re-synced; if no entries remain, it's left as it was.
 - 409 `DAY_LOCKED` outside the edit window. 400 for a bad date.

@@ -75,7 +75,7 @@ specs/014-bodyweight-tracker/
 ```text
 packages/shared/src/
 ├── domain/bodyweight.ts          # NEW rangeWindow, buildWeightView, movingAverage(trend), weightAxis, nearestSlot, latestEntry, stepWeightKg
-├── domain/bodyweight.test.ts     # NEW (test-first)
+└── ../test/bodyweight.test.ts    # NEW (test-first)
 ├── contracts/weight.ts           # NEW zod schemas
 └── index.ts                      # export both
 

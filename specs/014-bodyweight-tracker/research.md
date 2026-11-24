@@ -23,7 +23,7 @@ No `NEEDS CLARIFICATION` remained after the spec's clarification session. These 
   - Summary: `average` = mean of all day averages in the window; `min`/`max` over its entries; `start`/`end` = window bounds. It is null when the window is empty.
   - Moving average (W, M only): for each visible day, the mean of the day averages on days in `[d−6, d]` that have data, or null if there are none. The read fetches 6 extra days before the window.
   - Rounding: figures are kept at full precision and rounded to 1 decimal only in the output.
-- **Axis**: `lo = floor(min − 1)`, `hi = ceil(max + 1)`. Pick the smallest step in `[0.5, 1, 2, 5, 10, 20, 50]` with `ceil((hi − lo)/step) ≤ 3`, then snap `lo`/`hi` outward to that step. Gridlines run from `lo` to `hi` in steps, which gives 3–4 lines, labelled on the right.
+- **Axis**: `lo = floor(min − 1)`, `hi = ceil(max + 1)`. Take the first step in `[0.5, 1, 2, 5, 10, 20, 50]` that covers `lo…hi` in ≤ 3 intervals; ticks start at the whole-kg `lo` and `hi` becomes `lo + intervals × step` (analysis C1: snapping to multiples of the step could give 5 lines, or a loose 75–85 scale for 76.2–79.8; this gives 75/77/79/81). 3–4 lines, labelled on the right.
 - **Alternatives**: sending raw entries and bucketing in the browser (two places would compute averages; FR-007); a charting library (constitution VII; the chart is small, hand-written SVG).
 
 ## R4. Quick-log sheet and day entries in one response

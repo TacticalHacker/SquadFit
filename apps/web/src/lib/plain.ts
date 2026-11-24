@@ -287,3 +287,43 @@ export const SHARE_HINT = "Save the image, then add it to your Instagram Story."
 export const PHOTO_STAYS = "Your photo stays on your phone.";
 export const PHOTO_ERROR = "Couldn't open this photo. Try a JPEG or a screenshot.";
 export const HIDDEN_POST = "You're hidden from the squad, so you can't post.";
+
+/* Feature 014: bodyweight card and chart. */
+export const WEIGHT_COPY = {
+  title: "Bodyweight",
+  log: "Log weight",
+  save: "Save",
+  none: "No weigh-ins yet",
+  emptyRange: "No weigh-ins in this period",
+  average: "AVERAGE",
+  range: "RANGE",
+  weight: "WEIGHT",
+  trend: "7-day trend",
+  dayEntries: "Logged this day",
+  dayEmpty: "Nothing logged this day yet",
+} as const;
+
+/** Always one decimal: "78.0 kg". */
+export const weightKg = (n: number) => `${n.toFixed(1)} kg`;
+export const weightRange = (min: number, max: number) => (min === max ? weightKg(min) : `${min.toFixed(1)}–${max.toFixed(1)} kg`);
+
+const utcDate = (d: string) => new Date(`${d}T00:00:00Z`);
+const fmt = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat("en-GB", { ...o, timeZone: "UTC" });
+const dmy = fmt({ day: "numeric", month: "short", year: "numeric" });
+const dm = fmt({ day: "numeric", month: "short" });
+const wdmy = fmt({ weekday: "short", day: "numeric", month: "short", year: "numeric" });
+
+/** "Tue 24 Nov 2026", "1–24 Nov 2026", "25 Oct – 23 Nov 2026", "1 Dec 2025 – 24 Nov 2026". */
+export function weightSpan(start: string, end: string): string {
+  if (start === end) return wdmy.format(utcDate(start)).replace(",", "");
+  if (start.slice(0, 7) === end.slice(0, 7)) return `${+start.slice(8, 10)}–${dmy.format(utcDate(end))}`;
+  if (start.slice(0, 4) === end.slice(0, 4)) return `${dm.format(utcDate(start))} – ${dmy.format(utcDate(end))}`;
+  return `${dmy.format(utcDate(start))} – ${dmy.format(utcDate(end))}`;
+}
+
+/** Day chip label in the quick-log sheet. */
+export function weightDayLabel(date: string, today: string, yesterday: string): string {
+  if (date === today) return "Today";
+  if (date === yesterday) return "Yesterday";
+  return fmt({ weekday: "long" }).format(utcDate(date));
+}

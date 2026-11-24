@@ -12,6 +12,7 @@ import { DynamoWaitlistRepo, type WaitlistRepo } from "./waitlist-repo";
 import { DynamoSquadRepo, type SquadRepo } from "./squad-repo";
 import { DynamoActivityRepo, type ActivityRepo } from "./activity-repo";
 import { DynamoHealthTokenRepo, type HealthTokenRepo } from "./health-token-repo";
+import { DynamoWeightRepo, type WeightRepo } from "./weight-repo";
 import { DynamoCatalogRepo, type CatalogRepo } from "./catalog-repo";
 import { CognitoUserDirectory, type UserDirectory } from "./user-directory";
 
@@ -30,6 +31,8 @@ export interface Deps {
   squad: SquadRepo;
   activity: ActivityRepo;
   healthTokens: HealthTokenRepo;
+  /** Feature 014: weigh-ins (owner-only). */
+  weights: WeightRepo;
   /** Feature 015: admin-managed gym exercises. Read through `getLibrary`, not directly, except in admin handlers. */
   catalog: CatalogRepo;
   /** Feature 015 Story 5: only the admin-user-post function has USER_POOL_ID and the Cognito permission. */
@@ -55,6 +58,7 @@ export function getDeps(): Deps {
     squad: new DynamoSquadRepo(requireEnv("TABLE_NAME")),
     activity: new DynamoActivityRepo(requireEnv("TABLE_NAME")),
     healthTokens: new DynamoHealthTokenRepo(requireEnv("TABLE_NAME")),
+    weights: new DynamoWeightRepo(requireEnv("TABLE_NAME")),
     catalog: new DynamoCatalogRepo(requireEnv("TABLE_NAME")),
     // Lazy: every other function has no USER_POOL_ID and never touches it.
     users: { create: (u, p) => new CognitoUserDirectory(requireEnv("USER_POOL_ID")).create(u, p) },

@@ -61,4 +61,4 @@ Entry { id, date, recordedAt, weightKg }
 - `trend` (W/M): mean of day averages for data days in `[slot.start − 6, slot.start]`; null if none.
 - All outputs rounded to 1 decimal; internal math unrounded.
 
-Worked example (`M`, today 2026-11-24): entries 11-20 78.0 & 78.6, 11-22 77.9, 11-24 78.3. Then day averages are 78.3, 77.9, 78.3; summary average = 78.17 → **78.2**; min 77.9, max 78.6. Slot 11-20 is a range bar 78.0–78.6 (avg 78.3). Trend on 11-24 = mean(78.3, 77.9, 78.3) = **78.2**. Axis: lo = floor(76.9) = 76, hi = ceil(79.6) = 80; span 4; step 2 (4/1 = 4 > 3, 4/2 = 2 ≤ 3) → gridlines 76, 78, 80.
+Worked example (`M`, today 2026-11-24): entries 11-20 78.0 & 78.6, 11-22 77.9, 11-24 78.3. Then day averages are 78.3, 77.9, 78.3; summary average = 78.17 → **78.2**; min 77.9, max 78.6. Slot 11-20 is a range bar 78.0–78.6 (avg 78.3). Trend on 11-24 = mean(78.3, 77.9, 78.3) = **78.2**. Axis: lo = floor(76.9) = 76, top = ceil(79.6) = 80; span 4; step 2 (4/1 = 4 > 3, 4/2 = 2 ≤ 3) → gridlines 76, 78, 80.

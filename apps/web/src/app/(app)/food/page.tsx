@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { DateSchema, FoodDayViewSchema, OwnFoodsResponseSchema, RecentFoodsResponseSchema } from "@calci/shared";
+import { DateSchema, FoodDayViewSchema, OwnFoodsResponseSchema, RecentFoodsResponseSchema, WeightViewSchema } from "@calci/shared";
+import { BodyweightCard } from "@/components/bodyweight-card";
 import { DayNav } from "@/components/day-nav";
 import { FoodScreen } from "@/components/food-screen";
 import { linkClass } from "@/components/form-bits";
@@ -10,6 +11,13 @@ import { ApiRequestError, apiFetch } from "@/server/api";
 import { requireProfile } from "@/server/session";
 
 export const metadata = { title: "Food · SquadFit" };
+
+/** Feature 014: the member's own weigh-ins (ranges always end today, whatever day the page shows). */
+async function BodyweightSection() {
+  const { profile } = await requireProfile();
+  const view = await apiFetch("/me/weight?range=M", { schema: WeightViewSchema });
+  return <BodyweightCard initialView={view} timezone={profile.timezone} />;
+}
 
 async function FoodContent({ searchParams }: { searchParams: PageProps<"/food">["searchParams"] }) {
   const { profile } = await requireProfile();
@@ -37,7 +45,16 @@ async function FoodContent({ searchParams }: { searchParams: PageProps<"/food">[
         <TargetsPrompt calories={profile.dailyCalorieTarget} protein={profile.dailyProteinTarget} />
       ) : null}
       <DayNav date={view.date} today={view.today} basePath="/food" />
-      <FoodScreen initialView={view} own={own.foods} recent={recent.foods} />
+      <FoodScreen
+        initialView={view}
+        own={own.foods}
+        recent={recent.foods}
+        afterLedger={
+          <Suspense fallback={<p className="text-sm text-muted">Loading bodyweight…</p>}>
+            <BodyweightSection />
+          </Suspense>
+        }
+      />
       <p className="text-sm">
         <Link href="/food/mine" className={linkClass}>
           My foods

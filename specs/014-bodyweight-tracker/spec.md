@@ -49,10 +49,10 @@ On the Bodyweight card the member sees a chart of their weight with a **W | M | 
 **Acceptance Scenarios**:
 
 1. **Given** range **W**, **Then** the chart shows 7 daily slots ending today (member's timezone); **M** shows 30 daily slots ending today; **6M** shows 26 weekly slots (Mon–Sun) ending with the current week; **Y** shows 12 monthly slots ending with the current month.
-2. **Given** W or M, **Then** each day with exactly one entry is a dot, consecutive logged days are joined by a subtle line (days without data are skipped, not drawn as zero), and a day with several entries is drawn as a range bar from its lowest to highest value.
+2. **Given** W or M, **Then** each day with exactly one entry is a dot, consecutive logged days are joined by a subtle line through each day's average (days without data are skipped, not drawn as zero), and a day with several entries is drawn as a range bar from its lowest to highest value.
 3. **Given** 6M or Y, **Then** each week or month with data is a rounded range bar from its lowest to highest entry, and a dot where lowest equals highest.
 4. **Given** no scrubbing, **Then** the header shows **AVERAGE** with the average of the range's daily averages (1 decimal, "kg") for W and M, and **RANGE** with "lowest–highest kg" for 6M and Y, plus the date span of the range (e.g. "25 Oct – 23 Nov 2026").
-5. **Given** the member scrubs to a slot with data, **Then** the crosshair snaps to that slot, its dot or bar is highlighted, and the header shows that slot's value (single weight, or average for a day with several entries; range for a week or month) and its date or date span. Releasing returns the header to the range summary.
+5. **Given** the member scrubs to a slot with data, **Then** the crosshair snaps to that slot, its dot or bar is highlighted, and the header shows that slot's value (single weight, or average for a day with several entries; range for a week or month) and its date or date span, labelled WEIGHT for a single weigh-in, AVERAGE for a day with several, RANGE for a week or month. Releasing returns the header to the range summary.
 6. **Given** scrubbing over a slot with no data, **Then** the crosshair snaps to the nearest slot that has data.
 7. **Given** the values in view span 76.2–79.8 kg, **Then** the vertical scale runs from at most 75.2 to at least 80.8 kg, with 3–4 dashed horizontal gridlines at round values labelled on the right.
 8. **Given** W or M and the trend line switched on, **Then** a 7-day moving average line is drawn over the days in view (each point averages the daily averages of that day and up to 6 previous calendar days that have data, including days just before the visible range).
@@ -73,7 +73,7 @@ A member who mistyped (e.g. 87.4 instead of 78.4) opens the quick-log sheet, whi
 1. **Given** the sheet is open on a day with entries at 07:10 (78.4) and 07:12 (87.4), **Then** both are listed with a delete action; **When** they delete 87.4, **Then** it disappears from the list, the chart, averages and ranges.
 4. **Given** the selected day is older than the edit window (today + 2 previous days), **Then** its entries are not offered for deletion and the server refuses a delete for that date.
 2. **Given** the deleted entry was the most recent, **Then** the latest weight and the profile body weight become the next most recent entry; if no entries remain, the profile body weight is left as it was.
-3. **Given** an entry id that is not theirs, **Then** deletion is refused as not found.
+3. **Given** an entry id that is not theirs (or no longer exists), **When** they try to delete it, **Then** nothing changes for any member and they get their own unchanged view back.
 
 ---
 
@@ -84,7 +84,7 @@ A member who mistyped (e.g. 87.4 instead of 78.4) opens the quick-log sheet, whi
 - Logging for a past day: the sheet has today selected; the member may pick yesterday or the day before (the app's usual edit window); older or future dates are refused by the server.
 - Only one entry in the whole range: average equals that value, the scale is that value ± 1 kg, and there is no connecting line.
 - The 6M range starts mid-month and the Y range's first month may be partially before the member's first log: buckets only include entries inside the range.
-- Body weight in Settings: changing it there also records an entry for today, so the chart and Settings never disagree about the latest weight.
+- Body weight in Settings: changing it there also records an entry for today, so the chart and Settings never disagree about the latest weight. If today already has 10 entries, the rest of the profile is saved and the weight change is skipped with the daily-limit message.
 - Very large gaps (months without logs) in W/M: no line is drawn across empty days beyond the visible slots; the trend line uses only days that have data.
 - Scrubbing on touch must not scroll the page sideways while the finger is on the chart; vertical page scrolling still works when the gesture starts vertically.
 
@@ -99,7 +99,7 @@ A member who mistyped (e.g. 87.4 instead of 78.4) opens the quick-log sheet, whi
 - **FR-005**: The system MUST return, for a requested range (W, M, 6M, Y) ending today in the member's timezone, the ordered slots for that range, each with its date span and, when it has data, its lowest, highest and average weight and the number of entries; plus the range summary (average of daily averages, overall lowest and highest) and the member's latest entry.
 - **FR-006**: For W and M the response MUST also include each visible day's 7-day moving average, computed from daily averages including up to 6 days before the visible range.
 - **FR-007**: Range, bucketing, averages, moving average and axis scaling MUST follow one documented set of rules, so the figures shown right after saving are identical to those shown after a reload.
-- **FR-008**: The member's profile body weight MUST always equal their most recent entry, ordered by local date and then recorded time (never by insertion order), whenever at least one entry exists; saving a body weight in Settings MUST record an entry for today.
+- **FR-008**: The member's profile body weight MUST be updated after every entry write to their most recent entry (a failed update is repaired by the next write), ordered by local date and then recorded time (never by insertion order), whenever at least one entry exists; saving a body weight in Settings MUST record an entry for today.
 - **FR-009**: The Bodyweight card MUST show the latest weight with its date, a **Log weight** button and the chart; the quick-log sheet MUST open from that button with the value pre-filled per User Story 1, −0.1 / +0.1 steppers, a decimal keypad input and one primary **Save** button.
 - **FR-010**: The chart MUST offer W | M | 6M | Y with M selected by default, a header that shows AVERAGE or RANGE and the date span and updates live while scrubbing, right-aligned axis labels with 3–4 dashed gridlines over a scale of [lowest − 1 kg, highest + 1 kg] rounded outward to whole kilograms, and pointer and touch scrubbing that snaps to the nearest slot with data.
 - **FR-011**: W and M MUST draw single-entry days as dots joined by a subtle line and multi-entry days as range bars; 6M and Y MUST draw range bars, with a dot when lowest equals highest. A trend toggle MUST show or hide the 7-day moving average in W and M; it is off by default and the choice is remembered on the device.

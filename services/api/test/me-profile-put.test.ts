@@ -50,14 +50,14 @@ describe("PUT /me/profile", () => {
 });
 
 describe("PUT /me/profile body weight (feature 007)", () => {
-  it("sets, keeps when absent, and clears with null", async () => {
+  it("sets, keeps when absent, and ignores null once weigh-ins exist (feature 014)", async () => {
     const { deps } = makeDeps();
     let r = parse(await handle(makeEvent({ body: { ...validProfile, bodyWeightKg: 78.5 } }), deps));
     expect(r.body.profile.bodyWeightKg).toBe(78.5);
     r = parse(await handle(makeEvent({ body: validProfile }), deps));
     expect(r.body.profile.bodyWeightKg).toBe(78.5);
     r = parse(await handle(makeEvent({ body: { ...validProfile, bodyWeightKg: null } }), deps));
-    expect(r.body.profile.bodyWeightKg).toBeNull();
+    expect(r.body.profile.bodyWeightKg).toBe(78.5);
   });
   it("rejects an out-of-range body weight", async () => {
     const { deps } = makeDeps();

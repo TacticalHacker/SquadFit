@@ -19,6 +19,8 @@ export const ApiErrorCodeSchema = z.enum([
   // Feature 016 (share a workout day).
   "NOT_A_WORKOUT_DAY",
   "HIDDEN",
+  // Feature 014 (bodyweight log).
+  "DAY_FULL",
 ]);
 export type ApiErrorCode = z.infer<typeof ApiErrorCodeSchema>;
 
