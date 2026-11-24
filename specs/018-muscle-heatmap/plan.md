@@ -1,113 +1,84 @@
-# Implementation Plan: [FEATURE]
+# Implementation Plan: Daily Muscle Heatmap
 
-**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
+**Branch**: `018-muscle-heatmap` | **Date**: 2026-11-24 | **Spec**: [spec.md](spec.md)
 
-**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
-
-**Note**: This template is filled in by the `/speckit-plan` command; its definition describes the execution workflow.
+**Input**: Feature specification from `/specs/018-muscle-heatmap/spec.md`
 
 ## Summary
 
-[Extract from feature spec: primary requirement + technical approach from research]
+Show a compact front + back body figure on the Gym tab, under the day's "X min · Y kcal burned" line, with 15 muscle regions filled in three accent steps by the day's completed sets (primary × 1, secondary × 0.5). Tapping a worked region shows its set counts and can filter the exercise list to that muscle. Everything is derived in the browser from the `GymView` the page already has, through a new pure module `packages/shared/src/domain/muscle-map.ts` (mapping table for the 52 built-in strength exercises + muscle-group fallback). No API, data, infra or MCP change.
 
 ## Technical Context
 
-<!--
-  ACTION REQUIRED: Replace the content in this section with the technical details
-  for the project. The structure here is presented in advisory capacity to guide
-  the iteration process.
--->
+**Language/Version**: TypeScript 6.0 (strict), Node.js ≥ 24
 
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]
+**Primary Dependencies**: Next.js 16 App Router, React, Tailwind CSS 4, `lucide-react` (existing); no new dependencies
 
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]
+**Storage**: N/A (nothing stored; derived on render)
 
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
+**Testing**: Vitest (`packages/shared/test/muscle-map.test.ts`)
 
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]
+**Target Platform**: Web (mobile-first, 320 px and up), light + OS dark mode
 
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
+**Project Type**: pnpm monorepo web app (`apps/web` + `packages/shared`)
 
-**Project Type**: [e.g., library/cli/web-service/mobile-app/compiler/desktop-app or NEEDS CLARIFICATION]
+**Performance Goals**: Figure recomputes with the day view (≤ 60 exercises × ≤ 20 sets: trivial); no extra request
 
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]
+**Constraints**: Colours only via `globals.css` tokens; no gradients/glows/scale animations; inline SVG only (no chart or anatomy library); never shown outside the member's own Gym tab
 
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]
-
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+**Scale/Scope**: 1 new shared module + test, 2 new components, edits to `gym-screen.tsx` and `globals.css`, CLAUDE.md section
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+| Principle | Status | Notes |
+|---|---|---|
+| I. Spec-Driven Delivery | ✅ | Spec 018 has no `[NEEDS CLARIFICATION]`; behaviour beyond the spec (e.g. side delts counted as front delts) is recorded in research R6. |
+| II. End-to-End Type Safety | ✅ | No network shapes change; new types live in `@calci/shared`; `MuscleRegion` is a closed union. |
+| III. Test-First Domain Logic (lean) | ✅ | One test file for the new pure functions: mapping invariants (SC-003), the worked example, the fallback, step boundaries, region-filter order. No UI tests. |
+| IV. IaC, Serverless | ✅ | No infra change. |
+| V. Server-Authoritative, Fair Scoring | ✅ | Not a score, rank or streak; a display of the member's own server-delivered entries, computed with shared pure code (research R1). Day and edit window still come from the server. |
+| VI. Members-Only Visibility | ✅ | Own data only; not added to any squad, public, share or MCP response (FR-014). |
+| VII. Simplicity | ✅ | No new endpoint, library or storage; detail line instead of a positioned tooltip (research R5). |
+
+**Post-design re-check**: unchanged, all ✅.
 
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
-specs/[###-feature]/
-├── plan.md              # This file (/speckit-plan command output)
-├── research.md          # Phase 0 output (/speckit-plan command)
-├── data-model.md        # Phase 1 output (/speckit-plan command)
-├── quickstart.md        # Phase 1 output (/speckit-plan command)
-├── contracts/           # Phase 1 output (/speckit-plan command)
-└── tasks.md             # Phase 2 output (/speckit-tasks command - NOT created by /speckit-plan)
+specs/018-muscle-heatmap/
+├── plan.md
+├── research.md          # R1–R7, incl. the full exercise → muscle table (R6)
+├── data-model.md        # derived entities only; nothing stored
+├── quickstart.md
+├── contracts/ui.md      # shared module surface + component props
+├── checklists/requirements.md
+└── tasks.md             # /speckit-tasks
 ```
 
 ### Source Code (repository root)
-<!--
-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
-  for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
-  not include Option labels.
--->
 
 ```text
-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
-src/
-├── models/
-├── services/
-├── cli/
-└── lib/
+packages/shared/
+├── src/domain/muscle-map.ts        # NEW: regions, MUSCLE_MAP, GROUP_FALLBACK, musclesFor, dayMuscleLoad, heatStep, hasMuscleLoad, exercisesForRegion
+├── src/index.ts                    # re-export muscle-map
+└── test/muscle-map.test.ts         # NEW
 
-tests/
-├── contract/
-├── integration/
-└── unit/
+apps/web/src/
+├── app/globals.css                 # --heat-0..3 + --color-heat-0..3
+└── components/
+    ├── muscle-figure.tsx           # NEW: front/back SVG, one path per region
+    ├── muscle-heatmap.tsx          # NEW: card, selection, detail line, "Show exercises"
+    └── gym-screen.tsx              # load memo, render under summary, region filter state + chip
 
-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
-backend/
-├── src/
-│   ├── models/
-│   ├── services/
-│   └── api/
-└── tests/
-
-frontend/
-├── src/
-│   ├── components/
-│   ├── pages/
-│   └── services/
-└── tests/
-
-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
-
-ios/ or android/
-└── [platform-specific structure: feature modules, UI flows, platform tests]
+CLAUDE.md                           # "Muscle heatmap (feature 018)" section
 ```
 
-**Structure Decision**: [Document the selected structure and reference the real
-directories captured above]
+**Structure Decision**: Existing monorepo layout. Pure logic in `packages/shared/src/domain` (constitution III), presentation in `apps/web/src/components`. `services/api` and `infra` are untouched.
 
 ## Complexity Tracking
 
-> **Fill ONLY if Constitution Check has violations that must be justified**
-
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+No violations.
