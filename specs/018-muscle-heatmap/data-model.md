@@ -42,14 +42,14 @@ Per region for one day:
 
 | Field | Meaning |
 |---|---|
-| `direct` | completed sets of exercises where the region is primary |
-| `indirect` | completed sets of exercises where the region is secondary |
+| `direct` | logged sets of exercises where the region is primary |
+| `indirect` | logged sets of exercises where the region is secondary |
 | `score` | `direct + 0.5 × indirect` |
 | `step` | `0 | 1 | 2 | 3` from `heatStep(score)` |
 
 `dayMuscleLoad(entries: { exerciseId; muscleGroup; exerciseKind; sets }[]) → Record<MuscleRegion, RegionLoad>`
 
-- A completed set = `completed && reps >= 1` (research R3); cardio entries are skipped.
+- A logged set = any saved set with `reps >= 1`, ticked or not (research R3); cardio entries are skipped.
 - `heatStep`: `score = 0` → 0; `0 < score < 3` → 1; `3 ≤ score < 6` → 2; `score ≥ 6` → 3.
 - The figure is hidden when every region has `score = 0` (FR-009); helper `hasMuscleLoad(load)`.
 
@@ -58,4 +58,4 @@ chest `{4, 0, 4, 2}`, front-delts `{0, 4, 2, 1}`, triceps `{2, 4, 4, 2}`, all ot
 
 ## Region filter
 
-`exercisesForRegion(exercises: GymExerciseView[], region) → GymExerciseView[]`: strength exercises whose `musclesFor(exerciseId, group)` includes `region`; exercises with a completed set on the day first, then the input order. Client state only (`region | null` in `GymScreen`), never in the URL or storage.
+`exercisesForRegion(exercises: GymExerciseView[], region) → GymExerciseView[]`: strength exercises whose `musclesFor(exerciseId, group)` includes `region`; exercises logged on the day first, then the input order. Client state only (`region | null` in `GymScreen`), never in the URL or storage.

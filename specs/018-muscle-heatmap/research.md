@@ -16,8 +16,8 @@ No `NEEDS CLARIFICATION` items were left in the Technical Context; the decisions
 
 ## R3. What counts as a set
 
-- **Decision**: Count `sets` where `completed && reps >= 1`, only for `exerciseKind === "strength"`. Weight is ignored (bodyweight counts). Jump-flagged sets count.
-- **Rationale**: Matches the squad "completed set" rule (feature 010) and the spec Assumption; cardio has no muscle mapping (FR-004).
+- **Decision**: Count `sets` where `reps >= 1`, ticked or not, only for `exerciseKind === "strength"`. Weight is ignored (bodyweight counts). Jump-flagged sets count.
+- **Rationale**: Matches the gym calorie math (feature 006: every set counts). The first version required `completed`, like the squad rule, but the drawer saves sets unticked by default, so members who don't tick saw nothing for a real workout. Cardio has no muscle mapping (FR-004).
 
 ## R4. Intensity steps and colours
 

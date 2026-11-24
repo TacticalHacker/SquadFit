@@ -65,7 +65,7 @@ From the muscle label the member can choose to see only exercises that work that
 - **Own and admin-added exercises** have only a muscle group, so they light that group's fallback regions (see FR-004). An own "Arms" exercise lights both biceps and triceps.
 - **Cardio exercises** (Incline Treadmill Walk, Stairmaster) and **Activities-tab entries** never light any region and never make the figure appear on their own.
 - **Retired catalog exercises and removed own exercises** still logged on a day count through their muscle group, like any other entry of that day.
-- **Bodyweight sets** (weight 0, e.g. Pull-Ups, Sit-Ups) count; only completed sets with at least 1 rep count, matching the squad's "completed set" rule.
+- **Bodyweight sets** (weight 0, e.g. Pull-Ups, Sit-Ups) count; every saved set with at least 1 rep counts, ticked or not.
 - **Sets flagged as an unusual jump** still count: the figure is about work done, not records.
 - **Locked days** (older than the edit window) still show the figure; it is read-only information.
 - **Many regions lit**: a full-body day can light every region; the figure stays the same size.
@@ -84,7 +84,7 @@ From the muscle label the member can choose to see only exercises that work that
 
 **Intensity**
 
-- **FR-005**: For the selected day, each region's **score** = (completed sets of exercises where it is primary × 1) + (completed sets of exercises where it is secondary × 0.5). A completed set is one ticked as done with at least 1 rep; weight does not matter.
+- **FR-005**: For the selected day, each region's **score** = (logged sets of exercises where it is primary × 1) + (logged sets of exercises where it is secondary × 0.5). A logged set is any saved set with at least 1 rep, ticked or not (as in the gym calorie math); weight does not matter.
 - **FR-006**: Regions MUST be shown in one of four states by score: **none** (0) neutral fill and outline; **light** (> 0 and < 3); **medium** (≥ 3 and < 6); **full** (≥ 6) full accent.
 - **FR-007**: Worked regions MUST use only the existing accent colour in its light, medium and full strengths, with readable contrast between steps in both light and dark mode; unworked regions use the existing neutral surface and line colours. No new colours, gradients or glows.
 
@@ -93,7 +93,7 @@ From the muscle label the member can choose to see only exercises that work that
 **Placement and empty state**
 
 - **FR-008**: The figure MUST appear on the Gym tab of Workouts directly below the day's "X min · Y kcal burned" summary, as a compact card with front and back views side by side.
-- **FR-009**: The figure MUST be hidden when the selected day has no completed strength sets (FR-005 score 0 everywhere).
+- **FR-009**: The figure MUST be hidden when the selected day has no logged strength sets (FR-005 score 0 everywhere).
 - **FR-010**: The figure MUST update when the day changes and when the member saves or removes an entry, consistent with the rest of the day view (including optimistic updates).
 
 **Detail and filtering**
@@ -126,7 +126,7 @@ From the muscle label the member can choose to see only exercises that work that
 ## Assumptions
 
 - "Workouts page" means the Gym tab (`/workouts/gym`), the only tab where sets exist; the Activities tab is unchanged.
-- "Sets logged" means completed sets (ticked, reps ≥ 1), as in the squad rules, even though calorie math counts every set. This avoids lighting muscles for sets that were planned but not done.
+- "Sets logged" means every saved set with reps ≥ 1, ticked or not, matching the gym calorie math. (Changed 2026-11-24: the first version counted only ticked sets, but sets are saved unticked by default, so logged workouts did not light up.)
 - Empty state: the request allowed "hidden or a subtle empty state"; hidden was chosen so empty days stay uncluttered (SC-005).
 - Intensity uses the weighted score for all three steps, so a region hit only as secondary reaches medium after 6 sets of the helping exercise; "light for secondary" holds for typical sessions.
 - The request's `--bg-elevated` / `--border-subtle` tokens do not exist here; the existing surface/line tokens and the accent (`#FFBE0B` dark / `#8A5A00` light) with its soft variant are used instead (CLAUDE.md theme rules).

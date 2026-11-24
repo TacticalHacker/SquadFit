@@ -21,9 +21,9 @@ Expected: all green; `pnpm synth` unchanged (no infra change).
 | # | Steps | Expected |
 |---|---|---|
 | 1 | Open today with nothing logged | No figure; page looks as before (FR-009, SC-005). |
-| 2 | Log Bench Press, 4 sets, tick all | Figure appears under "Today: … burned": chest medium, front delts + triceps light, everything else neutral. |
-| 3 | Add Tricep Pushdown, 2 ticked sets | Triceps becomes medium (2 + 4 × 0.5 = 4); no page reload (FR-010). |
-| 4 | Untick every set on both | Figure disappears. Re-tick. |
+| 2 | Log Bench Press, 4 sets (ticked or not) | Figure appears under "Today: … burned": chest medium, front delts + triceps light, everything else neutral. |
+| 3 | Add Tricep Pushdown, 2 sets | Triceps becomes medium (2 + 4 × 0.5 = 4); no page reload (FR-010). |
+| 4 | Remove both entries | Figure disappears. Log them again. |
 | 5 | Log a cardio entry only on another editable day | No figure on that day. |
 | 6 | Tap triceps | Line shows "Triceps · 2 sets · 4 indirect" + **Show exercises**. Tap calves (neutral): nothing. Escape / tap outside: line closes. Tab to a region with the keyboard: same line. |
 | 7 | **Show exercises** on triceps | List shows Tricep Pushdown and Bench Press first, then other triceps exercises; "Triceps" chip active; pills dimmed. Save a drawer: the filter stays. |

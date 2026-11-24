@@ -50,11 +50,12 @@ export function MuscleFigure(props: {
   side: "front" | "back";
   load: DayMuscleLoad;
   selected: MuscleRegion | null;
-  onSelect: (region: MuscleRegion) => void;
+  onSelect: (region: MuscleRegion) => void;   // mouse hover or keyboard focus
+  onToggle: (region: MuscleRegion) => void;   // tap or Enter/Space: show, or hide when already shown
 }): JSX.Element;
 ```
 
-- Original stylised SVG outline (silhouette in `fill-heat-0 stroke-line`) and one `<path>` per region of that side, filled `fill-heat-{step}`. Worked regions: `tabIndex={0}`, `role="button"`, `aria-label="{Label}, {n} sets"`, `aria-pressed` for the selected one (selected outline uses `stroke-ink`), hover/focus/click call `onSelect`. Neutral regions: `aria-hidden`, `pointer-events: none`.
+- Original stylised SVG outline (silhouette in `fill-heat-0 stroke-line`) and one `<path>` per region of that side, filled `fill-heat-{step}`. Worked regions: `tabIndex={0}`, `role="button"`, `aria-label="{Label}, {n} sets"`, `aria-pressed` for the selected one (selected outline uses `stroke-ink`), mouse hover and keyboard focus (`:focus-visible` only) call `onSelect`; touch `pointerup` and Enter/Space call `onToggle`. Neutral regions: `aria-hidden`, `pointer-events: none`.
 
 ## `components/gym-screen.tsx` (changes)
 

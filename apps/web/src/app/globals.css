@@ -37,6 +37,12 @@
   --warning: #b84718; /* "adjusted" calorie values: copper, kept apart from the accent */
   --danger: #b23a2e; /* errors, delete */
 
+  /* muscle heatmap (feature 018): neutral + three accent strengths. Derived, so they follow dark mode by themselves. */
+  --heat-0: var(--surface-2);
+  --heat-1: color-mix(in oklab, var(--accent) 28%, var(--surface));
+  --heat-2: color-mix(in oklab, var(--accent) 60%, var(--surface));
+  --heat-3: var(--accent);
+
   --scrim: rgba(26, 24, 19, 0.4); /* dialog backdrop */
   --backdrop: #2a261d; /* behind the white share sticker preview (feature 016); dark in both modes */
   --focus-ring: 0 0 0 3px rgba(138, 90, 0, 0.45);
@@ -79,6 +85,7 @@
   }
 }
 
+
 @theme inline {
   /* Drop Tailwind's default palette so only the tokens exist as colour utilities. */
   --color-*: initial;
@@ -102,6 +109,10 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
+  --color-heat-0: var(--heat-0);
+  --color-heat-1: var(--heat-1);
+  --color-heat-2: var(--heat-2);
+  --color-heat-3: var(--heat-3);
 
   --radius-sm: var(--radius-sm);
   --radius-md: var(--radius-sm);
