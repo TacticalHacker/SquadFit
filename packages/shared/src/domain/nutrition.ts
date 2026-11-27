@@ -2,8 +2,16 @@ import { z } from "zod";
 
 export const MAX_MACRO_GRAMS = 500;
 
-export const MEALS = ["breakfast", "lunch", "dinner", "snacks"] as const;
+/** Display order on the food day. "preworkout" was added later, so it comes last. */
+export const MEALS = ["breakfast", "lunch", "dinner", "snacks", "preworkout"] as const;
 export type Meal = (typeof MEALS)[number];
+export const MEAL_LABEL: Record<Meal, string> = {
+  breakfast: "Breakfast",
+  lunch: "Lunch",
+  dinner: "Dinner",
+  snacks: "Snacks",
+  preworkout: "Pre-workout",
+};
 export const MealSchema = z.enum(MEALS);
 
 export const SERVINGS_MESSAGE = "Servings must be from 0.5 to 20 in steps of 0.5";

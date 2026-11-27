@@ -159,7 +159,7 @@ export const UpsertWorkoutInputSchema = z.strictObject(UpsertWorkoutShape);
 export const UpsertFoodShape = {
   logId: z.string().optional().describe("Update this existing entry (from get_full_context); omit to create"),
   date: DateSchema.optional().describe("Create: day, YYYY-MM-DD (today or the 2 previous days)"),
-  meal: MealSchema.optional().describe("breakfast, lunch, dinner or snacks (required to create)"),
+  meal: MealSchema.optional().describe("breakfast, lunch, dinner, snacks or preworkout (required to create)"),
   food: FoodNameSchema.optional().describe(
     "Create: a built-in food id (sf-...), the member's own food id, the exact name of either, or any other name for a free-form entry",
   ),

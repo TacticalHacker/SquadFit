@@ -80,5 +80,5 @@ describe("completeMacros", () => {
 });
 
 describe("MEALS", () => {
-  it("is in day order", () => expect(MEALS).toEqual(["breakfast", "lunch", "dinner", "snacks"]));
+  it("lists the meals in display order", () => expect(MEALS).toEqual(["breakfast", "lunch", "dinner", "snacks", "preworkout"]));
 });

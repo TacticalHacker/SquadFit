@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import {
   MEALS,
+  MEAL_LABEL,
   applyFoodChange,
   completeMacros,
   defaultMealForHour,
@@ -23,7 +24,7 @@ import type { FoodResult as SearchResult } from "@/lib/food-search";
 import { hasDayChanged } from "@/lib/rollover";
 import type { ReducedPhoto } from "@/lib/photo-reduce";
 import { addEntry, addPhotoEntry, removeEntry, updateEntry, type FoodResult } from "@/server/actions/food";
-import { FoodAddPanel, MEAL_LABEL } from "./food-add-panel";
+import { FoodAddPanel } from "./food-add-panel";
 import { Camera, Minus, Plus } from "lucide-react";
 import { FoodLedgerCard } from "./food-ledger";
 import { buttonClass, cardClass, dangerLinkClass, iconButtonClass, inputClass, noticeErrorClass, noticeWarnClass, secondaryButtonClass } from "./form-bits";

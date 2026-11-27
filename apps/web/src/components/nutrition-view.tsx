@@ -1,4 +1,4 @@
-import type { NutritionMeals, NutritionTotals } from "@calci/shared";
+import { MEAL_LABEL, type NutritionMeals, type NutritionTotals } from "@calci/shared";
 import { INFO, ate, burned, carbsFat, protein } from "@/lib/plain";
 import { InfoTip } from "./info-tip";
 
@@ -46,8 +46,8 @@ export function NutritionDay({ n }: { n: Shown }) {
           <ul className="flex flex-col gap-3">
             {meals.map((m) => (
               <li key={m.meal}>
-                <p className="flex justify-between text-sm font-medium capitalize text-ink">
-                  <span>{m.meal}</span>
+                <p className="flex justify-between text-sm font-medium text-ink">
+                  <span>{MEAL_LABEL[m.meal]}</span>
                   <span className="tabular-nums text-muted">
                     {nf.format(m.subtotalCalories)} calories{m.macros ? ` · protein ${nf.format(m.macros.protein)} g` : ""}
                   </span>
