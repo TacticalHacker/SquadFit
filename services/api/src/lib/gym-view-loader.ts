@@ -86,5 +86,6 @@ export async function loadGymSaveResult(userId: string, ctx: DayContext, date: s
     summary: summarize(entries),
     prs: prDay ? (prDay.records?.length ?? 1) : 0,
     streakWeeks: profile ? weeklyStreakOf(profile, stats, ctx.today).current : 0,
+    raidKg: 0,
   };
 }

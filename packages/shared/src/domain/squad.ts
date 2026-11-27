@@ -164,6 +164,8 @@ function walkLift(entries: readonly SquadEntry[], trustedBefore: string | undefi
   const improved: string[] = [];
   let prevTop: SetView | null = null;
   const flagged: string[] = [];
+  /** Feature 021: set indexes held per date (the raid skips exactly these). */
+  const held: Record<string, number[]> = {};
   const windowStart = addDays(today, -(DAY_BEST_DAYS - 1));
   /** Feature 019: the one PR definition's running bests, and a snapshot before each entry date. */
   let bests: PrBests = EMPTY_BESTS;
@@ -181,7 +183,10 @@ function walkLift(entries: readonly SquadEntry[], trustedBefore: string | undefi
     const prevW: number | null = best?.weightKg ?? null;
     const prevE: number | null = bestE?.e1rm ?? null;
     const eligible: SetView[] = trusted ? working : working.filter((s) => !(suspicious(s.weightKg, prevW) || suspicious(s.e1rm, prevE)));
-    if (eligible.length < working.length) flagged.push(entry.date);
+    if (eligible.length < working.length) {
+      flagged.push(entry.date);
+      held[entry.date] = working.filter((s) => !eligible.includes(s)).map((s) => s.setIndex);
+    }
     if (eligible.length === 0) continue;
 
     const heaviest: SetView = eligible.reduce((a: SetView, b: SetView) => (b.weightKg > a.weightKg || (b.weightKg === a.weightKg && b.reps > a.reps) ? b : a));
@@ -207,7 +212,7 @@ function walkLift(entries: readonly SquadEntry[], trustedBefore: string | undefi
   }
   const kept = snapshots.slice(-GYM_LAST_KEEP);
   const prBase: PrBase = { all: bests, before: Object.fromEntries(kept), complete: kept.length === snapshots.length };
-  return { best, bestE, prDays, dayBests, monthBests, bestSteps, improved, flagged, prBase };
+  return { best, bestE, prDays, dayBests, monthBests, bestSteps, improved, flagged, held, prBase };
 }
 
 function prDayOf(entry: SquadEntry, hits: readonly PrHit[]): PrDay {
@@ -263,7 +268,7 @@ export function buildMemberStats(
   entries: readonly SquadEntry[],
   prev: SquadStats | null,
   opts: BuildOptions,
-): { stats: SquadStats; events: SquadEvent[] } {
+): { stats: SquadStats; events: SquadEvent[]; held: Record<string, number[]> } {
   const { today, weeklyTarget, nowIso } = opts;
   const trustedBefore = opts.trustedBefore ?? prev?.trustedBefore;
 
@@ -290,8 +295,11 @@ export function buildMemberStats(
   const flags: SquadStats["flags"] = [];
   const events: SquadEvent[] = [];
   const steps = new Map<string, { date: string; e1rm: number }[]>();
+  /** Feature 021: `<date>|<exerciseId>` → set indexes held as an unusual jump (same walk as `flags`). */
+  const held: Record<string, number[]> = {};
   for (const [exerciseId, list] of byExercise) {
     const walked = walkLift(list, trustedBefore, today);
+    for (const [date, idx] of Object.entries(walked.held)) held[`${date}|${exerciseId}`] = idx;
     if (!walked.best && walked.flagged.length === 0) continue;
     const latest = [...list].sort((a, b) => b.date.localeCompare(a.date))[0]!;
     lifts[exerciseId] = {
@@ -360,7 +368,7 @@ export function buildMemberStats(
     badges: clubs.badges,
     prRules: 1,
   };
-  return { stats, events: events.filter((e) => !seeded.has(e.id)) };
+  return { stats, events: events.filter((e) => !seeded.has(e.id)), held };
 }
 
 // ---------------------------------------------------------------- read-time figures

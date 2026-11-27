@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { Settings } from "lucide-react";
+import { Settings, Trophy } from "lucide-react";
 import type { MemberProfile as Profile } from "@calci/shared";
-import { INFO, bestWeeks, estMax, heaviestLift, kg, weekCompare, weeksInARow, workoutsThisWeek } from "@/lib/plain";
+import { INFO, bestWeeks, estMax, heaviestLift, kg, raidsClearedLabel, weekCompare, weeksInARow, workoutsThisWeek } from "@/lib/plain";
 import { Avatar } from "./avatar";
 import { ClubBadge } from "./club-badge";
 import { InfoTip } from "./info-tip";
@@ -57,6 +57,12 @@ export function MemberProfileView({ profile }: { profile: Profile }) {
               </li>
             ))}
           </ul>
+        ) : null}
+        {profile.raidsCleared > 0 ? (
+          <p className="inline-flex items-center gap-1.5 self-start rounded-full border border-accent bg-accent-soft px-2.5 py-0.5 text-xs font-medium text-accent">
+            <Trophy aria-hidden size={14} strokeWidth={1.75} />
+            {raidsClearedLabel(profile.raidsCleared)}
+          </p>
         ) : null}
         {profile.isYou ? (
           <Link href="/settings#squad" className={`${linkClass} inline-flex min-h-11 items-center gap-1.5 text-sm`}>

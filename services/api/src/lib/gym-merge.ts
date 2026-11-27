@@ -95,7 +95,7 @@ export async function mergeInto(
   target: GymExerciseDef,
   sources: readonly OwnSource[],
   deps: Pick<Deps, "gym" | "now">,
-  opts: { refresh: (userId: string) => Promise<void>; dryRun?: boolean },
+  opts: { refresh: (userId: string) => Promise<unknown>; dryRun?: boolean },
 ): Promise<MergeCounts> {
   const counts: MergeCounts = { members: 0, moved: 0, skipped: 0, removed: 0 };
   const members = new Set<string>();

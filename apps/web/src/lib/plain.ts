@@ -365,12 +365,42 @@ export const baselineLine = (volumeKg: number) => `Baseline set · ${kg(volumeKg
 export const BIG_JUMP_HINT = "Big jump — typo?";
 
 /** "★ 1 PR · +1,450 kg lifted · 2-week streak"; zero parts are left out. */
-export function prToast(o: { prs: number; volumeKg: number | null; streakWeeks: number }): string {
+export function prToast(o: { prs: number; volumeKg: number | null; streakWeeks: number; raidKg?: number }): string {
   return [
     o.prs > 0 ? `★ ${plural(o.prs, "PR")}` : null,
     o.volumeKg ? `+${kg(o.volumeKg)} lifted` : null,
+    // Feature 021: only when this save added counted kg to a raid.
+    o.raidKg ? `+${kg(o.raidKg)} to raid` : null,
     o.streakWeeks > 0 ? `${nf.format(o.streakWeeks)}-week streak` : null,
   ]
     .filter(Boolean)
     .join(" · ");
 }
+
+// ---------------------------------------------------------------- squad volume raid (feature 021)
+
+const raidDay = (iso: string, timeZone: string) =>
+  new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone }).format(new Date(iso));
+
+export const RAID_COPY = {
+  newRaid: "New raid",
+  history: "Raid history",
+  manage: "Manage raid",
+  cleared: "RAID CLEARED",
+  sticker: "Raid Cleared",
+  zeroYou: "You: 0 kg — any lift counts",
+  info: "Every set you tick in the gym counts toward the squad's target. Nothing to join.",
+  noHistory: "No finished raids yet.",
+  lockedHint: "Locked while the raid is live, so it stays fair.",
+} as const;
+
+export const raidTotalLine = (totalKg: number, targetKg: number, pct: number) => `${num(totalKg)} / ${kg(targetKg)} · ${pct}%`;
+export const raidYou = (youKg: number, pct: number, capped: boolean) => `You: ${kg(youKg)} (${pct}%)${capped ? " · capped" : ""}`;
+export const raidDaysLeft = (n: number) => (n <= 1 ? "Last day" : `${n} days left`);
+export const raidNext = (name: string, startsAt: string, timeZone: string) => `Next raid: ${name} · starts ${raidDay(startsAt, timeZone)}`;
+export const raidEnded = (pct: number) => `Raid ended · ${pct}%`;
+export const raidCancelled = (reason: string | null) => (reason ? `Raid cancelled · ${reason}` : "Raid cancelled");
+export const raidDates = (startsAt: string, endsAt: string, timeZone: string) =>
+  `${raidDay(startsAt, timeZone)} – ${raidDay(new Date(Date.parse(endsAt) - 1).toISOString(), timeZone)}`;
+export const raidsClearedLabel = (n: number) => (n > 1 ? `${RAID_COPY.sticker} ×${n}` : RAID_COPY.sticker);
+export const raidStatusLabel = { draft: "Draft", scheduled: "Scheduled", live: "Live", won: "Cleared", ended: "Ended", cancelled: "Cancelled" } as const;

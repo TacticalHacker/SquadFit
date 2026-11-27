@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { ArrowRight } from "lucide-react";
-import { HallOfFameSchema, SquadBoardsSchema, SquadFeedSchema, WeightViewSchema } from "@calci/shared";
+import { HallOfFameSchema, RaidCardResponseSchema, SquadBoardsSchema, SquadFeedSchema, WeightViewSchema } from "@calci/shared";
 import { BoardCard } from "@/components/board-card";
 import { BodyweightSquadCard } from "@/components/bodyweight-squad-card";
 import { linkClass, noticeWarnClass } from "@/components/form-bits";
 import { HallOfFame } from "@/components/hall-of-fame";
 import { NutritionCard } from "@/components/nutrition-card";
+import { RaidCard } from "@/components/raid-card";
 import { SegmentLinks } from "@/components/segment-links";
 import { SquadFeed } from "@/components/squad-feed";
 import { TargetsPrompt } from "@/components/targets-prompt";
@@ -26,18 +27,21 @@ async function SquadContent({ searchParams }: { searchParams: PageProps<"/squad"
   const { profile } = await requireProfile();
   const fame = first((await searchParams).view) === "fame";
 
-  const [data, feed, records, weight] = await Promise.all([
+  const [data, feed, records, weight, raid] = await Promise.all([
     apiFetch("/squad/boards", { schema: SquadBoardsSchema }),
     // The feed is secondary: a failed fetch must not take the boards down.
     apiFetch("/squad/feed?limit=5", { schema: SquadFeedSchema }).catch(() => null),
     fame ? apiFetch("/squad/hall-of-fame", { schema: HallOfFameSchema }) : Promise.resolve(null),
     // Feature 017: your own weigh-ins for the compact card; optional like the feed.
     apiFetch("/me/weight?range=M", { schema: WeightViewSchema }).catch(() => null),
+    // Feature 021: the raid card in one request; a failure just hides it.
+    apiFetch("/squad/raid", { schema: RaidCardResponseSchema }).catch(() => null),
   ]);
 
   return (
     <div className="flex flex-col gap-5">
       <h1 className="text-3xl font-semibold tracking-[-0.02em]">Squad</h1>
+      {raid ? <RaidCard data={raid} timezone={profile.timezone} /> : null}
       {data.viewer.targetsPrompt ? <TargetsPrompt calories={profile.dailyCalorieTarget} protein={profile.dailyProteinTarget} /> : null}
       {data.viewer.nutritionPrompt ? <NutritionCard /> : null}
       {data.viewer.hidden ? (

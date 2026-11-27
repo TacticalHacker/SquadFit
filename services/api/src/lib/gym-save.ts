@@ -37,7 +37,7 @@ export async function saveGymEntry(
   exerciseId: string,
   data: GymEntryPut,
   deps: Deps,
-): Promise<{ ok: true; entry: GymEntryItem } | WriteFailure> {
+): Promise<{ ok: true; entry: GymEntryItem; raidKg: number } | WriteFailure> {
   const existing = await deps.gym.getGymEntry(userId, date, exerciseId);
   const existingGym = existing?.kind === "gym" ? existing : null;
 
@@ -119,6 +119,6 @@ export async function saveGymEntry(
   }
   await deps.gym.putGymEntry(userId, entry);
   // Feature 010: streaks, PRs and feed follow every gym save, from the app or the AI agent alike.
-  await safeRefresh(userId, deps);
-  return { ok: true, entry };
+  const { raidKg } = await safeRefresh(userId, deps);
+  return { ok: true, entry, raidKg };
 }

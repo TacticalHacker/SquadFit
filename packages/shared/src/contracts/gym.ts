@@ -133,6 +133,8 @@ export const GymSaveResultSchema = z.object({
   prs: z.number().int().nonnegative().default(0),
   /** Feature 019: current weekly streak (0 = hidden in the toast). */
   streakWeeks: z.number().int().nonnegative().default(0),
+  /** Feature 021: counted kg this save added to the raid still counting (0 = no raid part in the toast). */
+  raidKg: z.number().nonnegative().default(0),
 });
 export type GymSaveResult = z.infer<typeof GymSaveResultSchema>;
 

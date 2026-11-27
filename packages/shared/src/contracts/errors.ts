@@ -21,6 +21,8 @@ export const ApiErrorCodeSchema = z.enum([
   "HIDDEN",
   // Feature 014 (bodyweight log).
   "DAY_FULL",
+  // Feature 021 (squad volume raid).
+  "RAID_RULE",
 ]);
 export type ApiErrorCode = z.infer<typeof ApiErrorCodeSchema>;
 

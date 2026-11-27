@@ -2,9 +2,10 @@ import { SQUAD_ID, buildGymLastIndex, buildMemberStats, isWorkoutEntry, localDat
 import type { Deps } from "./deps";
 import { NO_REACTIONS } from "./squad-repo";
 import { squadSettingsOf } from "./profile-repo";
+import { refreshRaids } from "./raid-refresh";
 
 /** What the rebuild needs, so the operator backfill can run it without the S3 stores. */
-export type StatsDeps = Pick<Deps, "profiles" | "workouts" | "squad" | "now"> & Partial<Pick<Deps, "sharePhotos">>;
+export type StatsDeps = Pick<Deps, "profiles" | "workouts" | "squad" | "raids" | "now"> & Partial<Pick<Deps, "sharePhotos">>;
 
 /**
  * Feature 010 (research R1, R2, R6, R13): rebuild one member's cached squad stats from all of their entries and
@@ -13,10 +14,12 @@ export type StatsDeps = Pick<Deps, "profiles" | "workouts" | "squad" | "now"> & 
  *
  * `seed` is the launch backfill: history is trusted (nothing is flagged), every event that exists now is recorded as
  * seeded so it never reaches the feed, and no feed item is created.
+ *
+ * Feature 021: also recomputes the member's raid contributions from the same entries; returns the counted kg added.
  */
-export async function refreshSquadStats(userId: string, deps: StatsDeps, opts: { seed?: boolean } = {}): Promise<void> {
+export async function refreshSquadStats(userId: string, deps: StatsDeps, opts: { seed?: boolean } = {}): Promise<{ raidKg: number }> {
   const profile = await deps.profiles.get(userId);
-  if (!profile) return;
+  if (!profile) return { raidKg: 0 };
   const weeklyTarget = squadSettingsOf(profile).weeklyTarget;
 
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -30,7 +33,7 @@ export async function refreshSquadStats(userId: string, deps: StatsDeps, opts: {
     ]);
     const existing = new Map(feed.map((f) => [f.eventId, f]));
 
-    const { stats, events } = buildMemberStats(entries, prev, {
+    const { stats, events, held } = buildMemberStats(entries, prev, {
       weeklyTarget,
       today,
       nowIso,
@@ -72,15 +75,24 @@ export async function refreshSquadStats(userId: string, deps: StatsDeps, opts: {
       // gone, so the picture can never be shown; functions without the delete grant (MCP) leave it behind.
       if (f.photoKey) await deps.sharePhotos?.delete(f.photoKey).catch((err: unknown) => console.error("share photo delete failed", err instanceof Error ? err.name : "unknown"));
     }
-    return;
+    // Feature 021: raid counting reads the same entries; a failure never undoes the stats (next write repairs it).
+    try {
+      const raidKg = await refreshRaids({ userId, profile, entries, held, statsVersion: (prev?.version ?? 0) + 1 }, deps);
+      return { raidKg };
+    } catch (err) {
+      console.error("raid refresh failed", err instanceof Error ? err.name : "unknown");
+      return { raidKg: 0 };
+    }
   }
+  return { raidKg: 0 };
 }
 
 /** Never throws: the workout write already succeeded, and the next write or a backfill repairs the stats (R2). */
-export async function safeRefresh(userId: string, deps: Deps): Promise<void> {
+export async function safeRefresh(userId: string, deps: Deps): Promise<{ raidKg: number }> {
   try {
-    await refreshSquadStats(userId, deps);
+    return await refreshSquadStats(userId, deps);
   } catch (err) {
     console.error("squad-stats refresh failed", err instanceof Error ? err.name : "unknown");
+    return { raidKg: 0 };
   }
 }

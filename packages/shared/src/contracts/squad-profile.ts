@@ -100,6 +100,8 @@ export const MemberProfileSchema = z.strictObject({
   weightLifted: z.strictObject({ thisWeek: z.number().min(0), lastWeek: z.number().min(0) }),
   /** Feature 013: club badges held, lowest first. */
   badges: z.array(z.strictObject({ club: ClubSchema, date: DateSchema })),
+  /** Feature 021: raids this member helped clear (Raid Cleared stickers). */
+  raidsCleared: z.number().int().nonnegative().default(0),
   /**
    * Feature 012: absent when the owner does not share steps. Active calories and distance appear only here, as
    * information from Apple Health (constitution VI 2.5.0). `shared` tells the owner whether others see it.

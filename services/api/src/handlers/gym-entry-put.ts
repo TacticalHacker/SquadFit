@@ -23,7 +23,7 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
 
   const saved = await saveGymEntry(caller.userId, d.date, exerciseId, body.data, deps);
   if (!saved.ok) return apiError(saved.status, saved.code, saved.message, saved.fields);
-  return ok(await loadGymSaveResult(caller.userId, c.ctx, d.date, exerciseId, deps));
+  return ok({ ...(await loadGymSaveResult(caller.userId, c.ctx, d.date, exerciseId, deps)), raidKg: saved.raidKg });
 }
 
 export const handler: APIGatewayProxyHandlerV2WithJWTAuthorizer = (event) => handle(event, getDeps());
