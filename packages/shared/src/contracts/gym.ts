@@ -88,6 +88,14 @@ export const GymLastSchema = z.object({
   top: z.object({ weightKg: z.number(), reps: z.number() }).nullable(),
 });
 
+/** Feature 019: the member's own bests before the viewed day (the drawer's live PR check). Owner-only. */
+export const PrBestsSchema = z.strictObject({
+  sessions: z.number().int().nonnegative(),
+  bestWeight: z.strictObject({ weightKg: z.number(), reps: z.number().int(), date: DateSchema }).nullable(),
+  bestE1rm: z.number().nullable(),
+  frontier: z.array(z.strictObject({ weightKg: z.number(), reps: z.number().int() })),
+});
+
 export const GymExerciseSchema = z.object({
   exerciseId: z.string(),
   name: z.string(),
@@ -99,6 +107,8 @@ export const GymExerciseSchema = z.object({
   rateCalories: z.number().nullable(),
   entry: GymEntryViewSchema.nullable(),
   last: GymLastSchema.nullable(),
+  /** null = unknown (no badge); cardio is always null. */
+  bests: PrBestsSchema.nullable().default(null),
 });
 
 export const GymViewSchema = z.object({
@@ -119,6 +129,10 @@ export const GymSaveResultSchema = z.object({
   exerciseId: z.string(),
   entry: GymEntryViewSchema.nullable(),
   summary: SummarySchema,
+  /** Feature 019: PR records of this exercise on this date after the save (the toast). */
+  prs: z.number().int().nonnegative().default(0),
+  /** Feature 019: current weekly streak (0 = hidden in the toast). */
+  streakWeeks: z.number().int().nonnegative().default(0),
 });
 export type GymSaveResult = z.infer<typeof GymSaveResultSchema>;
 

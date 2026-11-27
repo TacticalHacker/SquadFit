@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   GYM_DEFAULT_INCLINE,
   GYM_DEFAULT_SPEED,
@@ -17,21 +17,31 @@ import {
   formatLast,
   formatWeight,
   initDrawer,
+  previewPr,
   type DrawerAction,
   type DrawerState,
   type GymExerciseView,
   type GymSaveResult,
+  type PrPreview,
 } from "@calci/shared";
+import { prHaptic } from "@/lib/haptics";
+import { prAnnounce } from "@/lib/plain";
 import { browserStorage, clearDraft, loadDraft, saveDraft } from "@/lib/gym-draft";
 import { removeGymEntry, saveGymEntry } from "@/server/actions/gym";
 import { confirmJump } from "@/server/actions/squad";
-import { AlertTriangle, Check } from "lucide-react";
+import { AlertTriangle, Check, Star } from "lucide-react";
 import { BottomSheet, SheetClose } from "./bottom-sheet";
 import { buttonClass, dangerLinkClass, noticeErrorClass, noticeWarnClass, secondaryButtonClass } from "./form-bits";
+import { PrSummaryLine } from "./pr-badge";
 import { NumberField, Stepper } from "./stepper";
 
 const DRAFT_DEBOUNCE_MS = 300;
 const nf = new Intl.NumberFormat("en");
+
+/** Feature 019: the live PR check (every set with weight and reps, ticked or not). */
+const prOf = (exercise: GymExerciseView, s: DrawerState): PrPreview | null =>
+  s.mode === "strength" ? previewPr(exercise.bests ?? null, s.rows) : null;
+const prKey = (p: PrPreview | null) => (p ? `${p.setIndex}:${p.type}:${p.value}` : null);
 
 function freshState(exercise: GymExerciseView): DrawerState {
   return initDrawer({ exercise, entry: exercise.entry, last: exercise.entry ? null : exercise.last });
@@ -73,10 +83,19 @@ export function GymDrawer({
   const [pending, startTransition] = useTransition();
   const baseUpdatedAt = useRef<string | null>(initialDraft ? initialDraft.baseUpdatedAt : (exercise.entry?.updatedAt ?? null));
 
+  // Feature 019: the haptic fires inside the tap that made a new PR (browsers ignore it later); a restored draft never buzzes.
+  const latest = useRef(state);
+  const buzzedKey = useRef(prKey(prOf(exercise, state)));
   const dispatch = (action: DrawerAction) => {
     if (locked) return;
-    setState((s) => drawerReducer(s, action));
+    const next = drawerReducer(latest.current, action);
+    latest.current = next;
+    const key = prKey(prOf(exercise, next));
+    if (key && key !== buzzedKey.current) prHaptic();
+    buzzedKey.current = key;
+    setState(next);
   };
+  const pr = useMemo(() => prOf(exercise, state), [exercise, state]);
 
   // Persist unsaved changes on the device, debounced (FR-023).
   useEffect(() => {
@@ -96,7 +115,10 @@ export function GymDrawer({
   const discard = () => {
     dropDraft();
     baseUpdatedAt.current = exercise.entry?.updatedAt ?? null;
-    setState(freshState(exercise));
+    const fresh = freshState(exercise);
+    latest.current = fresh;
+    buzzedKey.current = prKey(prOf(exercise, fresh));
+    setState(fresh);
     setError(null);
   };
 
@@ -170,13 +192,17 @@ export function GymDrawer({
 
   const footer = (
     <div className="flex flex-col gap-2">
-      <p className="text-center text-sm text-muted" aria-live="polite">
+      <PrSummaryLine preview={pr} baseline={state.mode === "strength" && exercise.bests?.sessions === 0} volumeKg={totals.volumeKg}>
         {totals.volumeKg !== null ? (
           <>
             <span className="font-semibold text-accent">{nf.format(totals.volumeKg)} kg</span> volume ·{" "}
           </>
         ) : null}
         ~{totals.minutes} min · ~{totals.calories} kcal
+      </PrSummaryLine>
+      <p className="sr-only" aria-live="polite">
+        {/* A polite region reads only changes, so a PR is announced once and a restored draft isn't. */}
+        {pr ? prAnnounce(pr) : ""}
       </p>
       {locked ? (
         <p className={`text-center ${noticeWarnClass}`}>This day can no longer be edited</p>
@@ -240,7 +266,7 @@ export function GymDrawer({
         {state.mode === "cardio" ? (
           <CardioBody state={state} disabled={locked} dispatch={dispatch} onError={setError} name={exercise.name} treadmill={exercise.treadmill} />
         ) : (
-          <StrengthBody state={state} disabled={locked} dispatch={dispatch} onError={setError} />
+          <StrengthBody state={state} disabled={locked} dispatch={dispatch} onError={setError} prSet={pr?.setIndex ?? null} />
         )}
       </div>
     </BottomSheet>
@@ -252,11 +278,14 @@ function StrengthBody({
   disabled,
   dispatch,
   onError,
+  prSet,
 }: {
   state: DrawerState;
   disabled: boolean;
   dispatch: (a: DrawerAction) => void;
   onError: (m: string | null) => void;
+  /** Feature 019: the set behind the PR badge (★ at the end of its row). */
+  prSet: number | null;
 }) {
   return (
     <>
@@ -311,8 +340,11 @@ function StrengthBody({
           return (
             <li
               key={i}
-              className="flex items-center gap-1 px-1 py-1.5"
+              className="relative flex items-center gap-1 px-1 py-1.5"
             >
+              {prSet === i ? (
+                <Star aria-hidden size={12} strokeWidth={1.75} className="fade-in absolute right-0 top-0.5 fill-accent-fill text-accent" />
+              ) : null}
               <span className="w-6 text-center text-sm text-muted">{n}</span>
               <div className="flex flex-1 justify-center">
                 <Stepper

@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import { addDays } from "../src/domain/day";
 import {
   buildMemberStats,
-  e1rm,
   weekVolumes,
   rankRows,
   streakFigures,
   type SquadEntry,
   type SquadStats,
 } from "../src/domain/squad";
+import { bestsBefore, e1rm } from "../src/domain/pr";
 
 const TODAY = "2026-11-18"; // Wednesday; the current week starts 2026-11-16
 const NOW = "2026-11-18T10:00:00.000Z";
@@ -78,7 +78,7 @@ describe("e1RM and PRs", () => {
 
   it("records one PR for a later heavier set", () => {
     const { stats, events } = build([lift("2026-11-14", [[60, 8]]), lift("2026-11-16", [[62.5, 3]])]);
-    expect(stats.lifts["gx-bench-press"]?.prDays).toEqual([{ date: "2026-11-16", weightKg: 62.5, reps: 3, e1rm: 68.8, gainKg: 2.5 }]);
+    expect(stats.lifts["gx-bench-press"]?.prDays).toMatchObject([{ date: "2026-11-16", weightKg: 62.5, reps: 3, e1rm: 68.8, gainKg: 2.5, type: "weight" }]);
     expect(events.find((e) => e.kind === "pr")?.id).toBe("pr#gx-bench-press#2026-11-16");
   });
 
@@ -182,7 +182,35 @@ describe("months", () => {
 
   it("puts the gain over the previous best on PR events", () => {
     const { events } = build([lift("2026-11-02", [[100, 1]]), lift("2026-11-09", [[110, 1]])]);
-    expect(events.find((e) => e.id === "pr#gx-bench-press#2026-11-09")?.payload.gainKg).toBe(10.4);
+    expect(events.find((e) => e.id === "pr#gx-bench-press#2026-11-09")?.payload.gainKg).toBe(10);
+  });
+});
+
+describe("one PR definition (feature 019)", () => {
+  it("posts a Rep PR to the feed", () => {
+    const { stats, events } = build([lift("2026-11-14", [[80, 8]]), lift("2026-11-16", [[80, 10]])]);
+    expect(stats.lifts["gx-bench-press"]?.prDays[0]).toMatchObject({ type: "reps", gainReps: 2, records: [{ type: "reps", value: 10, previous: 8, setIndex: 0 }] });
+    expect(events.find((e) => e.kind === "pr")?.payload).toMatchObject({ type: "reps", gainReps: 2, gainKg: null });
+  });
+
+  it("stores a held big jump only once it is confirmed", () => {
+    const base = lift("2026-11-14", [[80, 8]]);
+    expect(build([base, lift("2026-11-16", [[125, 3]])]).stats.lifts["gx-bench-press"]?.prDays).toEqual([]);
+    expect(build([base, lift("2026-11-16", [[125, 3]], "gx-bench-press", { jumpConfirmedAt: NOW })]).stats.lifts["gx-bench-press"]?.prDays).toHaveLength(1);
+  });
+
+  it("drops a later PR when an earlier day is edited heavier", () => {
+    const later = lift("2026-11-16", [[82.5, 5]]);
+    expect(build([lift("2026-11-14", [[80, 8]]), later]).stats.lifts["gx-bench-press"]?.prDays).toHaveLength(1);
+    expect(build([lift("2026-11-14", [[85, 8]]), later]).stats.lifts["gx-bench-press"]?.prDays).toEqual([]);
+  });
+
+  it("keeps the bests before each latest entry date for the drawer", () => {
+    const { stats } = build([lift("2026-11-14", [[80, 8]]), lift("2026-11-16", [[82.5, 5]])]);
+    const base = stats.lifts["gx-bench-press"]?.prBase;
+    expect(bestsBefore(base, "2026-11-16")).toMatchObject({ sessions: 1, bestWeight: { weightKg: 80, reps: 8 } });
+    expect(bestsBefore(base, "2026-11-18")).toMatchObject({ sessions: 2, bestWeight: { weightKg: 82.5 } });
+    expect(stats.prRules).toBe(1);
   });
 });
 

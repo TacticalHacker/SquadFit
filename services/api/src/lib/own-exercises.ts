@@ -1,4 +1,4 @@
-import { GymExerciseInputSchema, isExerciseNameTaken, type GymExerciseInput, type GymExerciseResponse } from "@calci/shared";
+import { EMPTY_BESTS, GymExerciseInputSchema, isExerciseNameTaken, type GymExerciseInput, type GymExerciseResponse } from "@calci/shared";
 import type { Deps } from "./deps";
 import { getLibrary } from "./gym-library";
 import type { OwnExerciseItem } from "./gym-repo";
@@ -28,6 +28,8 @@ export function toExerciseResponse(e: Pick<OwnExerciseItem, "exerciseId" | "name
       treadmill: false,
       rateMinutes: null,
       rateCalories: null,
+      // A new own exercise has no history yet: baseline (feature 019).
+      bests: EMPTY_BESTS,
       entry: null,
       last: null,
     },

@@ -55,6 +55,9 @@ export const SquadFeedItemSchema = z.strictObject({
       e1rm: z.number().nullable(),
       /** Feature 013: gain over the previous best; null on items written before it. */
       gainKg: z.number().nullable(),
+      /** Feature 019: null on items written before it. */
+      type: z.enum(["weight", "reps", "e1rm"]).nullable().default(null),
+      gainReps: z.number().int().nullable().default(null),
     })
     .nullable(),
   week: z.number().int().nullable(),
