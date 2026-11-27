@@ -35,6 +35,7 @@ export * from "./contracts/coach";
 export * from "./contracts/public";
 export * from "./domain/week";
 export * from "./domain/squad";
+export * from "./domain/pr";
 export * from "./domain/boards";
 export * from "./contracts/squad";
 export * from "./domain/member-profile";

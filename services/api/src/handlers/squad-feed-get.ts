@@ -56,6 +56,8 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
                 reps: p.reps as number,
                 e1rm: (p.e1rm as number | null) ?? null,
                 gainKg: (p.gainKg as number | null | undefined) ?? null,
+                type: (p.type as "weight" | "reps" | "e1rm" | null | undefined) ?? null,
+                gainReps: (p.gainReps as number | null | undefined) ?? null,
               }
             : null,
         week: f.kind === "streak_week" ? (p.week as number) : null,

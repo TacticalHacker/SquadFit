@@ -1,4 +1,6 @@
 import { addDays } from "./day";
+import { GYM_LAST_KEEP } from "./gym";
+import { addToBests, comparePr, classifySet, e1rm, EMPTY_BESTS, isSuspicious, type PrBase, type PrBests, type PrHit, type PrType } from "./pr";
 import { isWeekEnded, weekStart } from "./week";
 
 /** Feature 010 (squad leaderboard). Pure rules; see specs/010-squad-leaderboard/data-model.md. */
@@ -7,9 +9,7 @@ export const SQUAD_ID = "global";
 export const DEFAULT_WEEKLY_TARGET = 3;
 export const SQUAD_MIN_TARGET = 1;
 export const SQUAD_MAX_TARGET = 7;
-/** A set is flagged when it beats the previous best by more than 50% AND more than 20 kg (clarification 2026-11-18). */
-export const JUMP_RATIO = 1.5;
-export const JUMP_MIN_KG = 20;
+// The jump thresholds (JUMP_RATIO, JUMP_MIN_KG) and e1rm moved to ./pr (feature 019).
 const DAY_BEST_DAYS = 31;
 
 export const DEFAULT_LIFT_IDS = ["gx-bench-press", "gx-barbell-squat", "gx-deadlift", "gx-overhead-press"] as const;
@@ -49,8 +49,22 @@ export interface PrDay {
   weightKg: number;
   reps: number;
   e1rm: number | null;
-  /** Feature 013: gain over the previous best (estimate for an estimate PR, else weight). Absent on old stats. */
+  /** Feature 013: gain over the previous best (estimate for an estimate PR, else weight). Absent on old stats and Rep PRs. */
   gainKg?: number;
+  /** Feature 019: the top record's type and rep gain, and every PR set of the day (top first). Absent on old stats. */
+  type?: PrType;
+  gainReps?: number | null;
+  records?: PrRecord[];
+}
+/** Feature 019: one PR set (the spec's "personal record"). */
+export interface PrRecord {
+  type: PrType;
+  value: number;
+  previous: number;
+  weightKg: number;
+  reps: number;
+  setIndex: number;
+  achievedAt: string;
 }
 export interface LiftStats {
   name: string;
@@ -63,6 +77,8 @@ export interface LiftStats {
   monthBests: Record<string, { e1rm: number; date: string }>;
   /** Feature 016: dates whose top set beat the previous session ("Lifts improved" for one day). Absent on old stats. */
   improvedDays?: string[];
+  /** Feature 019: bests before each of the latest entry dates (the drawer's live PR check). Absent on old stats. */
+  prBase?: PrBase;
 }
 export interface MonthRecord {
   workoutDays: number;
@@ -87,6 +103,8 @@ export interface SquadStats {
   flags: { date: string; exerciseId: string }[];
   /** Feature 013: club id → the first date the best-so-far estimated Big 3 met it. */
   badges: Partial<Record<ClubId, string>>;
+  /** Feature 019: set once stats carry `prBase` and Rep PRs. */
+  prRules?: 1;
 }
 
 export type SquadEventKind = "pr" | "streak_week" | "first_workout" | "workout_day" | "protein_streak" | "step_streak" | "badge";
@@ -108,10 +126,6 @@ export interface BuildOptions {
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
-/** Epley estimate, only for 1-10 reps (higher reps make it unreliable). */
-export function e1rm(weightKg: number, reps: number): number | null {
-  return reps >= 1 && reps <= 10 ? round1(weightKg * (1 + reps / 30)) : null;
-}
 
 export const isWorkingSet = (s: { reps: number; weightKg: number; completed: boolean }) => s.completed && s.reps >= 1 && s.weightKg > 0;
 
@@ -124,13 +138,13 @@ export function isWorkoutEntry(e: SquadEntry): boolean {
   return (e.sets ?? []).some((s) => s.completed);
 }
 
-const suspicious = (value: number | null, prev: number | null) =>
-  value !== null && prev !== null && prev > 0 && value > prev * JUMP_RATIO && value - prev > JUMP_MIN_KG;
+const suspicious = isSuspicious;
 
 interface SetView {
   weightKg: number;
   reps: number;
   e1rm: number | null;
+  setIndex: number;
 }
 
 /** More weight at the same or more reps, or more reps at the same weight (top set against top set). */
@@ -151,9 +165,15 @@ function walkLift(entries: readonly SquadEntry[], trustedBefore: string | undefi
   let prevTop: SetView | null = null;
   const flagged: string[] = [];
   const windowStart = addDays(today, -(DAY_BEST_DAYS - 1));
+  /** Feature 019: the one PR definition's running bests, and a snapshot before each entry date. */
+  let bests: PrBests = EMPTY_BESTS;
+  const snapshots: [string, PrBests][] = [];
 
   for (const entry of sorted) {
-    const working: SetView[] = (entry.sets ?? []).filter(isWorkingSet).map((s) => ({ weightKg: s.weightKg, reps: s.reps, e1rm: e1rm(s.weightKg, s.reps) }));
+    snapshots.push([entry.date, bests]);
+    const working: SetView[] = (entry.sets ?? []).flatMap((s, setIndex) =>
+      isWorkingSet(s) ? [{ weightKg: s.weightKg, reps: s.reps, e1rm: e1rm(s.weightKg, s.reps), setIndex }] : [],
+    );
     if (working.length === 0) continue;
 
     const trusted =
@@ -170,15 +190,12 @@ function walkLift(entries: readonly SquadEntry[], trustedBefore: string | undefi
     const withE: SetView[] = eligible.filter((s) => s.e1rm !== null);
     const topE: SetView | null = withE.length ? withE.reduce((a: SetView, b: SetView) => (b.e1rm! > a.e1rm! ? b : a)) : null;
 
-    if (best !== null) {
-      const weightPr = heaviest.weightKg > best.weightKg;
-      const estimatePr = topE !== null && prevE !== null && topE.e1rm! > prevE;
-      if (weightPr || estimatePr) {
-        const shown = estimatePr ? topE! : heaviest;
-        const gainKg = round1(estimatePr ? topE!.e1rm! - prevE! : heaviest.weightKg - best.weightKg);
-        prDays.push({ date: entry.date, weightKg: shown.weightKg, reps: shown.reps, e1rm: shown.e1rm, gainKg });
-      }
-    }
+    const hits = eligible.flatMap((s) => {
+      const h = classifySet(bests, s, s.setIndex);
+      return h ? [h] : [];
+    });
+    if (hits.length) prDays.push(prDayOf(entry, hits.sort(comparePr)));
+    bests = addToBests(bests, eligible, entry.date);
     if (best === null || heaviest.weightKg > best.weightKg) best = { ...heaviest, date: entry.date };
     if (topE && (bestE === null || topE.e1rm! > bestE.e1rm)) {
       bestE = { weightKg: topE.weightKg, reps: topE.reps, e1rm: topE.e1rm!, date: entry.date };
@@ -188,7 +205,31 @@ function walkLift(entries: readonly SquadEntry[], trustedBefore: string | undefi
     const ym = entry.date.slice(0, 7);
     if (topE && (!monthBests[ym] || topE.e1rm! > monthBests[ym]!.e1rm)) monthBests[ym] = { e1rm: topE.e1rm!, date: entry.date };
   }
-  return { best, bestE, prDays, dayBests, monthBests, bestSteps, improved, flagged };
+  const kept = snapshots.slice(-GYM_LAST_KEEP);
+  const prBase: PrBase = { all: bests, before: Object.fromEntries(kept), complete: kept.length === snapshots.length };
+  return { best, bestE, prDays, dayBests, monthBests, bestSteps, improved, flagged, prBase };
+}
+
+function prDayOf(entry: SquadEntry, hits: readonly PrHit[]): PrDay {
+  const top = hits[0]!;
+  return {
+    date: entry.date,
+    weightKg: top.weightKg,
+    reps: top.reps,
+    e1rm: e1rm(top.weightKg, top.reps),
+    ...(top.type === "reps" ? {} : { gainKg: top.gain }),
+    type: top.type,
+    gainReps: top.type === "reps" ? top.gain : null,
+    records: hits.map((h) => ({
+      type: h.type,
+      value: h.value,
+      previous: h.previous,
+      weightKg: h.weightKg,
+      reps: h.reps,
+      setIndex: h.setIndex,
+      achievedAt: entry.updatedAt ?? entry.date,
+    })),
+  };
 }
 
 /** Feature 013: the first date the running best estimates of all three Big 3 lifts summed to each club's threshold. */
@@ -262,6 +303,7 @@ export function buildMemberStats(
       dayBests: walked.dayBests,
       monthBests: walked.monthBests,
       improvedDays: walked.improved,
+      prBase: walked.prBase,
     };
     steps.set(exerciseId, walked.bestSteps);
     for (const d of walked.improved) month(d.slice(0, 7)).liftsImproved++;
@@ -271,7 +313,15 @@ export function buildMemberStats(
         id: `pr#${exerciseId}#${pr.date}`,
         kind: "pr",
         date: pr.date,
-        payload: { exerciseName: latest.name, weightKg: pr.weightKg, reps: pr.reps, e1rm: pr.e1rm, gainKg: pr.gainKg ?? null },
+        payload: {
+          exerciseName: latest.name,
+          weightKg: pr.weightKg,
+          reps: pr.reps,
+          e1rm: pr.e1rm,
+          gainKg: pr.gainKg ?? null,
+          type: pr.type ?? null,
+          gainReps: pr.gainReps ?? null,
+        },
       });
     }
   }
@@ -308,6 +358,7 @@ export function buildMemberStats(
     lifts,
     flags,
     badges: clubs.badges,
+    prRules: 1,
   };
   return { stats, events: events.filter((e) => !seeded.has(e.id)) };
 }

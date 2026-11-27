@@ -2,6 +2,7 @@ import { z } from "zod";
 import { caloriesFor, summarize, type Summary } from "./calories";
 import { isEditableDay } from "./day";
 import type { StoredEntry } from "./day-view";
+import type { PrBests } from "./pr";
 import { DEFAULT_BODY_WEIGHT_KG } from "./profile";
 
 /** Gym logger (feature 006). See specs/006-gym-set-logger/data-model.md. */
@@ -379,6 +380,8 @@ export interface GymExerciseView {
   rateCalories: number | null;
   entry: GymEntryView | null;
   last: GymLast | null;
+  /** Feature 019: own bests before the viewed day; null/absent = unknown (no badge). */
+  bests?: PrBests | null;
 }
 
 export interface GymView {

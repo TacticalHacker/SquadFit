@@ -25,6 +25,8 @@ import { chipClass, noticeWarnClass } from "./form-bits";
 import { MuscleHeatmap } from "./muscle-heatmap";
 import { MusclePills } from "./muscle-pills";
 import { ShareButton } from "./share-button";
+import { Toast } from "./toast";
+import { prToast } from "@/lib/plain";
 
 const CHECK_EVERY_MS = 60_000;
 const noSubscribe = () => () => {};
@@ -91,8 +93,12 @@ export function GymScreen({ initialView, username, openId: initialOpenId }: { in
   const muscleLoad = useMemo(() => dayMuscleLoad(view.exercises.flatMap((e) => (e.entry ? [e.entry] : []))), [view.exercises]);
   const open = hydrated && openId ? (view.exercises.find((e) => e.exerciseId === openId) ?? null) : null;
 
+  const [toast, setToast] = useState<string | null>(null);
+  const clearToast = useCallback(() => setToast(null), []);
   const onSaved = useCallback(
     (r: GymSaveResult) => {
+      // Feature 019: the after-save toast leads with the server's PR count (a held big jump isn't counted).
+      if (r.entry) setToast(prToast({ prs: r.prs, volumeKg: r.entry.volumeKg, streakWeeks: r.streakWeeks }) || null);
       // Keep every `last`; replace this exercise's entry and the day totals with server truth (SC-006).
       setView((v) => ({
         ...v,
@@ -196,6 +202,8 @@ export function GymScreen({ initialView, username, openId: initialOpenId }: { in
           onSaved={onSaved}
         />
       ) : null}
+
+      <Toast message={toast} onDone={clearToast} />
 
       {sheet ? (
         <CustomExerciseSheet

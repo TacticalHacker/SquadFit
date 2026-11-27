@@ -61,7 +61,7 @@ The member taps Save. A small toast appears for about 3 seconds that leads with 
 1. **Given** a save with 1 PR, **Then** the toast leads with "★ 1 PR" and one PR record is stored.
 2. **Given** a save with no PR, **Then** the toast shows only "+1,450 kg lifted" (and the streak when it is above zero).
 3. **Given** a save of 80 kg × 10 (a Rep PR), **Then** a record of type reps is stored and the squad feed posts it as a PR, exactly as a weight PR would be.
-4. **Given** a save of 125 kg × 3 (big jump), **Then** the toast shows no PR, no record is stored and nothing posts; the drawer shows the existing "Unusual jump" note with **Looks right**. **When** the member taps **Looks right**, **Then** the record is stored and the PR posts to the feed.
+4. **Given** a save of 125 kg × 3 (big jump), **Then** the toast shows no PR, no record is stored and nothing posts; when the member reopens the drawer it shows the existing "Unusual jump" note with **Looks right** (the drawer closes on save, as today). **When** the member taps **Looks right**, **Then** the record is stored and the PR posts to the feed.
 5. **Given** the member later edits or removes that day's sets so the set no longer beats the earlier best, **Then** the PR record (and its feed item) no longer exists, and records for later days are re-evaluated against the corrected history.
 6. **Given** the member edits a past session (inside the edit window) to a heavier weight, **Then** later PR records that no longer beat that new best are removed.
 

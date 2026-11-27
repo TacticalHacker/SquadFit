@@ -212,6 +212,10 @@ export function recordValue(id: keyof typeof RECORD_LABEL, value: number, liftNa
 
 /** The sentence after the member's name (the name itself is rendered as a link). */
 export function feedLine(i: SquadFeedItem): string {
+  if (i.kind === "pr" && i.pr?.type === "reps") {
+    const gain = i.pr.gainReps ? ` (+${plural(i.pr.gainReps, "rep")})` : "";
+    return ` hit a rep PR on ${i.pr.exerciseName}: ${kg(i.pr.weightKg)} × ${plural(i.pr.reps, "rep")}${gain}`;
+  }
   if (i.kind === "pr" && i.pr) {
     const gain = i.pr.gainKg ? ` (${signedKg(i.pr.gainKg)})` : "";
     return ` hit a new PR on ${i.pr.exerciseName}: ${kg(i.pr.weightKg)} × ${plural(i.pr.reps, "rep")}${gain}`;
@@ -337,4 +341,36 @@ export function weightDayLabel(date: string, today: string, yesterday: string): 
   if (date === today) return "Today";
   if (date === yesterday) return "Yesterday";
   return fmt({ weekday: "long" }).format(utcDate(date));
+}
+
+// ---------------------------------------------------------------- PR badge (feature 019)
+
+type PrShown = { type: "weight" | "reps" | "e1rm"; weightKg: number; reps: number; value: number; gain: number };
+
+/** "★ New PR · 82.5 kg (+2.5 kg)", "★ Rep PR · 80 kg × 10 (+2 reps)", "★ e1RM PR · ~98 kg (+3 kg)". */
+export function prBadgeText(p: PrShown): string {
+  if (p.type === "weight") return `★ New PR · ${kg(p.weightKg)} (${signedKg(p.gain)})`;
+  if (p.type === "reps") return `★ Rep PR · ${kg(p.weightKg)} × ${nf.format(p.reps)} (+${plural(p.gain, "rep")})`;
+  return `★ e1RM PR · ~${kg(p.value)} (${signedKg(p.gain)})`;
+}
+
+/** Screen-reader sentence, read once per new PR. */
+export function prAnnounce(p: PrShown): string {
+  if (p.type === "weight") return `New personal record, ${nf.format(p.weightKg)} kilograms`;
+  if (p.type === "reps") return `New rep record, ${plural(p.reps, "rep")} at ${nf.format(p.weightKg)} kilograms`;
+  return `New estimated max, about ${nf.format(p.value)} kilograms`;
+}
+
+export const baselineLine = (volumeKg: number) => `Baseline set · ${kg(volumeKg)} volume`;
+export const BIG_JUMP_HINT = "Big jump — typo?";
+
+/** "★ 1 PR · +1,450 kg lifted · 2-week streak"; zero parts are left out. */
+export function prToast(o: { prs: number; volumeKg: number | null; streakWeeks: number }): string {
+  return [
+    o.prs > 0 ? `★ ${plural(o.prs, "PR")}` : null,
+    o.volumeKg ? `+${kg(o.volumeKg)} lifted` : null,
+    o.streakWeeks > 0 ? `${nf.format(o.streakWeeks)}-week streak` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
