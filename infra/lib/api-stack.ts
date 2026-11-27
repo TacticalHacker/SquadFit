@@ -196,6 +196,23 @@ export class ApiStack extends Stack {
     const adminUserFn = route("admin-user-post", HttpMethod.POST, "/admin/users");
     adminUserFn.addEnvironment("USER_POOL_ID", userPool.userPoolId);
     userPool.grant(adminUserFn, "cognito-idp:AdminCreateUser");
+    // Squad volume raid (feature 021). Status comes from the clock, so there is no scheduler. Two functions serve all
+    // raid routes (the stack is near CloudFormation's 500-resource limit); each route's logic has its own handler file.
+    // Members: GET /squad/raid writes only to repair a missing sticker.
+    const squadRaidsFn = route("squad-raids", HttpMethod.GET, "/squad/raid", { write: true, avatars: "read" });
+    this.api.addRoutes({ path: "/squad/raids", methods: [HttpMethod.GET], integration: new HttpLambdaIntegration("squadRaidsHistoryIntegration", squadRaidsFn), authorizer });
+    // Admins (each handler checks the group): create/edit recount members through the stats rebuild when a raid starts now.
+    const adminRaidsFn = route("admin-raids", HttpMethod.GET, "/admin/raids", { write: true, timeoutSeconds: 60, sharePhotos: "delete" });
+    const adminRaidsIntegration = new HttpLambdaIntegration("adminRaidsMoreIntegration", adminRaidsFn);
+    for (const [method, routePath] of [
+      [HttpMethod.GET, "/admin/raids/suggest"],
+      [HttpMethod.POST, "/admin/raids"],
+      [HttpMethod.PUT, "/admin/raids/{raidId}"],
+      [HttpMethod.POST, "/admin/raids/{raidId}/cancel"],
+      [HttpMethod.DELETE, "/admin/raids/{raidId}"],
+    ] as const) {
+      this.api.addRoutes({ path: routePath, methods: [method], integration: adminRaidsIntegration, authorizer });
+    }
 
     // Public landing page (feature 009): anonymous, called only by the Next server. Pulse returns two counts
     // (constitution VI); the waitlist is rate-limited and dedupes by email in the handler.

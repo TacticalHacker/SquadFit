@@ -48,3 +48,5 @@ export * from "./domain/activity";
 export * from "./contracts/activity";
 export * from "./domain/bodyweight";
 export * from "./contracts/weight";
+export * from "./domain/raid";
+export * from "./contracts/raids";

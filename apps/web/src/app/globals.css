@@ -202,6 +202,10 @@ dialog::backdrop {
 .fade-in {
   animation: sf-fade-in 200ms ease-out;
 }
+/* Feature 021: the "RAID CLEARED" stamp fades in once after a win (no scale). */
+.stamp-in {
+  animation: sf-fade-in 700ms ease-out;
+}
 
 @media (prefers-reduced-motion: reduce) {
   *,

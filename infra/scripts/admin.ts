@@ -34,6 +34,7 @@ import { generateToken, hashToken } from "@calci/shared/ai-credential";
 import { DynamoCredentialRepo } from "../../services/api/src/lib/credential-repo";
 import { DynamoProfileRepo } from "../../services/api/src/lib/profile-repo";
 import { DynamoSquadRepo } from "../../services/api/src/lib/squad-repo";
+import { DynamoRaidRepo } from "../../services/api/src/lib/raid-repo";
 import { refreshSquadStats } from "../../services/api/src/lib/squad-stats";
 import { DynamoWaitlistRepo } from "../../services/api/src/lib/waitlist-repo";
 import { DynamoWorkoutRepo } from "../../services/api/src/lib/workout-repo";
@@ -207,7 +208,7 @@ async function main() {
       return void console.log(`high-fives converted: ${r.highFives}, feed items updated: ${r.items}`);
     }
     if (username !== "backfill") fail(USAGE);
-    const deps = { profiles: new DynamoProfileRepo(table, ddb), workouts: new DynamoWorkoutRepo(table, ddb), squad: new DynamoSquadRepo(table, ddb), now: () => new Date() };
+    const deps = { profiles: new DynamoProfileRepo(table, ddb), workouts: new DynamoWorkoutRepo(table, ddb), squad: new DynamoSquadRepo(table, ddb), raids: new DynamoRaidRepo(table, ddb), now: () => new Date() };
     const members = await deps.profiles.listCommunity();
     let feedBefore = 0;
     let feedAfter = 0;

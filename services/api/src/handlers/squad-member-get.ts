@@ -17,7 +17,11 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
   const { profile } = access;
   const today = localDate(deps.now(), profile.timezone);
   const from = addDays(weekStart(today), -7 * (HEATMAP_WEEKS - 1));
-  const [stats, entries] = await Promise.all([deps.squad.getStats(profile.userId), deps.workouts.listEntriesInRange(profile.userId, from, today)]);
+  const [stats, entries, stickers] = await Promise.all([
+    deps.squad.getStats(profile.userId),
+    deps.workouts.listEntriesInRange(profile.userId, from, today),
+    deps.raids.listStickers(profile.userId),
+  ]);
   const target = squadSettingsOf(profile).weeklyTarget;
   const streak = streakFigures(stats?.weeks ?? {}, today, target);
 
@@ -62,6 +66,7 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
       nutritionLevel: access.level,
       isYou: access.isYou,
       badges: clubsOf(stats),
+      raidsCleared: stickers.length,
       weightLifted: weekVolumes(entries, today),
       ...(steps ? { steps } : {}),
     }),

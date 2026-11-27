@@ -15,6 +15,7 @@ import { DynamoHealthTokenRepo, type HealthTokenRepo } from "./health-token-repo
 import { DynamoWeightRepo, type WeightRepo } from "./weight-repo";
 import { DynamoCatalogRepo, type CatalogRepo } from "./catalog-repo";
 import { CognitoUserDirectory, type UserDirectory } from "./user-directory";
+import { DynamoRaidRepo, type RaidRepo } from "./raid-repo";
 
 export interface Deps {
   profiles: ProfileRepo;
@@ -37,6 +38,8 @@ export interface Deps {
   catalog: CatalogRepo;
   /** Feature 015 Story 5: only the admin-user-post function has USER_POOL_ID and the Cognito permission. */
   users: UserDirectory;
+  /** Feature 021: squad volume raids, contributions and stickers. */
+  raids: RaidRepo;
   now: () => Date;
 }
 
@@ -60,6 +63,7 @@ export function getDeps(): Deps {
     healthTokens: new DynamoHealthTokenRepo(requireEnv("TABLE_NAME")),
     weights: new DynamoWeightRepo(requireEnv("TABLE_NAME")),
     catalog: new DynamoCatalogRepo(requireEnv("TABLE_NAME")),
+    raids: new DynamoRaidRepo(requireEnv("TABLE_NAME")),
     // Lazy: every other function has no USER_POOL_ID and never touches it.
     users: { create: (u, p) => new CognitoUserDirectory(requireEnv("USER_POOL_ID")).create(u, p) },
     now: () => new Date(),

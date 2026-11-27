@@ -6,6 +6,7 @@ import { DynamoGymRepo } from "../../services/api/src/lib/gym-repo";
 import { mergeInto, type MergeCounts } from "../../services/api/src/lib/gym-merge";
 import { DynamoProfileRepo } from "../../services/api/src/lib/profile-repo";
 import { DynamoSquadRepo } from "../../services/api/src/lib/squad-repo";
+import { DynamoRaidRepo } from "../../services/api/src/lib/raid-repo";
 import { refreshSquadStats } from "../../services/api/src/lib/squad-stats";
 import { DynamoWorkoutRepo } from "../../services/api/src/lib/workout-repo";
 
@@ -28,7 +29,7 @@ export async function mergeOwnExercises(
 
   const owners = await findOwners(DynamoDBDocumentClient.from(client), table, sourceIds);
   const sources = [...owners].map(([exerciseId, pk]) => ({ userId: pk.slice("USER#".length), exerciseId }));
-  const statsDeps = { profiles: new DynamoProfileRepo(table, client), workouts: new DynamoWorkoutRepo(table, client), squad: new DynamoSquadRepo(table, client), now: () => new Date() };
+  const statsDeps = { profiles: new DynamoProfileRepo(table, client), workouts: new DynamoWorkoutRepo(table, client), squad: new DynamoSquadRepo(table, client), raids: new DynamoRaidRepo(table, client), now: () => new Date() };
   const counts = await mergeInto(target, sources, { gym: new DynamoGymRepo(table, client), now: () => new Date() }, {
     dryRun,
     refresh: (userId) => refreshSquadStats(userId, statsDeps, { seed: true }),

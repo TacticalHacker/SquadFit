@@ -1,6 +1,9 @@
 <!--
 Sync Impact Report
-- Version change: 2.5.0 → 2.6.0 (MINOR: principle VI allows an opt-in body weight trend as kg change only, feature 017)
+- Version change: 2.6.0 → 2.7.0 (MINOR: principle VI allows squad-wide raid totals that include hidden members' volume, feature 021)
+- Modified principles: VI. Members-Only Visibility (a squad raid total sums every member's counted volume, hidden members included, but no other member's own kg is shown and hidden members are never named)
+- Templates requiring updates: none ✅
+- Previous: 2.5.0 → 2.6.0 (MINOR: principle VI allows an opt-in body weight trend as kg change only, feature 017)
 - Modified principles: VI. Members-Only Visibility (members who opt in to "Share my weight trend" appear on the squad weight chart as kg change since their first weigh-in in the period; never absolute weight)
 - Templates requiring updates: none ✅
 - Previous: 2.4.0 → 2.5.0 (MINOR: principle VI allows sharing daily steps under "Share my steps", feature 012)
@@ -94,7 +97,10 @@ per-meal macros, photo captions and food photos (expiring links only). Nothing e
 by calories in, calories burned or deficit. Daily activity synced from a health source may be shown to other members only
 while the member is visible on the leaderboard and has "Share my steps" on (default on), enforced on the server per
 request: exactly daily steps, the step goal, whether it was hit, and step-goal streak feed items; active calories and
-distance may appear only on the member's own profile page, as information, and are never ranked, sorted or compared. Personal data is never written to logs. Passwords are stored only as
+distance may appear only on the member's own profile page, as information, and are never ranked, sorted or compared. A squad raid
+(feature 021) may show the squad's summed workout volume, which includes the volume of members hidden from the leaderboard; other
+members appear on a raid only by name and avatar (never hidden members, never anyone's own kg), and each member sees their own kg
+only. Personal data is never written to logs. Passwords are stored only as
 slow salted hashes. Rate limits (sign-in attempts, nudges) are enforced server-side.
 
 ### VII. Simplicity
@@ -126,4 +132,4 @@ principle or section is added; PATCH: wording only), and propagates the change t
 `.specify/templates/*`. Reviewers check plans against the "Constitution Check" gate. Runtime
 guidance for agents lives in `CLAUDE.md`.
 
-**Version**: 2.6.0 | **Ratified**: 2026-11-11 | **Last Amended**: 2026-11-24
+**Version**: 2.7.0 | **Ratified**: 2026-11-11 | **Last Amended**: 2026-11-27

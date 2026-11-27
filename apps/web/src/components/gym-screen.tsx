@@ -98,7 +98,7 @@ export function GymScreen({ initialView, username, openId: initialOpenId }: { in
   const onSaved = useCallback(
     (r: GymSaveResult) => {
       // Feature 019: the after-save toast leads with the server's PR count (a held big jump isn't counted).
-      if (r.entry) setToast(prToast({ prs: r.prs, volumeKg: r.entry.volumeKg, streakWeeks: r.streakWeeks }) || null);
+      if (r.entry) setToast(prToast({ prs: r.prs, volumeKg: r.entry.volumeKg, streakWeeks: r.streakWeeks, raidKg: r.raidKg }) || null);
       // Keep every `last`; replace this exercise's entry and the day totals with server truth (SC-006).
       setView((v) => ({
         ...v,

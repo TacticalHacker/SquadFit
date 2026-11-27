@@ -18,6 +18,8 @@ import type { GymEntryItem, GymRepo, MergeTarget, OwnExerciseItem } from "../src
 import { ProfileMissingError, type ProfileItem, type ProfileRepo } from "../src/lib/profile-repo";
 import type { WaitlistEntry, WaitlistRepo } from "../src/lib/waitlist-repo";
 import { feedId, reactionKey, type FeedItem, type FeedKey, type ReactionCounts, type SquadRepo } from "../src/lib/squad-repo";
+import type { RaidContribution, RaidPatch, RaidRepo, RaidSticker } from "../src/lib/raid-repo";
+import type { Raid } from "@calci/shared";
 
 export class InMemoryProfileRepo implements ProfileRepo {
   readonly items = new Map<string, ProfileItem>();
@@ -709,6 +711,72 @@ export class InMemoryUserDirectory implements UserDirectory {
   }
 }
 
+/** Feature 021: same conditions as the Dynamo repo (version guard, win once, sticker once). */
+export class InMemoryRaidRepo implements RaidRepo {
+  readonly raids = new Map<string, Raid>();
+  readonly contributions = new Map<string, RaidContribution>();
+  readonly stickers = new Map<string, RaidSticker>();
+  async listRaids(squadId: string) {
+    return [...this.raids.values()].filter((r) => r.squadId === squadId).map((r) => structuredClone(r));
+  }
+  async getRaid(raidId: string) {
+    const r = this.raids.get(raidId);
+    return r ? structuredClone(r) : null;
+  }
+  async createRaid(raid: Raid) {
+    if (this.raids.has(raid.raidId)) throw Object.assign(new Error("exists"), { name: "ConditionalCheckFailedException" });
+    this.raids.set(raid.raidId, structuredClone(raid));
+  }
+  async updateRaid(raidId: string, patch: RaidPatch, expectedUpdatedAt: string) {
+    const r = this.raids.get(raidId);
+    if (!r || r.updatedAt !== expectedUpdatedAt) return "stale" as const;
+    const next: Record<string, unknown> = { ...r };
+    for (const [k, v] of Object.entries(patch)) {
+      if (v === undefined) continue;
+      if (v === null) delete next[k];
+      else next[k] = v;
+    }
+    this.raids.set(raidId, next as unknown as Raid);
+    return "ok" as const;
+  }
+  async deleteRaid(raidId: string, expectedUpdatedAt: string) {
+    const r = this.raids.get(raidId);
+    if (!r || r.updatedAt !== expectedUpdatedAt) return "stale" as const;
+    this.raids.delete(raidId);
+    return "ok" as const;
+  }
+  async listContributions(raidId: string) {
+    return [...this.contributions.values()].filter((c) => c.raidId === raidId).map((c) => ({ ...c }));
+  }
+  async getContribution(raidId: string, userId: string) {
+    const c = this.contributions.get(`${raidId}|${userId}`);
+    return c ? { ...c } : null;
+  }
+  async putContribution(c: RaidContribution) {
+    const have = this.contributions.get(`${c.raidId}|${c.userId}`);
+    if (have && have.statsVersion >= c.statsVersion) return "stale" as const;
+    this.contributions.set(`${c.raidId}|${c.userId}`, { ...c });
+    return "ok" as const;
+  }
+  async markWon(raidId: string, wonAt: string) {
+    const r = this.raids.get(raidId);
+    if (!r || r.wonAt || r.cancelledAt) return false;
+    r.wonAt = wonAt;
+    return true;
+  }
+  async setTotal(raidId: string, totalKg: number) {
+    const r = this.raids.get(raidId);
+    if (r) r.totalKg = totalKg;
+  }
+  async putSticker(userId: string, sticker: RaidSticker) {
+    const key = `${userId}|${sticker.raidId}`;
+    if (!this.stickers.has(key)) this.stickers.set(key, { ...sticker });
+  }
+  async listStickers(userId: string) {
+    return [...this.stickers.entries()].filter(([k]) => k.startsWith(`${userId}|`)).map(([, v]) => ({ ...v }));
+  }
+}
+
 export function makeDeps(now = "2026-11-11T10:00:00.000Z") {
   const profiles = new InMemoryProfileRepo();
   const workouts = new InMemoryWorkoutRepo();
@@ -726,9 +794,10 @@ export function makeDeps(now = "2026-11-11T10:00:00.000Z") {
   const catalog = new InMemoryCatalogRepo();
   const weights = new InMemoryWeightRepo();
   const users = new InMemoryUserDirectory();
+  const raids = new InMemoryRaidRepo();
   let clock = new Date(now);
-  const deps: Deps = { profiles, workouts, gym, food, coach, credentials, avatars, photos, sharePhotos, waitlist, squad, activity, healthTokens, weights, catalog, users, now: () => clock };
-  return { deps, profiles, workouts, gym, food, coach, credentials, avatars, photos, sharePhotos, waitlist, squad, activity, healthTokens, weights, catalog, users, setNow: (iso: string) => (clock = new Date(iso)) };
+  const deps: Deps = { profiles, workouts, gym, food, coach, credentials, avatars, photos, sharePhotos, waitlist, squad, activity, healthTokens, weights, catalog, users, raids, now: () => clock };
+  return { deps, profiles, workouts, gym, food, coach, credentials, avatars, photos, sharePhotos, waitlist, squad, activity, healthTokens, weights, catalog, users, raids, setNow: (iso: string) => (clock = new Date(iso)) };
 }
 
 export function makeEvent(opts: {
