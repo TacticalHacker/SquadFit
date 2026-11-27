@@ -70,7 +70,7 @@ AWS runs only in **ap-south-1** (`AWS_REGION` in `infra/lib/config.ts`): CDK sta
 
 ## Nutrition (feature 003)
 
-- Routes: `/food` (day view: ledger, four meals, add panel) and `/food/mine` (own foods). API: `GET /food`, `GET /food/recent`, `POST|PUT|DELETE /food/entries/...`, `GET|POST|PUT|DELETE /food/foods[/{id}]`.
+- Routes: `/food` (day view: ledger, five meals in `MEALS` order with labels in `MEAL_LABEL` — Breakfast, Lunch, Dinner, Snacks, Pre-workout — add panel) and `/food/mine` (own foods). API: `GET /food`, `GET /food/recent`, `POST|PUT|DELETE /food/entries/...`, `GET|POST|PUT|DELETE /food/foods[/{id}]`.
 - Today, the 3-day edit window, calories and macro math are server-authoritative; list entries (built-in or own food) always follow servings × the entry's own rate snapshot, typed entries are free-form. Macros are all-or-none.
 - `buildFoodDay` / `applyFoodChange` in `packages/shared/src/domain/food-day.ts` are shared by the server and the optimistic client. The ledger is derived on read: burned comes from the workout entries of the same day, remaining = target − (eaten − burned). It is informational; scoring is feature 004.
 - Built-in foods are code (`STANDARD_FOODS`, 40 items); recent foods are derived from the last 90 days of entries.

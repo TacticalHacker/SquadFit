@@ -1,9 +1,8 @@
 "use client";
 
 import { useId, useState } from "react";
-import { CAPTION_MAX, MEALS, type Meal } from "@calci/shared";
+import { CAPTION_MAX, MEALS, MEAL_LABEL, type Meal } from "@calci/shared";
 import { reducePhoto, type ReducedPhoto } from "@/lib/photo-reduce";
-import { MEAL_LABEL } from "./food-add-panel";
 import { buttonClass, cardClass, inputClass } from "./form-bits";
 
 /** Add a meal as a photo plus optional caption; it is saved as pending analysis (feature 005). */

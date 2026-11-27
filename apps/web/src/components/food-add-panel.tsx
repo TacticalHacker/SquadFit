@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import {
   MEALS,
+  MEAL_LABEL,
   STANDARD_FOODS,
   completeMacros,
   entryFromFood,
@@ -15,8 +16,6 @@ import { parseCaloriesInput, parseGramsInput } from "@/lib/food-input";
 import { searchFoods, type FoodResult } from "@/lib/food-search";
 import { Minus, Plus } from "lucide-react";
 import { buttonClass, cardClass, chipClass, iconButtonClass, inputClass, secondaryButtonClass, segmentClass, segmentGroupClass } from "./form-bits";
-
-export const MEAL_LABEL: Record<Meal, string> = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snacks: "Snacks" };
 
 const field = inputClass;
 

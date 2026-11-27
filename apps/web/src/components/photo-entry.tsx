@@ -1,10 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { CAPTION_MAX, MEALS, completeMacros, type FoodEntry, type Macros, type Meal, type PhotoStatus } from "@calci/shared";
+import { CAPTION_MAX, MEALS, MEAL_LABEL, completeMacros, type FoodEntry, type Macros, type Meal, type PhotoStatus } from "@calci/shared";
 import { parseCaloriesInput, parseGramsInput } from "@/lib/food-input";
 import { Camera } from "lucide-react";
-import { MEAL_LABEL } from "./food-add-panel";
 import { buttonClass, dangerLinkClass, inputClass } from "./form-bits";
 
 export type PhotoPatch = { caption?: string; calories?: number; macros?: Macros | null; meal?: Meal };

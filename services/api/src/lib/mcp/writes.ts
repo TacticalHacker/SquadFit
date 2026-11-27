@@ -195,7 +195,7 @@ async function updateFood(ctx: ToolContext, v: UpsertFoodInput): Promise<ToolRes
 const upsertFoodLog: Tool = {
   name: "upsert_food_log",
   description:
-    "Logs a food entry for the member, or updates one. Create: date, meal (breakfast, lunch, dinner, snacks) and food: a built-in id (sf-...), the member's own food id, the exact name of either (then servings, default 1; calories follow the servings), or any other name for a free-form entry (then calories, and optionally protein, carbs and fat together). Update: logId plus the fields to change (meal; servings for list foods; name, calories, macros for free-form). Photo meals are filled with submit_food_estimate instead. Only today and the 2 previous days.",
+    "Logs a food entry for the member, or updates one. Create: date, meal (breakfast, lunch, dinner, snacks, preworkout) and food: a built-in id (sf-...), the member's own food id, the exact name of either (then servings, default 1; calories follow the servings), or any other name for a free-form entry (then calories, and optionally protein, carbs and fat together). Update: logId plus the fields to change (meal; servings for list foods; name, calories, macros for free-form). Photo meals are filled with submit_food_estimate instead. Only today and the 2 previous days.",
   shape: UpsertFoodShape,
   async run(args, ctx) {
     const parsed = UpsertFoodInputSchema.safeParse(stripUnknown(args, UpsertFoodShape));

@@ -27,7 +27,7 @@ describe("GET /food", () => {
     expect(r.status).toBe(200);
     expect(r.body.date).toBe("2026-11-11");
     expect(r.body.editable).toBe(true);
-    expect(r.body.meals.map((m: { meal: string }) => m.meal)).toEqual(["breakfast", "lunch", "dinner", "snacks"]);
+    expect(r.body.meals.map((m: { meal: string }) => m.meal)).toEqual(["breakfast", "lunch", "dinner", "snacks", "preworkout"]);
     expect(r.body.ledger).toMatchObject({ eaten: 0, burned: 0, net: 0, target: 2200, remaining: 2200 });
   });
 

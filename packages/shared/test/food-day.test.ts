@@ -35,9 +35,9 @@ describe("entryFromFood", () => {
 });
 
 describe("buildFoodDay", () => {
-  it("always has four meals in order and an empty ledger", () => {
+  it("always has every meal in order and an empty ledger", () => {
     const v = buildFoodDay({ ...base, entries: [] });
-    expect(v.meals.map((m) => m.meal)).toEqual(["breakfast", "lunch", "dinner", "snacks"]);
+    expect(v.meals.map((m) => m.meal)).toEqual(["breakfast", "lunch", "dinner", "snacks", "preworkout"]);
     expect(v.ledger).toEqual({
       eaten: 0, burned: 0, net: 0, target: 2200, proteinTarget: null, pending: 0, remaining: 2200,
       macros: { protein: 0, carbs: 0, fat: 0, entriesWithoutMacros: 0 },
@@ -51,7 +51,7 @@ describe("buildFoodDay", () => {
       burnedCalories: 400,
       entries: [typed("1", "lunch", "Rice", 1000), typed("2", "snacks", "Banana", 100), oats("3", 1.5), typed("4", "lunch", "Dal", 700)],
     });
-    expect(v.meals.map((m) => m.subtotal)).toEqual([375, 1700, 0, 100]);
+    expect(v.meals.map((m) => m.subtotal)).toEqual([375, 1700, 0, 100, 0]);
     expect(v.meals[1]!.entries.map((e) => e.entryId)).toEqual(["1", "4"]); // order added
     expect(v.ledger).toMatchObject({ eaten: 2175, burned: 400, net: 1775, remaining: 425 });
   });
