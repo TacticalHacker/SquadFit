@@ -4,8 +4,21 @@ import { getCaller } from "./auth";
 import type { Deps } from "./deps";
 import { apiError, ok } from "./http";
 import { reactionsView } from "./member-view";
+import { safeNotify } from "./notifications";
 import { NO_REACTIONS } from "./squad-repo";
 import { visibleTo } from "./squad-view";
+
+/** `<authorUserId>~<eventId>`, URL-encoded (the event id contains "#"). Empty parts when malformed. */
+export function parseFeedTarget(param: string | undefined): { author: string; eventId: string } {
+  let raw: string;
+  try {
+    raw = decodeURIComponent(param ?? "");
+  } catch {
+    return { author: "", eventId: "" };
+  }
+  const cut = raw.indexOf("~");
+  return cut > 0 ? { author: raw.slice(0, cut), eventId: raw.slice(cut + 1) } : { author: "", eventId: "" };
+}
 
 /**
  * Feature 013: shared by PUT and DELETE /squad/feed/{id}/reactions/{type}. The id is `<authorUserId>~<eventId>`
@@ -18,15 +31,7 @@ export async function toggleReaction(event: APIGatewayProxyEventV2WithJWTAuthori
   const type = ReactionTypeSchema.safeParse(event.pathParameters?.type);
   if (!type.success) return apiError(400, "VALIDATION_FAILED", "Unknown reaction", { type: "Use fire, muscle or crown" });
 
-  let raw = event.pathParameters?.id ?? "";
-  try {
-    raw = decodeURIComponent(raw); // the event id contains "#", so clients encode it
-  } catch {
-    return apiError(404, "NOT_FOUND", "Feed item not found");
-  }
-  const cut = raw.indexOf("~");
-  const author = cut > 0 ? raw.slice(0, cut) : "";
-  const eventId = cut > 0 ? raw.slice(cut + 1) : "";
+  const { author, eventId } = parseFeedTarget(event.pathParameters?.id);
   const authorProfile = author ? await deps.profiles.get(author) : null;
   // Members never react to their own items.
   if (!authorProfile || !eventId || author === caller.userId || !visibleTo(authorProfile, caller.userId)) return apiError(404, "NOT_FOUND", "Feed item not found");
@@ -44,6 +49,7 @@ export async function toggleReaction(event: APIGatewayProxyEventV2WithJWTAuthori
     ? await deps.squad.addReaction(key, type.data, caller.userId, deps.now().toISOString())
     : await deps.squad.removeReaction(key, type.data, caller.userId);
   if (counts === null) return apiError(404, "NOT_FOUND", "Feed item not found");
+  await safeNotify(deps, key, caller.userId, type.data, on); // feature 022
   const mine = await deps.squad.myReactions(caller.userId, [key]);
   return ok(ReactionResultSchema.parse({ reactions: reactionsView(counts, mine, author, eventId) }));
 }

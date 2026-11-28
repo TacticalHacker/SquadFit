@@ -8,11 +8,13 @@ import {
   NutritionSharingSchema,
   ReactionResultSchema,
   ReactionTypeSchema,
+  ReactorsSchema,
   SquadSettingsSchema,
   TimelineSchema,
   type DayLog,
   type ReactionType,
   type Reactions,
+  type Reactors,
   type Timeline,
 } from "@calci/shared";
 import { requireProfile } from "../session";
@@ -63,6 +65,13 @@ export async function toggleReaction(id: string, type: ReactionType, on: boolean
   if (!r.ok) return r;
   revalidatePath("/squad", "layout");
   return { ok: true, reactions: r.value.reactions };
+}
+
+/** Feature 022: who reacted to a feed item or workout day (`<author>~<eventId>`). */
+export async function loadReactors(id: string): Promise<{ ok: true; reactors: Reactors } | { ok: false; error: string }> {
+  if (!z.string().min(3).max(300).safeParse(id).success) return { ok: false, error: GENERIC };
+  const r = await call(() => apiFetch(`/squad/feed/${encodeURIComponent(id)}/reactions`, { schema: ReactorsSchema }));
+  return r.ok ? { ok: true, reactors: r.value } : r;
 }
 
 const ID_RE = /^g[xc]-[A-Za-z0-9-]+$/;

@@ -8,7 +8,7 @@ describe("GET /me", () => {
     const { deps } = makeDeps();
     const { status, body } = parse(await handle(makeEvent({}), deps));
     expect(status).toBe(200);
-    expect(body).toEqual({ username: "alice", profile: null, isAdmin: false });
+    expect(body).toEqual({ username: "alice", userId: "user-1", profile: null, isAdmin: false, unreadNotifications: 0 });
   });
 
   it("isAdmin follows the caller's admin group (feature 015)", async () => {

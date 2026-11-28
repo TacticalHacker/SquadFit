@@ -50,3 +50,5 @@ export * from "./domain/bodyweight";
 export * from "./contracts/weight";
 export * from "./domain/raid";
 export * from "./contracts/raids";
+export * from "./domain/notifications";
+export * from "./contracts/notifications";

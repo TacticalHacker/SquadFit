@@ -114,7 +114,11 @@ export class ApiStack extends Stack {
     };
 
     route("health", HttpMethod.GET, "/health", { auth: false });
-    route("me-get", HttpMethod.GET, "/me", { avatars: "read" });
+    // Feature 022: the same function serves the notification routes (write: the seen marker); see the resource note below.
+    const meFn = route("me-get", HttpMethod.GET, "/me", { avatars: "read", write: true });
+    const meIntegration = new HttpLambdaIntegration("meNotificationsIntegration", meFn);
+    this.api.addRoutes({ path: "/me/notifications", methods: [HttpMethod.GET], integration: meIntegration, authorizer });
+    this.api.addRoutes({ path: "/me/notifications/seen", methods: [HttpMethod.PUT], integration: meIntegration, authorizer });
     route("me-profile-put", HttpMethod.PUT, "/me/profile", { write: true, avatars: "read" });
     route("me-avatar-put", HttpMethod.PUT, "/me/avatar", { write: true, avatars: "readwrite" });
     route("me-avatar-delete", HttpMethod.DELETE, "/me/avatar", { write: true, avatars: "readwrite" });
@@ -141,7 +145,9 @@ export class ApiStack extends Stack {
     // Feature 013: boards and Hall of Fame replace /squad/leaderboard; reactions replace high-fives.
     route("squad-boards-get", HttpMethod.GET, "/squad/boards", { avatars: "read" });
     route("squad-hall-of-fame-get", HttpMethod.GET, "/squad/hall-of-fame", { avatars: "read" });
-    route("squad-feed-get", HttpMethod.GET, "/squad/feed", { avatars: "read", sharePhotos: "read" });
+    const squadFeedFn = route("squad-feed-get", HttpMethod.GET, "/squad/feed", { avatars: "read", sharePhotos: "read" });
+    // Feature 022: "who reacted" joins the feed function.
+    this.api.addRoutes({ path: "/squad/feed/{id}/reactions", methods: [HttpMethod.GET], integration: new HttpLambdaIntegration("squadReactorsIntegration", squadFeedFn), authorizer });
     route("squad-member-get", HttpMethod.GET, "/squad/members/{memberId}", { avatars: "read" });
     route("squad-member-timeline-get", HttpMethod.GET, "/squad/members/{memberId}/timeline", { photos: "read" });
     route("squad-member-day-get", HttpMethod.GET, "/squad/members/{memberId}/days/{date}", { photos: "read" });

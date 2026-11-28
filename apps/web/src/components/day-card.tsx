@@ -99,7 +99,8 @@ export function DayCard({ card, memberId, member }: { card: DayCardData; memberI
   };
 
   return (
-    <article className={`${cardClass} flex flex-col gap-3 p-3`}>
+    // Feature 022: notifications link to `#day-<date>` on the member's profile (not on Today, where dates repeat).
+    <article id={member ? undefined : `day-${card.date}`} className={`${cardClass} flex scroll-mt-4 flex-col gap-3 p-3`}>
       {member ? (
         <Link href={`/squad/${member.userId}`} className="flex min-h-11 items-center gap-2 text-sm font-medium text-ink">
           <Avatar displayName={member.displayName} avatarUrl={member.avatarUrl} size={28} />

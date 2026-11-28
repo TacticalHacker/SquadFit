@@ -35,9 +35,13 @@ export type OwnProfile = z.infer<typeof OwnProfileSchema>;
 
 export const MeResponseSchema = z.object({
   username: z.string(),
+  /** The caller's own id (links the header avatar to their profile); "" from an API deployed before it. */
+  userId: z.string().default(""),
   profile: OwnProfileSchema.nullable(),
   /** Feature 015: the caller's own admin flag (Cognito group); the default covers an API deployed before it. */
   isAdmin: z.boolean().default(false),
+  /** Feature 022: unread reaction notifications (header bell). Only GET /me computes it; 0 elsewhere. */
+  unreadNotifications: z.number().int().min(0).default(0),
 });
 export type MeResponse = z.infer<typeof MeResponseSchema>;
 
