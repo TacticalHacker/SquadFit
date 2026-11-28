@@ -1,5 +1,5 @@
 import type { APIGatewayProxyEventV2WithJWTAuthorizer, APIGatewayProxyStructuredResultV2 } from "aws-lambda";
-import { exerciseNameKey, type CatalogExercise } from "@calci/shared";
+import { exerciseNameKey, notificationTtl, type CatalogExercise, type ReactionRecord, type StoredNotification } from "@calci/shared";
 import type { ActivitySource, ActivityValues, GymLastIndex, OverallNoteInput, ProfileInput, ReactionType, SquadSettingsInput, SquadStats, StepSettings } from "@calci/shared";
 import { toActivityItem, type ActivityItem, type ActivityRepo } from "../src/lib/activity-repo";
 import type { WeightItem, WeightRepo } from "../src/lib/weight-repo";
@@ -498,8 +498,13 @@ export class FakeAvatarStore implements AvatarStore {
 export class InMemorySquadRepo implements SquadRepo {
   readonly stats = new Map<string, SquadStats>();
   readonly feed = new Map<string, FeedItem>();
-  /** `${author}~${eventId}~${reactor}` */
+  /** `${author}~${eventId}~${type}~${reactor}` */
   readonly reactions = new Set<string>();
+  /** Feature 022: reaction times, same keys as `reactions`. */
+  readonly reactedAt = new Map<string, string>();
+  /** Feature 022: `${owner}~${eventId}~${reactor}` → notification. */
+  readonly notifications = new Map<string, StoredNotification & { ownerId: string }>();
+  readonly seen = new Map<string, string>();
   /** Test hook: make the next `putStats` fail (the service must swallow it). */
   failNextPut = false;
 
@@ -554,6 +559,7 @@ export class InMemorySquadRepo implements SquadRepo {
   async deleteFeed(userId: string, eventId: string) {
     this.feed.delete(feedId(userId, eventId));
     for (const r of [...this.reactions]) if (r.startsWith(`${feedId(userId, eventId)}~`)) this.reactions.delete(r);
+    for (const k of [...this.notifications.keys()]) if (k.startsWith(`${feedId(userId, eventId)}~`)) this.notifications.delete(k);
   }
   async listSquadFeed(squadId: string, pageSize: number, startKey?: Record<string, unknown>) {
     const all = [...this.feed.values()]
@@ -567,11 +573,12 @@ export class InMemorySquadRepo implements SquadRepo {
     const f = this.feed.get(feedId(author.userId, author.eventId))!;
     this.feed.set(feedId(author.userId, author.eventId), { ...f, reactions: { ...f.reactions, [type]: Math.max(0, f.reactions[type] + by) } });
   }
-  async addReaction(author: FeedKey, type: ReactionType, reactorId: string): Promise<ReactionCounts | null> {
+  async addReaction(author: FeedKey, type: ReactionType, reactorId: string, nowIso = new Date().toISOString()): Promise<ReactionCounts | null> {
     if (!this.feed.has(feedId(author.userId, author.eventId))) return null;
     const key = `${feedId(author.userId, author.eventId)}~${type}~${reactorId}`;
     if (!this.reactions.has(key)) {
       this.reactions.add(key);
+      this.reactedAt.set(key, nowIso);
       this.bump(author, type, 1);
     }
     return structuredClone(this.feed.get(feedId(author.userId, author.eventId))!.reactions);
@@ -587,6 +594,40 @@ export class InMemorySquadRepo implements SquadRepo {
       if (this.reactions.has(`${feedId(k.userId, k.eventId)}~${type}~${viewerId}`)) out.add(reactionKey(k.userId, k.eventId, type));
     }
     return out;
+  }
+  async listReactors(author: FeedKey): Promise<ReactionRecord[]> {
+    const prefix = `${feedId(author.userId, author.eventId)}~`;
+    return [...this.reactions]
+      .filter((r) => r.startsWith(prefix))
+      .map((r) => {
+        const [type, reactorId] = r.slice(prefix.length).split("~") as [ReactionType, string];
+        return { type, reactorId, createdAt: this.reactedAt.get(r) ?? "" };
+      });
+  }
+  async batchGetFeed(keys: readonly FeedKey[]) {
+    return keys.flatMap((k) => (this.feed.has(feedId(k.userId, k.eventId)) ? [structuredClone(this.feed.get(feedId(k.userId, k.eventId))!)] : []));
+  }
+  async notify(owner: FeedKey, reactorId: string, type: ReactionType, nowIso: string) {
+    const key = `${feedId(owner.userId, owner.eventId)}~${reactorId}`;
+    const have = this.notifications.get(key);
+    const types = [...new Set([...(have?.types ?? []), type])];
+    this.notifications.set(key, { ownerId: owner.userId, eventId: owner.eventId, reactorId, types, latestAt: nowIso, ttl: notificationTtl(nowIso) });
+  }
+  async unnotify(owner: FeedKey, reactorId: string, type: ReactionType) {
+    const key = `${feedId(owner.userId, owner.eventId)}~${reactorId}`;
+    const have = this.notifications.get(key);
+    if (!have) return;
+    const types = have.types.filter((t) => t !== type);
+    if (types.length) this.notifications.set(key, { ...have, types });
+    else this.notifications.delete(key);
+  }
+  async listNotifications(ownerId: string) {
+    const items = [...this.notifications.values()].filter((n) => n.ownerId === ownerId).map(({ ownerId: _o, ...n }) => structuredClone(n));
+    return { items, seenAt: this.seen.get(ownerId) ?? null };
+  }
+  async markNotificationsSeen(ownerId: string, upTo: string) {
+    const have = this.seen.get(ownerId);
+    if (!have || have < upTo) this.seen.set(ownerId, upTo);
   }
   settings = new Map<string, { timezone: string }>();
   async getSquadSettings(squadId: string) {

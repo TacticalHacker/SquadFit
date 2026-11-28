@@ -30,7 +30,7 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
     if (!logged.ok) return logged.response;
   }
   const item = (await deps.profiles.get(caller.userId))!;
-  const body: MeResponse = { username: caller.username, isAdmin: caller.isAdmin, profile: await toOwnProfile(item, deps.avatars) };
+  const body: MeResponse = { username: caller.username, userId: caller.userId, unreadNotifications: 0, isAdmin: caller.isAdmin, profile: await toOwnProfile(item, deps.avatars) };
   return ok(body);
 }
 

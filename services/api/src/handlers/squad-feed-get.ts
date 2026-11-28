@@ -8,6 +8,7 @@ import { sharedLevel, stepsShared } from "../lib/member-access";
 import { reactionsView } from "../lib/member-view";
 import { feedWorkout } from "../lib/share-summary";
 import { squadMember, visibleTo } from "../lib/squad-view";
+import { handle as reactors } from "./squad-reactors-get";
 
 const PAGE = 50;
 
@@ -72,4 +73,6 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
   return ok(SquadFeedSchema.parse({ items }));
 }
 
-export const handler: APIGatewayProxyHandlerV2WithJWTAuthorizer = (event) => handle(event, getDeps());
+/** Feature 022: this function also serves "who reacted" (the Api stack is near the 500-resource limit). */
+export const handler: APIGatewayProxyHandlerV2WithJWTAuthorizer = (event) =>
+  event.routeKey === "GET /squad/feed/{id}/reactions" ? reactors(event, getDeps()) : handle(event, getDeps());

@@ -10,7 +10,7 @@ import {
   TransactWriteCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
-import { SQUAD_DEFAULT_TIMEZONE, type ReactionType, type SquadEventKind, type SquadStats } from "@calci/shared";
+import { SQUAD_DEFAULT_TIMEZONE, notificationTtl, type ReactionRecord, type ReactionType, type SquadEventKind, type SquadStats, type StoredNotification } from "@calci/shared";
 
 /**
  * Feature 010 storage. Key layout: specs/010-squad-leaderboard/data-model.md.
@@ -69,6 +69,18 @@ export interface SquadRepo {
   removeReaction(author: FeedKey, type: ReactionType, reactorId: string): Promise<ReactionCounts | null>;
   /** The viewer's reactions on `items`, as `reactionKey(...)` strings. */
   myReactions(viewerId: string, items: readonly FeedKey[]): Promise<Set<string>>;
+  /** Feature 022: who reacted to an item (`RX#` items), in no particular order. */
+  listReactors(author: FeedKey): Promise<ReactionRecord[]>;
+  /** Feature 022: the given feed items that exist. */
+  batchGetFeed(keys: readonly FeedKey[]): Promise<FeedItem[]>;
+  /** Feature 022: add `type` to the owner's (item, reactor) notification, bumping `latestAt`. */
+  notify(owner: FeedKey, reactorId: string, type: ReactionType, nowIso: string): Promise<void>;
+  /** Feature 022: drop `type`; the notification goes when no type remains. */
+  unnotify(owner: FeedKey, reactorId: string, type: ReactionType): Promise<void>;
+  /** Feature 022: every notification of the owner (expired ones may still be present) and the seen marker. */
+  listNotifications(ownerId: string): Promise<{ items: StoredNotification[]; seenAt: string | null }>;
+  /** Feature 022: move the seen marker forward to `upTo` (never back). */
+  markNotificationsSeen(ownerId: string, upTo: string): Promise<void>;
   /** Feature 013: the squad's settings (absent item = defaults). */
   getSquadSettings(squadId: string): Promise<{ timezone: string }>;
   putSquadSettings(squadId: string, settings: { timezone: string }, nowIso: string): Promise<void>;
@@ -78,6 +90,8 @@ const pk = (userId: string) => `USER#${userId}`;
 const STATS_SK = "SQUADSTATS";
 const feedSk = (eventId: string) => `FEED#${eventId}`;
 const rxSk = (eventId: string, type: ReactionType, reactor: string) => `RX#${eventId}#${type}#${reactor}`;
+const notifSk = (eventId: string, reactor: string) => `NOTIF#${eventId}#${reactor}`;
+const NOTIF_SEEN_SK = "NOTIFSEEN";
 const settingsKey = (squadId: string) => ({ pk: `SQUAD#${squadId}`, sk: "SETTINGS" });
 export const feedGsiPk = (squadId: string) => `SQUADFEED#${squadId}`;
 export const feedId = (userId: string, eventId: string) => `${userId}~${eventId}`;
@@ -306,8 +320,17 @@ export class DynamoSquadRepo implements SquadRepo {
         ExpressionAttributeValues: { ":pk": pk(userId), ":p": `RX#${eventId}#` },
       }),
     );
+    // Feature 022: the item's notifications go with it.
+    const notifications = await this.doc.send(
+      new QueryCommand({
+        TableName: this.tableName,
+        KeyConditionExpression: "pk = :pk AND begins_with(sk, :p)",
+        ExpressionAttributeValues: { ":pk": pk(userId), ":p": `NOTIF#${eventId}#` },
+        ProjectionExpression: "pk, sk",
+      }),
+    );
     await Promise.all(
-      (reactions.Items ?? []).map((r) => this.doc.send(new DeleteCommand({ TableName: this.tableName, Key: { pk: r.pk, sk: r.sk } }))),
+      [...(reactions.Items ?? []), ...(notifications.Items ?? [])].map((r) => this.doc.send(new DeleteCommand({ TableName: this.tableName, Key: { pk: r.pk, sk: r.sk } }))),
     );
     await this.doc.send(new DeleteCommand({ TableName: this.tableName, Key: { pk: pk(userId), sk: feedSk(eventId) } }));
   }
@@ -412,6 +435,121 @@ export class DynamoSquadRepo implements SquadRepo {
       }
     }
     return out;
+  }
+
+  async listReactors(author: FeedKey) {
+    const out: ReactionRecord[] = [];
+    const prefix = `RX#${author.eventId}#`;
+    let startKey: Record<string, unknown> | undefined;
+    do {
+      const res = await this.doc.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          KeyConditionExpression: "pk = :pk AND begins_with(sk, :p)",
+          ExpressionAttributeValues: { ":pk": pk(author.userId), ":p": prefix },
+          ExclusiveStartKey: startKey,
+        }),
+      );
+      for (const item of res.Items ?? []) {
+        // RX#<eventId>#<type>#<reactor>: the event id is known, so the rest is "<type>#<reactor>".
+        const rest = (item.sk as string).slice(prefix.length);
+        const cut = rest.indexOf("#");
+        const type = rest.slice(0, cut) as ReactionType;
+        if (type !== "fire" && type !== "muscle" && type !== "crown") continue; // a longer event id sharing the prefix
+        out.push({ type, reactorId: rest.slice(cut + 1), createdAt: (item.createdAt as string | undefined) ?? "" });
+      }
+      startKey = res.LastEvaluatedKey;
+    } while (startKey);
+    return out;
+  }
+
+  async batchGetFeed(keys: readonly FeedKey[]) {
+    const out: FeedItem[] = [];
+    const unique = [...new Map(keys.map((k) => [`${k.userId}~${k.eventId}`, k])).values()];
+    for (let i = 0; i < unique.length; i += 100) {
+      let batch: Record<string, unknown>[] = unique.slice(i, i + 100).map((k) => ({ pk: pk(k.userId), sk: feedSk(k.eventId) }));
+      while (batch.length) {
+        const res = await this.doc.send(new BatchGetCommand({ RequestItems: { [this.tableName]: { Keys: batch } } }));
+        out.push(...(res.Responses?.[this.tableName] ?? []).map(toFeed));
+        batch = (res.UnprocessedKeys?.[this.tableName]?.Keys as Record<string, unknown>[] | undefined) ?? [];
+      }
+    }
+    return out;
+  }
+
+  async notify(owner: FeedKey, reactorId: string, type: ReactionType, nowIso: string) {
+    await this.doc.send(
+      new UpdateCommand({
+        TableName: this.tableName,
+        Key: { pk: pk(owner.userId), sk: notifSk(owner.eventId, reactorId) },
+        UpdateExpression: "ADD #types :t SET eventId = :e, reactorId = :r, latestAt = :now, firstAt = if_not_exists(firstAt, :now), #ttl = :ttl",
+        ExpressionAttributeNames: { "#types": "types", "#ttl": "ttl" },
+        ExpressionAttributeValues: { ":t": new Set([type]), ":e": owner.eventId, ":r": reactorId, ":now": nowIso, ":ttl": notificationTtl(nowIso) },
+      }),
+    );
+  }
+
+  async unnotify(owner: FeedKey, reactorId: string, type: ReactionType) {
+    const key = { pk: pk(owner.userId), sk: notifSk(owner.eventId, reactorId) };
+    try {
+      const res = await this.doc.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: key,
+          ConditionExpression: "attribute_exists(sk)",
+          UpdateExpression: "DELETE #types :t",
+          ExpressionAttributeNames: { "#types": "types" },
+          ExpressionAttributeValues: { ":t": new Set([type]) },
+          ReturnValues: "ALL_NEW",
+        }),
+      );
+      if (res.Attributes?.types !== undefined) return;
+      // An empty set is removed by DynamoDB: no reaction left, so the notification goes (unless one was re-added).
+      await this.doc.send(new DeleteCommand({ TableName: this.tableName, Key: key, ConditionExpression: "attribute_not_exists(#types)", ExpressionAttributeNames: { "#types": "types" } }));
+    } catch (err) {
+      if (!isConditionFailure(err)) throw err;
+    }
+  }
+
+  async listNotifications(ownerId: string) {
+    const items: StoredNotification[] = [];
+    let seenAt: string | null = null;
+    let startKey: Record<string, unknown> | undefined;
+    do {
+      // "NOTIF" covers both NOTIF#<eventId>#<reactor> items and the NOTIFSEEN marker (data-model.md).
+      const res = await this.doc.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          KeyConditionExpression: "pk = :pk AND begins_with(sk, :p)",
+          ExpressionAttributeValues: { ":pk": pk(ownerId), ":p": "NOTIF" },
+          ExclusiveStartKey: startKey,
+        }),
+      );
+      for (const i of res.Items ?? []) {
+        if (i.sk === NOTIF_SEEN_SK) seenAt = (i.seenAt as string | undefined) ?? null;
+        else if (i.types instanceof Set && i.types.size > 0) {
+          items.push({ eventId: i.eventId as string, reactorId: i.reactorId as string, types: [...(i.types as Set<ReactionType>)], latestAt: i.latestAt as string, ttl: i.ttl as number });
+        }
+      }
+      startKey = res.LastEvaluatedKey;
+    } while (startKey);
+    return { items, seenAt };
+  }
+
+  async markNotificationsSeen(ownerId: string, upTo: string) {
+    try {
+      await this.doc.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: { pk: pk(ownerId), sk: NOTIF_SEEN_SK },
+          ConditionExpression: "attribute_not_exists(seenAt) OR seenAt < :t",
+          UpdateExpression: "SET seenAt = :t",
+          ExpressionAttributeValues: { ":t": upTo },
+        }),
+      );
+    } catch (err) {
+      if (!isConditionFailure(err)) throw err; // already seen up to a later time
+    }
   }
 
   async getSquadSettings(squadId: string) {

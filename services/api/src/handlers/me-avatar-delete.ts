@@ -19,7 +19,7 @@ export async function handle(event: APIGatewayProxyEventV2WithJWTAuthorizer, dep
 
   const updated = await deps.profiles.get(caller.userId);
   const body: MeResponse = {
-    username: caller.username,
+    username: caller.username, userId: caller.userId, unreadNotifications: 0,
     isAdmin: caller.isAdmin,
     profile: updated ? await toOwnProfile(updated, deps.avatars) : null,
   };

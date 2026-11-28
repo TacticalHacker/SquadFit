@@ -19,10 +19,10 @@ export const getMe = cache(async () => {
 });
 
 /** Signed in AND profile complete (FR-011); otherwise redirects. */
-export async function requireProfile(): Promise<{ username: string; profile: OwnProfile }> {
+export async function requireProfile(): Promise<{ username: string; userId: string; profile: OwnProfile }> {
   const me = await getMe();
   if (!me.profile) redirect("/setup");
-  return { username: me.username, profile: me.profile };
+  return { username: me.username, userId: me.userId, profile: me.profile };
 }
 
 /** For /setup: signed in but profile not yet complete. */

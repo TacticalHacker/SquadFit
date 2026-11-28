@@ -1,4 +1,4 @@
-import { STEPS_MIN_DAYS, type Club, type ShareRowDto, type SquadBoardView, type SquadFeedItem } from "@calci/shared";
+import { STEPS_MIN_DAYS, type Club, type NotificationView, type ReactionType, type ShareRowDto, type SquadBoardView, type SquadFeedItem } from "@calci/shared";
 
 /**
  * Feature 013: every squad-area phrase in one place, written for someone who has never been to a gym. Always with
@@ -408,3 +408,50 @@ export const raidDates = (startsAt: string, endsAt: string, timeZone: string) =>
   `${raidDay(startsAt, timeZone)} – ${raidDay(new Date(Date.parse(endsAt) - 1).toISOString(), timeZone)}`;
 export const raidsClearedLabel = (n: number) => (n > 1 ? `${RAID_COPY.sticker} ×${n}` : RAID_COPY.sticker);
 export const raidStatusLabel = { draft: "Draft", scheduled: "Scheduled", live: "Live", won: "Cleared", ended: "Ended", cancelled: "Cancelled" } as const;
+
+// ---------------------------------------------------------------- reaction notifications (feature 022)
+
+// Emoji are fine here: they are the members' own reactions, not UI icons (feature 013).
+export const REACTIONS: { type: ReactionType; emoji: string; label: string }[] = [
+  { type: "fire", emoji: "🔥", label: "Fire" },
+  { type: "muscle", emoji: "💪", label: "Strong" },
+  { type: "crown", emoji: "👑", label: "Crown" },
+];
+export const reactionEmoji = (types: readonly ReactionType[]) => REACTIONS.filter((r) => types.includes(r.type)).map((r) => r.emoji).join("");
+
+export const NOTIFY_COPY = {
+  title: "Notifications",
+  bell: (n: number) => (n > 0 ? `Notifications, ${n} unread` : "Notifications"),
+  empty: "No reactions yet. When someone reacts to your workouts, you'll see it here.",
+  someone: "Someone",
+  whoTitle: "Reactions",
+  whoButton: "See who reacted",
+  whoEmpty: "No reactions yet.",
+  whoError: "Couldn't load reactions. Try again.",
+  unread: "New",
+} as const;
+export const badgeCount = (n: number) => (n > 9 ? "9+" : String(n));
+export const othersCount = (n: number) => `+${plural(n, "other")}`;
+
+/** What was reacted to, after "reacted 💪 to ". */
+export function notificationTarget(item: NotificationView["item"]): string {
+  if (item.kind === "pr") return item.exerciseName ? `your ${item.exerciseName} PR` : "your PR";
+  if (item.kind === "workout_day") return `your workout on ${shortDate(item.date)}`;
+  if (item.kind === "streak_week") return item.week && item.week > 1 ? `your ${item.week}-week streak` : "your workout week";
+  if (item.kind === "badge" && item.club) return `you joining the ${CLUB_LABEL[item.club]}`;
+  if (item.kind === "protein_streak") return "your 7-day protein streak";
+  if (item.kind === "step_streak") return "your 7-day step streak";
+  return "your first workout";
+}
+export const notificationLine = (n: NotificationView) => ` reacted ${reactionEmoji(n.types)} to ${notificationTarget(n.item)}`;
+/** Workout days open the owner's profile at that day (cards carry `id="day-<date>"`); everything else the feed. */
+export const notificationHref = (item: NotificationView["item"]) => (item.kind === "workout_day" ? `/squad/${item.ownerId}#day-${item.date}` : "/squad/feed");
+
+export function timeAgo(iso: string, now: Date): string {
+  const s = Math.max(0, Math.round((now.getTime() - Date.parse(iso)) / 1000));
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86_400) return `${Math.floor(s / 3600)} h ago`;
+  if (s < 7 * 86_400) return plural(Math.floor(s / 86_400), "day") + " ago";
+  return shortDate(iso.slice(0, 10));
+}
