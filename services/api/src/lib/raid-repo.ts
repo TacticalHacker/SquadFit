@@ -14,6 +14,10 @@ export interface RaidContribution {
   userId: string;
   rawKg: number;
   setCount: number;
+  /** Distinct workout days with a counted set (the split bar's "4 sessions"). */
+  sessions: number;
+  /** First rebuild that counted a set (split bar order, oldest first). */
+  firstCountedAt: string | null;
   /** Last rebuild that added kg or sets (avatar order, newest first). */
   lastCountedAt: string | null;
   /** SQUADSTATS version the entries were read for; writes only move forward (research R4). */
@@ -87,6 +91,9 @@ function toContribution(i: Record<string, unknown>): RaidContribution {
     userId: i.userId as string,
     rawKg: i.rawKg as number,
     setCount: i.setCount as number,
+    sessions: typeof i.sessions === "number" ? i.sessions : 0,
+    // Items written before the split bar have no first time; their last one is the closest guess.
+    firstCountedAt: typeof i.firstCountedAt === "string" ? i.firstCountedAt : typeof i.lastCountedAt === "string" ? i.lastCountedAt : null,
     lastCountedAt: typeof i.lastCountedAt === "string" ? i.lastCountedAt : null,
     statsVersion: i.statsVersion as number,
     updatedAt: i.updatedAt as string,
@@ -208,7 +215,7 @@ export class DynamoRaidRepo implements RaidRepo {
       await this.doc.send(
         new PutCommand({
           TableName: this.tableName,
-          Item: { pk: raidPk(c.raidId), sk: contribSk(c.userId), ...c, lastCountedAt: c.lastCountedAt ?? undefined },
+          Item: { pk: raidPk(c.raidId), sk: contribSk(c.userId), ...c, firstCountedAt: c.firstCountedAt ?? undefined, lastCountedAt: c.lastCountedAt ?? undefined },
           ConditionExpression: "attribute_not_exists(pk) OR statsVersion < :v",
           ExpressionAttributeValues: { ":v": c.statsVersion },
         }),

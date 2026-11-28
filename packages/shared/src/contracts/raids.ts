@@ -69,8 +69,22 @@ export const AdminRaidsResponseSchema = z.strictObject({ raids: z.array(AdminRai
 export type AdminRaidsResponse = z.infer<typeof AdminRaidsResponseSchema>;
 export const RaidSuggestResponseSchema = z.strictObject({ suggestedKg: z.number().int().nullable() });
 
-/** Only name and avatar of other members, never their kg (FR-023, FR-029). */
-export const RaidContributorSchema = z.strictObject({ userId: z.string(), displayName: z.string(), avatarUrl: z.string().nullable() });
+/**
+ * One split-bar segment: a visible member's counted kg (after the cap) and sessions. Shares are never ranked: the
+ * server orders them by first contribution (constitution VI 2.8.0).
+ */
+export const RaidSegmentSchema = z.strictObject({
+  userId: z.string(),
+  displayName: z.string(),
+  avatarUrl: z.string().nullable(),
+  kg: z.number(),
+  sessions: z.number().int(),
+  isYou: z.boolean(),
+});
+export type RaidSegment = z.infer<typeof RaidSegmentSchema>;
+/** Hidden members' kg merged into one unnamed segment. */
+export const RaidSplitSchema = z.strictObject({ segments: z.array(RaidSegmentSchema), othersKg: z.number() });
+export type RaidSplit = z.infer<typeof RaidSplitSchema>;
 
 export const RaidCardSchema = z.strictObject({
   raidId: z.string(),
@@ -88,8 +102,8 @@ export const RaidCardSchema = z.strictObject({
   cancelReason: z.string().nullable(),
   /** The viewer's own figures; never sent about anyone else. */
   you: z.strictObject({ kg: z.number(), rawKg: z.number(), pct: z.number().int(), capped: z.boolean(), sticker: z.boolean() }),
-  /** ≤ 5, newest first; null when "Show contributors" is off. */
-  contributors: z.array(RaidContributorSchema).nullable(),
+  /** The split bar; null when "Show contributors" is off (one plain bar). */
+  split: RaidSplitSchema.nullable(),
 });
 export type RaidCard = z.infer<typeof RaidCardSchema>;
 

@@ -13,16 +13,17 @@ import {
   raidNext,
   raidTotalLine,
   raidYou,
+  raidYouShare,
 } from "@/lib/plain";
-import { Avatar } from "./avatar";
 import { cardClass, linkClass, secondaryButtonClass } from "./form-bits";
 import { InfoTip } from "./info-tip";
+import { RaidSplitBar } from "./raid-split-bar";
 
 const STAMP_KEY = (raidId: string) => `sf:raidstamp:v1:${raidId}`;
 
 /**
  * Feature 021: the raid card at the top of the Squad tab (FR-021–FR-026). Data comes from one `GET /squad/raid`.
- * Only the viewer's own kg is ever shown; other members appear as avatars.
+ * With "Show contributors" on, the bar is split by member (`RaidSplitBar`); otherwise one plain bar.
  */
 export function RaidCard({ data, timezone }: { data: RaidCardResponse; timezone: string }) {
   const { card, next, canManage, canCreate } = data;
@@ -101,32 +102,25 @@ export function RaidCardBody({ card, timezone, headingId, preview = false }: { c
       {progress ? (
         <div className="flex flex-col gap-1.5">
           <p className="text-base font-semibold tabular-nums">{raidTotalLine(card.totalKg, card.targetKg, card.pct)}</p>
-          <div
-            role="progressbar"
-            aria-label="Squad progress"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.min(100, card.pct)}
-            className="relative h-3 overflow-hidden rounded-md bg-surface-2"
-          >
-            <div className="h-full bg-accent-fill" style={{ width: `${Math.min(100, (card.totalKg / card.targetKg) * 100)}%` }} />
-            {card.pace !== null ? (
-              <div aria-hidden className="absolute inset-y-0 w-0.5 bg-ink" style={{ left: `calc(${card.pace * 100}% - 1px)` }} title="Where the squad should be by now" />
-            ) : null}
-          </div>
-          <p className="text-sm tabular-nums text-ink-2">{card.you.kg > 0 ? raidYou(card.you.kg, card.you.pct, card.you.capped) : RAID_COPY.zeroYou}</p>
+          {card.split ? (
+            <RaidSplitBar card={{ ...card, split: card.split }} />
+          ) : (
+            <div
+              role="progressbar"
+              aria-label="Squad progress"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.min(100, card.pct)}
+              className="relative h-3 overflow-hidden rounded-md bg-surface-2"
+            >
+              <div className="h-full bg-accent-fill" style={{ width: `${Math.min(100, (card.totalKg / card.targetKg) * 100)}%` }} />
+              {card.pace !== null ? (
+                <div aria-hidden className="absolute inset-y-0 w-0.5 bg-ink" style={{ left: `calc(${card.pace * 100}% - 1px)` }} title="Where the squad should be by now" />
+              ) : null}
+            </div>
+          )}
+          <p className="text-sm tabular-nums text-ink-2">{youLine(card)}</p>
         </div>
-      ) : null}
-
-      {card.contributors && card.contributors.length > 0 ? (
-        <ul aria-label="Who took part" className="flex items-center gap-1.5">
-          {card.contributors.map((c) => (
-            <li key={c.userId} title={c.displayName}>
-              <Avatar displayName={c.displayName} avatarUrl={c.avatarUrl} size={28} />
-              <span className="sr-only">{c.displayName}</span>
-            </li>
-          ))}
-        </ul>
       ) : null}
 
       {card.you.sticker ? (
@@ -137,6 +131,14 @@ export function RaidCardBody({ card, timezone, headingId, preview = false }: { c
       ) : null}
     </div>
   );
+}
+
+/** "You: 1,200 kg · 20% of the squad" with the split bar, "You: 6,200 kg (22%)" (of target) without. */
+function youLine(card: RaidCardData): string {
+  if (card.you.kg <= 0) return RAID_COPY.zeroYou;
+  if (!card.split) return raidYou(card.you.kg, card.you.pct, card.you.capped);
+  const share = card.totalKg > 0 ? Math.round((card.you.kg / card.totalKg) * 100) : 0;
+  return raidYouShare(card.you.kg, share, card.you.capped);
 }
 
 const noSubscribe = () => () => {};

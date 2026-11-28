@@ -46,17 +46,27 @@ describe("raid counting (feature 021)", () => {
     expect((await card(deps, "user-2")).body.card).toMatchObject({ totalKg: 16_000, you: { kg: 16_000, rawKg: 18_000, capped: true } });
   });
 
-  it("never shows another member's kg, and hides hidden members by name", async () => {
-    const { deps, profiles } = await liveRaid();
-    await gymPut(deps, "2026-12-03", "gx-bench-press", { sets: sets(1, 100, 10, true) }, "user-2");
+  it("splits the bar by member in first-contributed order and merges hidden members", async () => {
+    const { deps, profiles, setNow } = await liveRaid();
     await gymPut(deps, "2026-12-03", "gx-bench-press", { sets: sets(1, 100, 5, true) }, "user-3");
-    profiles.items.set("user-3", { ...profiles.items.get("user-3")!, leaderboardVisible: false });
+    setNow("2026-12-03T07:00:00.000Z");
+    await gymPut(deps, "2026-12-03", "gx-bench-press", { sets: sets(1, 100, 10, true) }, "user-2");
+    setNow("2026-12-03T08:00:00.000Z");
+    await gymPut(deps, "2026-12-03", "gx-barbell-row", { sets: sets(1, 50, 10, true) }, "user-1");
 
+    const split = (await card(deps, "user-1")).body.card.split;
+    expect(split.segments.map((s: { userId: string; kg: number; sessions: number; isYou: boolean }) => [s.userId, s.kg, s.sessions, s.isYou])).toEqual([
+      ["user-3", 500, 1, false],
+      ["user-2", 1000, 1, false],
+      ["user-1", 500, 1, true],
+    ]);
+
+    profiles.items.set("user-3", { ...profiles.items.get("user-3")!, leaderboardVisible: false });
     const seen = (await card(deps, "user-1")).body.card;
-    expect(seen.totalKg).toBe(1500); // the hidden member still counts
-    expect(seen.contributors).toEqual([{ userId: "user-2", displayName: "Alice", avatarUrl: null }]);
-    expect(JSON.stringify(seen.contributors)).not.toMatch(/kg|1000/i);
-    expect((await card(deps, "user-3")).body.card.you.kg).toBe(500);
+    expect(seen.totalKg).toBe(2000); // the hidden member still counts
+    expect(seen.split.othersKg).toBe(500);
+    expect(JSON.stringify(seen.split)).not.toContain("user-3");
+    expect((await card(deps, "user-3")).body.card.split.segments.some((s: { isYou: boolean }) => s.isYou)).toBe(true);
   });
 });
 

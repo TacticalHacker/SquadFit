@@ -396,6 +396,10 @@ export const RAID_COPY = {
 
 export const raidTotalLine = (totalKg: number, targetKg: number, pct: number) => `${num(totalKg)} / ${kg(targetKg)} · ${pct}%`;
 export const raidYou = (youKg: number, pct: number, capped: boolean) => `You: ${kg(youKg)} (${pct}%)${capped ? " · capped" : ""}`;
+/** Split bar (feature 021): your share of the squad total, and one member's tapped segment. */
+export const raidYouShare = (youKg: number, sharePct: number, capped: boolean) => `You: ${kg(youKg)} · ${sharePct}% of the squad${capped ? " · capped" : ""}`;
+export const raidSegment = (name: string, segKg: number, sessions: number) => `${name} · ${kg(segKg)} · ${sessions} ${sessions === 1 ? "session" : "sessions"}`;
+export const raidOthers = "Others";
 export const raidDaysLeft = (n: number) => (n <= 1 ? "Last day" : `${n} days left`);
 export const raidNext = (name: string, startsAt: string, timeZone: string) => `Next raid: ${name} · starts ${raidDay(startsAt, timeZone)}`;
 export const raidEnded = (pct: number) => `Raid ended · ${pct}%`;

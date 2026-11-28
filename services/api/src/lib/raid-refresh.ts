@@ -22,7 +22,7 @@ export async function refreshRaids(
     const prev = await deps.raids.getContribution(raid.raidId, args.userId);
     const next = raidContribution(args.entries, raid, { timezone, held: args.held, memberCreatedAt: args.profile.createdAt });
     if (!prev && next.setCount === 0) continue;
-    if (prev && prev.rawKg === next.rawKg && prev.setCount === next.setCount) {
+    if (prev && prev.rawKg === next.rawKg && prev.setCount === next.setCount && prev.sessions === next.sessions) {
       // Nothing changed, but a won raid may still owe this contributor a sticker (best effort repair).
       if (raid.wonAt && next.setCount > 0) await awardSticker(raid, args.userId, deps, nowIso);
       continue;
@@ -33,6 +33,8 @@ export async function refreshRaids(
       userId: args.userId,
       rawKg: next.rawKg,
       setCount: next.setCount,
+      sessions: next.sessions,
+      firstCountedAt: prev?.firstCountedAt ?? (next.setCount > 0 ? nowIso : null),
       lastCountedAt: grew ? nowIso : (prev?.lastCountedAt ?? null),
       statsVersion: args.statsVersion,
       updatedAt: nowIso,

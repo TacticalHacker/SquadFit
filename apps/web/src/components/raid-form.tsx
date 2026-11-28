@@ -91,7 +91,7 @@ export function RaidForm({ timezone, defaultStartsAt, raid }: { timezone: string
       daysLeft: days,
       cancelReason: null,
       you: { kg: 0, rawKg: 0, pct: 0, capped: false, sticker: false },
-      contributors: showContributors ? [] : null,
+      split: showContributors ? { segments: [], othersKg: 0 } : null,
     };
   }, [name, tagline, startsAt, endsAt, target, showContributors, raid]);
 

@@ -6,6 +6,7 @@ import {
   lockedChanges,
   pickRaidCard,
   raidContribution,
+  raidSplit,
   raidDays,
   raidStatus,
   suggestTarget,
@@ -81,20 +82,33 @@ describe("raidContribution", () => {
       gym("2026-12-03", "gx-treadmill", [], "cardio", "cardio"),
       gym("2026-11-30", "gx-bench-press", [set(100, 5)]),
     ];
-    expect(raidContribution(entries, raid(), ctx)).toEqual({ rawKg: 1920, setCount: 4 });
+    expect(raidContribution(entries, raid(), ctx)).toEqual({ rawKg: 1920, setCount: 4, sessions: 2 });
   });
 
   it("skips held sets, filtered exercises and excluded late joiners", () => {
     const entries = [gym("2026-12-02", "gx-bench-press", [set(80, 8), set(140, 3)]), gym("2026-12-02", "gx-squat", [set(100, 5)], "legs")];
     expect(raidContribution(entries, raid(), { ...ctx, held: { "2026-12-02|gx-bench-press": [1] } }).rawKg).toBe(1140);
     expect(raidContribution(entries, raid({ filter: { groups: ["legs"], exerciseIds: [] } }), ctx).rawKg).toBe(500);
-    expect(raidContribution(entries, raid({ lateJoiners: false }), { ...ctx, memberCreatedAt: "2026-12-02T00:00:00Z" })).toEqual({ rawKg: 0, setCount: 0 });
+    expect(raidContribution(entries, raid({ lateJoiners: false }), { ...ctx, memberCreatedAt: "2026-12-02T00:00:00Z" })).toEqual({ rawKg: 0, setCount: 0, sessions: 0 });
   });
 
   it("caps what fills the bar", () => {
     expect(capKg(raid())).toBe(16_000);
     expect(countedKg(18_000, raid())).toBe(16_000);
     expect(countedKg(6_200, raid())).toBe(6_200);
+  });
+});
+
+describe("raidSplit", () => {
+  it("orders by first contribution, caps each share and merges hidden members", () => {
+    const c = (userId: string, rawKg: number, firstCountedAt: string | null) => ({ userId, rawKg, setCount: rawKg > 0 ? 1 : 0, sessions: 1, firstCountedAt });
+    const split = raidSplit(
+      [c("big", 18_000, "2026-12-03T00:00:00Z"), c("early", 500, "2026-12-01T00:00:00Z"), c("hidden", 700, "2026-12-02T00:00:00Z"), c("none", 0, null)],
+      raid(),
+      (id) => id !== "hidden",
+    );
+    expect(split.members.map((m) => [m.contribution.userId, m.kg])).toEqual([["early", 500], ["big", 16_000]]);
+    expect(split.othersKg).toBe(700);
   });
 });
 

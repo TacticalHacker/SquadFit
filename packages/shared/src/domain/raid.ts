@@ -21,7 +21,6 @@ export const RAID_LIMITS = {
   maxDays: 31,
   leadDays: 90,
   maxScheduled: 3,
-  contributors: 5,
 } as const;
 /** How long a finished raid stays on the Squad tab card (FR-021). */
 export const RAID_CARD_DAYS = 3;
@@ -142,11 +141,12 @@ export function raidContribution(
   entries: readonly RaidEntry[],
   raid: Pick<Raid, "startsAt" | "endsAt" | "filter" | "lateJoiners">,
   ctx: { timezone: string; held: Readonly<Record<string, readonly number[]>>; memberCreatedAt: string },
-): { rawKg: number; setCount: number } {
-  if (!raid.lateJoiners && ms(ctx.memberCreatedAt) > ms(raid.startsAt)) return { rawKg: 0, setCount: 0 };
+): { rawKg: number; setCount: number; sessions: number } {
+  if (!raid.lateJoiners && ms(ctx.memberCreatedAt) > ms(raid.startsAt)) return { rawKg: 0, setCount: 0, sessions: 0 };
   const { from, to } = raidDays(raid, ctx.timezone);
   let tenths = 0;
   let setCount = 0;
+  const days = new Set<string>();
   for (const e of entries) {
     if (e.kind !== "gym" || e.exerciseKind === "cardio" || e.date < from || e.date > to || !inRaidFilter(raid.filter, e)) continue;
     const held = ctx.held[heldKey(e.date, e.workoutId)] ?? [];
@@ -154,15 +154,39 @@ export function raidContribution(
       if (!s.completed || s.reps < 1 || held.includes(i)) return;
       tenths += s.reps * Math.round(s.weightKg * 10);
       setCount++;
+      days.add(e.date);
     });
   }
-  return { rawKg: tenths / 10, setCount };
+  return { rawKg: tenths / 10, setCount, sessions: days.size };
 }
 
 export const capKg = (r: Pick<Raid, "targetKg" | "capPct">) => (r.targetKg * r.capPct) / 100;
 export const countedKg = (rawKg: number, r: Pick<Raid, "targetKg" | "capPct">) => Math.min(rawKg, capKg(r));
 export const raidTotal = (raws: readonly number[], r: Pick<Raid, "targetKg" | "capPct">) =>
   Math.round(raws.reduce((t, raw) => t + countedKg(raw, r), 0) * 10) / 10;
+/**
+ * The split bar: one segment per contributor with counted kg, in the order they first contributed (never by size, so
+ * there is no #1). Members the viewer may not see merge into one trailing "others" segment. Capped kg is left out,
+ * matching the total.
+ */
+export function raidSplit<C extends { userId: string; rawKg: number; setCount: number; sessions: number; firstCountedAt: string | null }>(
+  contributions: readonly C[],
+  raid: Pick<Raid, "targetKg" | "capPct">,
+  isVisible: (userId: string) => boolean,
+): { members: { contribution: C; kg: number }[]; othersKg: number } {
+  const counted = contributions
+    .filter((c) => c.setCount > 0 && c.rawKg > 0)
+    .sort((a, b) => (a.firstCountedAt ?? "\uffff").localeCompare(b.firstCountedAt ?? "\uffff") || a.userId.localeCompare(b.userId));
+  const members: { contribution: C; kg: number }[] = [];
+  let others = 0;
+  for (const c of counted) {
+    const kg = countedKg(c.rawKg, raid);
+    if (isVisible(c.userId)) members.push({ contribution: c, kg });
+    else others += kg;
+  }
+  return { members, othersKg: Math.round(others * 10) / 10 };
+}
+
 /** Whole percent, floored so the bar never reads 100% before the win; may exceed 100. */
 export const raidPct = (kg: number, targetKg: number) => (targetKg > 0 ? Math.floor((kg / targetKg) * 100) : 0);
 

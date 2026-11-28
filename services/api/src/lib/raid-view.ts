@@ -1,10 +1,10 @@
 import {
-  RAID_LIMITS,
   capKg,
   countedKg,
   raidDaysLeft,
   raidPace,
   raidPct,
+  raidSplit,
   raidStatus,
   raidTotal,
   type AdminRaid,
@@ -41,8 +41,9 @@ export function adminRaid(r: Raid, now: Date): AdminRaid {
 }
 
 /**
- * The Squad tab card (FR-021–FR-023, FR-029). Other members appear only by name and avatar, only when visible to the
- * viewer and only with "Show contributors" on; kg, % and "capped" are the viewer's own.
+ * The Squad tab card (FR-021–FR-023, FR-029). With "Show contributors" on, visible members appear as split-bar
+ * segments (name, avatar, counted kg, sessions; first-contributed order); hidden members only as one "others" kg.
+ * %, raw kg and "capped" are the viewer's own.
  */
 export async function buildRaidCard(args: {
   raid: Raid;
@@ -59,17 +60,20 @@ export async function buildRaidCard(args: {
   const own = contributions.find((c) => c.userId === viewerId);
   const ownKg = countedKg(own?.rawKg ?? 0, raid);
 
-  let contributors: RaidCard["contributors"] = null;
+  let split: RaidCard["split"] = null;
   if (raid.showContributors) {
-    const picked = contributions
-      .filter((c) => c.setCount > 0)
-      .sort((a, b) => (b.lastCountedAt ?? "").localeCompare(a.lastCountedAt ?? ""))
-      .flatMap((c) => {
-        const p = args.profiles.get(c.userId);
-        return p && visibleTo(p, viewerId) ? [p] : [];
-      })
-      .slice(0, RAID_LIMITS.contributors);
-    contributors = await Promise.all(picked.map(async (p) => ({ userId: p.userId, displayName: p.displayName, avatarUrl: await avatarUrl(p, args.avatars) })));
+    // A member who left the squad (no profile) keeps their kg, unnamed, like a hidden member.
+    const { members, othersKg } = raidSplit(contributions, raid, (id) => {
+      const p = args.profiles.get(id);
+      return p !== undefined && (id === viewerId || visibleTo(p, viewerId));
+    });
+    const segments = await Promise.all(
+      members.map(async ({ contribution: c, kg }) => {
+        const p = args.profiles.get(c.userId)!;
+        return { userId: p.userId, displayName: p.displayName, avatarUrl: await avatarUrl(p, args.avatars), kg, sessions: c.sessions, isYou: c.userId === viewerId };
+      }),
+    );
+    split = { segments, othersKg };
   }
 
   return {
@@ -86,6 +90,6 @@ export async function buildRaidCard(args: {
     daysLeft: raidDaysLeft(raid, now),
     cancelReason: raid.cancelReason ?? null,
     you: { kg: ownKg, rawKg: own?.rawKg ?? 0, pct: raidPct(ownKg, raid.targetKg), capped: (own?.rawKg ?? 0) > capKg(raid), sticker: args.hasSticker },
-    contributors,
+    split,
   };
 }

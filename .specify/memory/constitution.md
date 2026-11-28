@@ -1,6 +1,9 @@
 <!--
 Sync Impact Report
-- Version change: 2.6.0 → 2.7.0 (MINOR: principle VI allows squad-wide raid totals that include hidden members' volume, feature 021)
+- Version change: 2.7.0 → 2.8.0 (MINOR: principle VI allows the raid split bar, feature 021)
+- Modified principles: VI. Members-Only Visibility (on a raid, visible members may appear with their own counted kg and session count as unranked bar segments in first-contributed order; hidden members stay one unnamed "Others" share)
+- Templates requiring updates: none ✅
+- Previous: 2.6.0 → 2.7.0 (MINOR: principle VI allows squad-wide raid totals that include hidden members' volume, feature 021)
 - Modified principles: VI. Members-Only Visibility (a squad raid total sums every member's counted volume, hidden members included, but no other member's own kg is shown and hidden members are never named)
 - Templates requiring updates: none ✅
 - Previous: 2.5.0 → 2.6.0 (MINOR: principle VI allows an opt-in body weight trend as kg change only, feature 017)
@@ -99,8 +102,9 @@ while the member is visible on the leaderboard and has "Share my steps" on (defa
 request: exactly daily steps, the step goal, whether it was hit, and step-goal streak feed items; active calories and
 distance may appear only on the member's own profile page, as information, and are never ranked, sorted or compared. A squad raid
 (feature 021) may show the squad's summed workout volume, which includes the volume of members hidden from the leaderboard; other
-members appear on a raid only by name and avatar (never hidden members, never anyone's own kg), and each member sees their own kg
-only. Personal data is never written to logs. Passwords are stored only as
+members may appear on a raid (only while "Show contributors" is on) by name, avatar, counted kg within that raid and session
+count, as segments of one bar in the order they first contributed, never sorted, ranked or compared across raids; hidden members
+are never named and appear only as one merged "Others" share. Personal data is never written to logs. Passwords are stored only as
 slow salted hashes. Rate limits (sign-in attempts, nudges) are enforced server-side.
 
 ### VII. Simplicity
@@ -132,4 +136,4 @@ principle or section is added; PATCH: wording only), and propagates the change t
 `.specify/templates/*`. Reviewers check plans against the "Constitution Check" gate. Runtime
 guidance for agents lives in `CLAUDE.md`.
 
-**Version**: 2.7.0 | **Ratified**: 2026-11-11 | **Last Amended**: 2026-11-27
+**Version**: 2.8.0 | **Ratified**: 2026-11-11 | **Last Amended**: 2026-11-28
